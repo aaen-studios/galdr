@@ -1,10 +1,16 @@
 import { open } from "@tauri-apps/plugin-dialog";
 import { useGaldrStore } from "../store";
+import CustomSelect from "../components/CustomSelect";
+import { TRANSITION_OPTIONS } from "../transitions";
 
 const SUBFOLDERS = ["video", "audio", "image"];
 
-export default function SettingsPage() {
-  const { outputDir, setOutputDir } = useGaldrStore();
+interface Props {
+  onNavigate: (page: "batch") => void;
+}
+
+export default function SettingsPage({ onNavigate }: Props) {
+  const { outputDir, setOutputDir, transitionStyle, setTransitionStyle, triggerTransitionTest } = useGaldrStore();
 
   const pickFolder = async () => {
     const sel = await open({ directory: true, multiple: false });
@@ -46,8 +52,32 @@ export default function SettingsPage() {
         <label className="label">batch conversion</label>
         <p className="settings-hint">
           batch mode uses its own input and output folders independent of this setting.
-          navigate to <span className="settings-link">~/galdr/convert/batch</span> to use it.
+          navigate to{" "}
+          <span className="nav-path-link" onClick={() => onNavigate("batch")}>
+            ~/galdr/convert/batch
+          </span>{" "}
+          to use it.
         </p>
+      </div>
+
+      <div className="card">
+        <label className="label">page transition</label>
+        <div className="row">
+          <div style={{ flex: 1 }}>
+            <CustomSelect
+              options={TRANSITION_OPTIONS}
+              value={transitionStyle}
+              onChange={(v) => setTransitionStyle(v as typeof transitionStyle)}
+            />
+          </div>
+          <button
+            className="btn"
+            disabled={transitionStyle === "none"}
+            onClick={triggerTransitionTest}
+          >
+            ᛟ test
+          </button>
+        </div>
       </div>
     </div>
   );

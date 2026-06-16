@@ -1,5 +1,7 @@
 import { create } from "zustand";
 import type { MediaInfo, ConversionParams } from "../types";
+import type { TransitionStyle } from "../transitions";
+import { DEFAULT_TRANSITION } from "../transitions";
 
 interface GaldrState {
   mediaInfo: MediaInfo | null;
@@ -10,6 +12,8 @@ interface GaldrState {
   error: string | null;
   ffmpegFound: boolean;
   outputDir: string;
+  transitionStyle: TransitionStyle;
+  testTransitionSignal: number;
 
   setMediaInfo: (info: MediaInfo | null) => void;
   setConversionParams: (params: Partial<ConversionParams>) => void;
@@ -19,6 +23,8 @@ interface GaldrState {
   setError: (v: string | null) => void;
   setFfmpegFound: (v: boolean) => void;
   setOutputDir: (v: string) => void;
+  setTransitionStyle: (v: TransitionStyle) => void;
+  triggerTransitionTest: () => void;
   reset: () => void;
 }
 
@@ -45,6 +51,8 @@ export const useGaldrStore = create<GaldrState>((set) => ({
   error: null,
   ffmpegFound: false,
   outputDir: "",
+  transitionStyle: DEFAULT_TRANSITION,
+  testTransitionSignal: 0,
 
   setMediaInfo: (info) => set({ mediaInfo: info }),
   setConversionParams: (params) =>
@@ -57,6 +65,8 @@ export const useGaldrStore = create<GaldrState>((set) => ({
   setError: (v) => set({ error: v }),
   setFfmpegFound: (v) => set({ ffmpegFound: v }),
   setOutputDir: (v) => set({ outputDir: v }),
+  setTransitionStyle: (v) => set({ transitionStyle: v }),
+  triggerTransitionTest: () => set((s) => ({ testTransitionSignal: s.testTransitionSignal + 1 })),
   reset: () =>
     set({
       mediaInfo: null,

@@ -5,11 +5,13 @@ const REVEAL_DURATION = 600;
 
 interface Props {
   text: string;
-  as?: "span" | "div" | "h1" | "h2" | "h3" | "p";
+  as?: "span" | "div" | "h1" | "h2" | "h3" | "p" | "button";
   className?: string;
   hover?: boolean;
   load?: boolean;
+  trigger?: boolean;
   ticks?: number;
+  onClick?: () => void;
 }
 
 function randomRune(): string {
@@ -36,11 +38,14 @@ export default function ScrambleText({
   className,
   hover = false,
   load = false,
+  trigger,
   ticks = 8,
+  onClick,
 }: Props) {
   const [display, setDisplay] = useState(text);
   const [active, setActive] = useState(false);
   const timerRef = useRef<number>(undefined);
+  const prevTrigger = useRef(false);
 
   const run = useCallback(() => {
     setActive(true);
@@ -63,12 +68,20 @@ export default function ScrambleText({
   }, [load, run]);
 
   useEffect(() => {
-    if (!hover) setDisplay(text);
-  }, [text, hover]);
+    if (trigger && trigger !== prevTrigger.current) {
+      prevTrigger.current = trigger;
+      run();
+    }
+  }, [trigger, run]);
+
+  useEffect(() => {
+    if (!hover && trigger === undefined) setDisplay(text);
+  }, [text, hover, trigger]);
 
   return (
     <Tag
       className={className}
+      onClick={onClick}
       onMouseEnter={hover && !active ? run : undefined}
       onMouseLeave={hover ? () => { setDisplay(text); setActive(false); clearInterval(timerRef.current); } : undefined}
     >

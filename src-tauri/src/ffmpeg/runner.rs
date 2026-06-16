@@ -35,20 +35,22 @@ pub fn run_conversion(
                 Err(_) => break,
             };
 
-            if line.contains("error") && !line.contains("errors") {
+            if line.starts_with("Error ") || line.contains("Conversion failed") {
                 let _ = tx_thread.send(FfmpegEvent::Error(line.clone()));
             }
 
-            if let Some(caps) = time_re.captures(&line) {
-                let h: f64 = caps[1].parse().unwrap_or(0.0);
-                let m: f64 = caps[2].parse().unwrap_or(0.0);
-                let s: f64 = caps[3].parse().unwrap_or(0.0);
-                let ms: f64 = caps[4].parse().unwrap_or(0.0);
-                let current = h * 3600.0 + m * 60.0 + s + ms / 100.0;
+            if time_re.is_match(&line) {
+                if let Some(caps) = time_re.captures(&line) {
+                    let h: f64 = caps[1].parse().unwrap_or(0.0);
+                    let m: f64 = caps[2].parse().unwrap_or(0.0);
+                    let s: f64 = caps[3].parse().unwrap_or(0.0);
+                    let ms: f64 = caps[4].parse().unwrap_or(0.0);
+                    let current = h * 3600.0 + m * 60.0 + s + ms / 100.0;
 
-                if duration > 0.0 {
-                    let progress = (current / duration).min(1.0);
-                    let _ = tx_thread.send(FfmpegEvent::Progress(progress));
+                    if duration > 0.0 {
+                        let progress = (current / duration).min(1.0);
+                        let _ = tx_thread.send(FfmpegEvent::Progress(progress));
+                    }
                 }
             }
         }
@@ -58,7 +60,8 @@ pub fn run_conversion(
         .wait()
         .map_err(|e| format!("Failed to wait on ffmpeg: {}", e))?;
 
-    let events: Vec<FfmpegEvent> = rx.try_iter().collect();
+    drop(tx);
+    let events: Vec<FfmpegEvent> = rx.iter().collect();
 
     if status.success() {
         let output_path = args.last().cloned().unwrap_or_default();

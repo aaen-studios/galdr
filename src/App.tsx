@@ -5,20 +5,26 @@ import ConvertPage from "./pages/ConvertPage";
 import BatchConvertPage from "./pages/BatchConvertPage";
 import SettingsPage from "./pages/SettingsPage";
 import ScrambleText from "./components/ScrambleText";
+import PageTransition from "./transitions";
+import { useGaldrStore } from "./store";
 import "./App.css";
 
 type Page = "home" | "convert" | "batch" | "settings";
 
-const PAGE_LABELS: Record<Page, string> = {
-  home: "home",
-  convert: "convert",
-  batch: "batch",
-  settings: "settings",
-};
-
 function App() {
   const [page, setPage] = useState<Page>("home");
+  const [prevPage, setPrevPage] = useState<Page>("home");
+  const transitionStyle = useGaldrStore((s) => s.transitionStyle);
   const win = getCurrentWindow();
+
+  const handleSettings = () => {
+    if (page === "settings") {
+      setPage(prevPage);
+    } else {
+      setPrevPage(page);
+      setPage("settings");
+    }
+  };
 
   const rootSegs: { label: string; target: Page }[] = [
     { label: "~", target: "home" },
@@ -26,13 +32,19 @@ function App() {
   ];
 
   const pageSegs: { label: string; target: Page }[] = (() => {
+    if (page === "convert") {
+      return [
+        { label: "convert", target: "convert" },
+        { label: "single", target: "convert" },
+      ];
+    }
     if (page === "batch") {
       return [
         { label: "convert", target: "convert" },
         { label: "batch", target: "batch" },
       ];
     }
-    return [{ label: PAGE_LABELS[page], target: page }];
+    return [{ label: page, target: page }];
   })();
 
   const pathSegs = [...rootSegs, ...pageSegs];
@@ -41,11 +53,12 @@ function App() {
     <div className="app-shell">
       <header className="titlebar" data-tauri-drag-region>
         <div className="titlebar-left">
-          <button className="titlebar-btn" onClick={() => setPage("settings")}>
-            ᚲ
+          <button className="titlebar-btn titlebar-settings" onClick={() => setPage("settings")}>
+            <span className="ts-rune">ᚲ</span>
+            <span className="ts-label">settings</span>
           </button>
         </div>
-        <ScrambleText as="span" className="titlebar-logo" text="ᚷ Galdr" hover />
+        <ScrambleText as="span" className="titlebar-logo" text="ᚷ Galdr" hover load />
         <div className="titlebar-controls">
           <button className="titlebar-btn" onClick={() => win.minimize()}>
             _
@@ -75,10 +88,12 @@ function App() {
       </nav>
 
       <main className="main-content">
-        {page === "home" && <HomePage onNavigate={setPage} />}
-        {page === "convert" && <ConvertPage />}
-        {page === "batch" && <BatchConvertPage />}
-        {page === "settings" && <SettingsPage />}
+        <PageTransition style={transitionStyle} pageKey={page}>
+          {page === "home" && <HomePage onNavigate={setPage} />}
+          {page === "convert" && <ConvertPage />}
+          {page === "batch" && <BatchConvertPage />}
+          {page === "settings" && <SettingsPage onNavigate={setPage} />}
+        </PageTransition>
       </main>
     </div>
   );

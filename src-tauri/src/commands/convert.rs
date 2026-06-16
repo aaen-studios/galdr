@@ -1,8 +1,11 @@
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::Emitter;
 
 use crate::ffmpeg::{build_args, probe_file, run_conversion};
 use crate::models::{BatchConversionParams, ConversionParams, ScannedFile};
+
+pub static CANCELLED: AtomicBool = AtomicBool::new(false);
 
 #[derive(Clone, serde::Serialize)]
 #[allow(dead_code)]
@@ -34,6 +37,9 @@ pub async fn start_conversion(
     app_handle: tauri::AppHandle,
     params: ConversionParams,
 ) -> Result<ConversionDonePayload, String> {
+    std::fs::create_dir_all(&params.output_dir)
+        .map_err(|e| format!("Failed to create output dir: {}", e))?;
+
     let duration = probe_file(&params.input_path)
         .map(|info| info.duration)
         .unwrap_or(0.0);
@@ -86,7 +92,17 @@ pub fn get_default_output_dir() -> Result<String, String> {
 }
 
 #[tauri::command]
+pub fn is_directory(path: String) -> bool {
+    std::path::Path::new(&path).is_dir()
+}
+
+#[tauri::command]
 pub fn scan_directory(dir: PathBuf, extension: String) -> Result<Vec<ScannedFile>, String> {
+    let ext_filter = if extension.is_empty() {
+        None
+    } else {
+        Some(extension.trim_start_matches('.').to_lowercase())
+    };
     let mut files = Vec::new();
     for entry in std::fs::read_dir(&dir)
         .map_err(|e| format!("Failed to read directory: {}", e))?
@@ -94,22 +110,29 @@ pub fn scan_directory(dir: PathBuf, extension: String) -> Result<Vec<ScannedFile
         let entry = entry.map_err(|e| format!("Failed to read entry: {}", e))?;
         let path = entry.path();
         if path.is_file() {
-            if let Some(ext) = path.extension() {
-                if ext == extension.trim_start_matches('.') {
-                    let name = path
-                        .file_name()
-                        .and_then(|s| s.to_str())
-                        .unwrap_or("")
-                        .to_string();
-                    let size = std::fs::metadata(&path)
-                        .map(|m| m.len())
-                        .unwrap_or(0);
-                    files.push(ScannedFile {
-                        path: path.to_string_lossy().to_string(),
-                        name,
-                        size,
-                    });
-                }
+            let ext = path
+                .extension()
+                .and_then(|s| s.to_str())
+                .map(|s| s.to_lowercase());
+            let match_ext = match (&ext_filter, &ext) {
+                (None, _) => true,
+                (Some(ref filter), Some(ref e)) => e == filter,
+                _ => false,
+            };
+            if match_ext {
+                let name = path
+                    .file_name()
+                    .and_then(|s| s.to_str())
+                    .unwrap_or("")
+                    .to_string();
+                let size = std::fs::metadata(&path)
+                    .map(|m| m.len())
+                    .unwrap_or(0);
+                files.push(ScannedFile {
+                    path: path.to_string_lossy().to_string(),
+                    name,
+                    size,
+                });
             }
         }
     }
@@ -131,7 +154,7 @@ pub async fn start_batch_conversion(
     app_handle: tauri::AppHandle,
     params: BatchConversionParams,
 ) -> Result<(), String> {
-    let extension = params.input_extension.trim_start_matches('.');
+    let extension = params.input_extension.trim_start_matches('.').to_lowercase();
     let mut entries: Vec<PathBuf> = Vec::new();
 
     for entry in std::fs::read_dir(&params.input_dir)
@@ -140,7 +163,7 @@ pub async fn start_batch_conversion(
         let entry = entry.map_err(|e| format!("Failed to read entry: {}", e))?;
         let path = entry.path();
         if path.is_file() {
-            if let Some(ext) = path.extension() {
+            if let Some(ext) = path.extension().and_then(|s| s.to_str()).map(|s| s.to_lowercase()) {
                 if ext == extension {
                     entries.push(path);
                 }
@@ -156,7 +179,12 @@ pub async fn start_batch_conversion(
     let mut done = 0usize;
     let mut failed = 0usize;
 
+    CANCELLED.store(false, Ordering::SeqCst);
+
     for input_path in &entries {
+        if CANCELLED.load(Ordering::SeqCst) {
+            break;
+        }
         let file_name = input_path
             .file_name()
             .and_then(|s| s.to_str())
@@ -194,34 +222,28 @@ pub async fn start_batch_conversion(
 
         let args = build_args(&single_params);
 
-        let app_clone = app_handle.clone();
-        let fname = file_name.clone();
-        let result: Result<(), String> = {
+        let result: Result<(), String> = (|| {
             let events = run_conversion(&args, duration)?;
             for event in &events {
                 match event {
                     crate::ffmpeg::FfmpegEvent::Progress(p) => {
-                        let _ = app_clone.emit(
+                        let _ = app_handle.emit(
                             "batch-progress",
                             BatchProgressPayload {
                                 total,
                                 done,
                                 failed,
-                                current_file: fname.clone(),
+                                current_file: file_name.clone(),
                                 file_progress: *p,
                             },
                         );
                     }
-                    crate::ffmpeg::FfmpegEvent::Done(_) => {
-                        return Ok(());
-                    }
-                    crate::ffmpeg::FfmpegEvent::Error(msg) => {
-                        return Err(msg.clone());
-                    }
+                    crate::ffmpeg::FfmpegEvent::Done(_) => return Ok(()),
+                    crate::ffmpeg::FfmpegEvent::Error(msg) => return Err(msg.clone()),
                 }
             }
             Ok(())
-        };
+        })();
 
         match result {
             Ok(_) => done += 1,
@@ -253,4 +275,30 @@ pub async fn start_batch_conversion(
     );
 
     Ok(())
+}
+
+#[tauri::command]
+pub fn cancel_conversion() -> Result<(), String> {
+    CANCELLED.store(true, Ordering::SeqCst);
+    kill_ffmpeg()
+}
+
+fn kill_ffmpeg() -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        std::process::Command::new("taskkill")
+            .args(["/IM", "ffmpeg.exe", "/F"])
+            .output()
+            .map(|_| ())
+            .map_err(|e| format!("Failed to kill ffmpeg: {}", e))
+    }
+    #[cfg(not(windows))]
+    {
+        std::process::Command::new("pkill")
+            .arg("-9")
+            .arg("ffmpeg")
+            .output()
+            .map(|_| ())
+            .map_err(|e| format!("Failed to kill ffmpeg: {}", e))
+    }
 }

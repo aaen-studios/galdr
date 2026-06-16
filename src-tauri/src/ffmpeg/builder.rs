@@ -79,7 +79,8 @@ mod tests {
         let args = build_args(&params);
         assert!(args.contains(&"-i".to_string()));
         assert!(args.contains(&"input.mp4".to_string()));
-        assert!(args.contains(&".\\output.avi".to_string()));
+        let last = args.last().unwrap();
+        assert!(last.ends_with("input.avi"), "last arg should end with input.avi, got: {last}");
     }
 
     #[test]

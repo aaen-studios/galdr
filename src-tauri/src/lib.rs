@@ -14,6 +14,8 @@ pub fn run() {
             commands::get_default_output_dir,
             commands::scan_directory,
             commands::start_batch_conversion,
+            commands::is_directory,
+            commands::cancel_conversion,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

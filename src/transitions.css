@@ -1,0 +1,308 @@
+.page-transition-wrap {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.to-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  pointer-events: none;
+  overflow: hidden;
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ==============================================
+   RUNE DISSOLVE — parallax rune storm
+   ============================================== */
+@keyframes rd-fall {
+  0%   { transform: translateY(-12vh) translateX(0) rotate(0deg);   opacity: 0; }
+  10%  { opacity: 1; }
+  50%  { transform: translateY(50vh)  translateX(20px) rotate(180deg); opacity: 0.6; }
+  100% { transform: translateY(112vh) translateX(-10px) rotate(360deg); opacity: 0; }
+}
+
+.to-rune-dissolve {
+  position: absolute; inset: 0;
+  perspective: 600px;
+}
+
+.rd-layer {
+  position: absolute; inset: 0;
+}
+
+.rd-rune {
+  position: absolute;
+  top: 0;
+  will-change: transform, opacity;
+  animation: rd-fall linear forwards;
+  mix-blend-mode: soft-light;
+}
+
+/* ==============================================
+   TERMINAL SCROLL — phosphor boot sequence
+   ============================================== */
+.to-terminal-scroll {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 48px 56px;
+  font-size: 13px;
+  background: var(--bg);
+  position: relative;
+}
+
+.to-terminal-scroll::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(200, 200, 200, 0.015) 2px,
+    rgba(200, 200, 200, 0.015) 4px
+  );
+  pointer-events: none;
+  z-index: 1;
+}
+
+@keyframes ts-type {
+  from { width: 0; }
+  to   { width: 100%; }
+}
+
+@keyframes ts-glow {
+  0%   { text-shadow: 0 0 0 transparent; }
+  30%  { text-shadow: 0 0 12px rgba(200,200,200,0.4), 0 0 4px rgba(200,200,200,0.2); }
+  100% { text-shadow: 0 0 0 transparent; }
+}
+
+@keyframes ts-blink {
+  0%, 49%   { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+.ts-line {
+  overflow: hidden;
+  white-space: nowrap;
+  animation:
+    ts-type steps(16) 0.1s 1 forwards,
+    ts-glow 0.2s ease-out 1;
+  width: 0;
+  color: var(--fg);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 12px;
+  position: relative;
+  z-index: 2;
+}
+
+.ts-line .ts-rune-char {
+  color: var(--fg-dim);
+}
+
+.ts-cursor {
+  display: inline-block;
+  width: 7px;
+  height: 13px;
+  background: var(--fg);
+  animation: ts-blink 0.25s step-end infinite;
+  margin-top: 4px;
+  position: relative;
+  z-index: 2;
+  box-shadow: 0 0 6px rgba(200,200,200,0.5);
+}
+
+/* ==============================================
+   RUNIC PORTAL — expanding rune rings
+   ============================================== */
+.to-runic-portal {
+  background: var(--bg);
+  position: relative;
+}
+
+@keyframes rp-ring-in {
+  0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.3); }
+  25%  { opacity: 1; transform: translate(-50%, -50%) scale(1);   }
+  70%  { opacity: 0.8; }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.6); }
+}
+
+@keyframes rp-spin-cw {
+  from { rotate: 0deg; }
+  to   { rotate: 360deg; }
+}
+
+@keyframes rp-spin-ccw {
+  from { rotate: 360deg; }
+  to   { rotate: 0deg; }
+}
+
+@keyframes rp-glow {
+  0%   { transform: translate(-50%, -50%) scale(0.8); opacity: 0; }
+  30%  { transform: translate(-50%, -50%) scale(1.2); opacity: 0.7; }
+  60%  { transform: translate(-50%, -50%) scale(1);   opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(1.5); opacity: 0; }
+}
+
+.rp-ring-container {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+}
+
+.rp-ring-rotator {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.rp-rune {
+  position: absolute;
+  top: 0;
+  left: 0;
+  color: var(--fg-dim);
+  will-change: transform, opacity;
+}
+
+.rp-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--fg);
+  animation: rp-glow 0.25s ease-out forwards;
+  filter: blur(3px);
+}
+
+/* ==============================================
+   INK RIPPLE — bleeding concentric ripples
+   ============================================== */
+.to-ink-ripple {
+  background: var(--bg);
+  position: relative;
+}
+
+@keyframes ir-pulse {
+  0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.15); filter: blur(8px); }
+  30%  { opacity: 0.35; filter: blur(5px); }
+  70%  { opacity: 0.15; filter: blur(2px); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.8); filter: blur(0); }
+}
+
+.ir-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+}
+
+.ir-rune {
+  position: absolute;
+  top: 0;
+  left: 0;
+  color: var(--fg-dim);
+  will-change: transform, opacity;
+}
+
+/* ==============================================
+   ANGULAR CARVE — dual crossing slashes
+   ============================================== */
+@keyframes ac-sweep-fwd {
+  0%   { transform: translateX(-60%) skewX(-22deg); opacity: 0; }
+  10%  { opacity: 1; }
+  85%  { opacity: 0.9; }
+  100% { transform: translateX(160%)  skewX(-22deg); opacity: 0; }
+}
+
+@keyframes ac-sweep-rev {
+  0%   { transform: translateX(160%)  skewX(22deg); opacity: 0; }
+  10%  { opacity: 1; }
+  85%  { opacity: 0.9; }
+  100% { transform: translateX(-60%)  skewX(22deg); opacity: 0; }
+}
+
+@keyframes ac-spark {
+  0%   { transform: translateY(0) scale(1); opacity: 1; }
+  60%  { opacity: 0.6; }
+  100% { transform: translateY(-60px) scale(0); opacity: 0; }
+}
+
+@keyframes ac-flash {
+  0%   { opacity: 0; }
+  40%  { opacity: 0.6; }
+  55%  { opacity: 0.8; }
+  100% { opacity: 0; }
+}
+
+.to-angular-carve {
+  background: var(--bg);
+  position: absolute; inset: 0;
+  overflow: hidden;
+}
+
+.ac-blade-fwd {
+  position: absolute;
+  top: -5%;
+  left: 0;
+  width: 45%;
+  height: 110%;
+  background: linear-gradient(
+    135deg,
+    transparent 0%,
+    rgba(200,200,200,0.03) 25%,
+    rgba(200,200,200,0.08) 45%,
+    rgba(200,200,200,0.12) 50%,
+    rgba(200,200,200,0.08) 55%,
+    rgba(200,200,200,0.03) 75%,
+    transparent 100%
+  );
+  transform: skewX(-22deg);
+  animation: ac-sweep-fwd 0.22s ease-in-out forwards;
+}
+
+.ac-blade-rev {
+  position: absolute;
+  top: -5%;
+  right: 0;
+  width: 45%;
+  height: 110%;
+  background: linear-gradient(
+    45deg,
+    transparent 0%,
+    rgba(200,200,200,0.03) 25%,
+    rgba(200,200,200,0.08) 45%,
+    rgba(200,200,200,0.12) 50%,
+    rgba(200,200,200,0.08) 55%,
+    rgba(200,200,200,0.03) 75%,
+    transparent 100%
+  );
+  transform: skewX(22deg);
+  animation: ac-sweep-rev 0.22s ease-in-out forwards;
+}
+
+.ac-flash {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 200px;
+  height: 200px;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(circle, rgba(200,200,200,0.2) 0%, transparent 70%);
+  animation: ac-flash 0.2s ease-out forwards;
+  pointer-events: none;
+}
+
+.ac-rune {
+  position: absolute;
+  color: var(--fg-dim);
+  animation: ac-spark 0.18s ease-out forwards;
+  font-size: 11px;
+  pointer-events: none;
+}

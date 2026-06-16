@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
-import { openPath } from "@tauri-apps/plugin-opener";
+import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { useGaldrStore } from "../store";
 import CustomSelect from "../components/CustomSelect";
 import ScrambleText from "../components/ScrambleText";
@@ -16,12 +16,28 @@ const FORMAT_OPTIONS = [
   { value: "avi", label: "avi (video)", type: "video" as const },
   { value: "mov", label: "mov (video)", type: "video" as const },
   { value: "webm", label: "webm (video)", type: "video" as const },
+  { value: "m4v", label: "m4v (video)", type: "video" as const },
+  { value: "flv", label: "flv (video)", type: "video" as const },
+  { value: "ogv", label: "ogv (video)", type: "video" as const },
+  { value: "wmv", label: "wmv (video)", type: "video" as const },
+  { value: "gif", label: "gif (video)", type: "video" as const },
+  { value: "mod", label: "mod (video)", type: "video" as const },
   { value: "mp3", label: "mp3 (audio)", type: "audio" as const },
   { value: "flac", label: "flac (audio)", type: "audio" as const },
   { value: "wav", label: "wav (audio)", type: "audio" as const },
+  { value: "aac", label: "aac (audio)", type: "audio" as const },
+  { value: "ogg", label: "ogg (audio)", type: "audio" as const },
+  { value: "opus", label: "opus (audio)", type: "audio" as const },
+  { value: "wma", label: "wma (audio)", type: "audio" as const },
+  { value: "m4a", label: "m4a (audio)", type: "audio" as const },
+  { value: "aiff", label: "aiff (audio)", type: "audio" as const },
+  { value: "ac3", label: "ac3 (audio)", type: "audio" as const },
   { value: "png", label: "png (image)", type: "image" as const },
   { value: "jpeg", label: "jpeg (image)", type: "image" as const },
   { value: "webp", label: "webp (image)", type: "image" as const },
+  { value: "bmp", label: "bmp (image)", type: "image" as const },
+  { value: "tiff", label: "tiff (image)", type: "image" as const },
+  { value: "avif", label: "avif (image)", type: "image" as const },
 ];
 
 type MediaType = "video" | "audio" | "image" | null;
@@ -62,6 +78,7 @@ export default function ConvertPage() {
   const [isDragOver, setIsDragOver] = useState(false);
   const [filteredOptions, setFilteredOptions] = useState(FORMAT_OPTIONS);
   const [mediaType, setMediaType] = useState<MediaType>(null);
+  const [btnHover, setBtnHover] = useState(false);
 
   useEffect(() => {
     invoke<boolean>("detect_ffmpeg").then(setFfmpegFound);
@@ -122,8 +139,13 @@ export default function ConvertPage() {
     }
     const filtered = FORMAT_OPTIONS.filter((o) => allowed.has(o.type));
     setFilteredOptions(filtered);
-    if (!filtered.some((o) => o.value === conversionParams.output_format)) {
-      setConversionParams({ output_format: filtered[0]?.value ?? "mp4" });
+    const cur = conversionParams.output_format;
+    if (!filtered.some((o) => o.value === cur)) {
+      const ext = conversionParams.input_path
+        ?.split("/").pop()?.split(".").pop()?.toLowerCase();
+      let match: (typeof FORMAT_OPTIONS)[number] | undefined;
+      if (ext) match = filtered.find((o) => o.value === ext);
+      setConversionParams({ output_format: match?.value ?? filtered[0]?.value ?? "mp4" });
     }
   }, [mediaInfo]);
 
@@ -145,9 +167,9 @@ export default function ConvertPage() {
     const sel = await open({
       multiple: false,
       filters: [{ name: "Media", extensions: [
-        "mp4","mkv","avi","mov","webm","gif",
-        "mp3","flac","wav","aac","ogg","opus",
-        "png","jpg","jpeg","webp","bmp","tiff",
+        "mp4","mkv","avi","mov","webm","m4v","flv","ogv","wmv","ts","3gp","mod",
+        "mp3","flac","wav","aac","ogg","opus","wma","m4a","aiff","ac3","dts",
+        "png","jpg","jpeg","webp","gif","bmp","tiff","avif","svg",
       ] }],
     });
     if (sel) loadFile(sel as string);
@@ -259,13 +281,22 @@ export default function ConvertPage() {
 
       {error && <div className="alert-error">! {error}</div>}
 
-      <button
-        className="btn btn-primary"
-        disabled={!conversionParams.input_path || isConverting}
-        onClick={convert}
-      >
-        {isConverting ? "converting..." : <ScrambleText text="convert" hover ticks={4} />}
-      </button>
+      <div className="convert-actions">
+        <button
+          className="btn btn-primary"
+          disabled={!conversionParams.input_path || isConverting}
+          onClick={convert}
+          onMouseEnter={() => setBtnHover(true)}
+          onMouseLeave={() => setBtnHover(false)}
+        >
+          {isConverting ? "converting..." : <ScrambleText text="convert" trigger={btnHover} ticks={4} />}
+        </button>
+        {isConverting && (
+          <button className="btn btn-cancel" onClick={() => invoke("cancel_conversion")} title="cancel">
+            ■
+          </button>
+        )}
+      </div>
 
       {isConverting && (
         <div className="progress-bar-container">
@@ -283,7 +314,7 @@ export default function ConvertPage() {
       {lastOutputPath && (
         <div className="result-bar">
           <span className="result-path">{lastOutputPath}</span>
-          <button className="btn" onClick={() => openPath(outputDir)}>
+          <button className="btn" onClick={() => revealItemInDir(lastOutputPath)}>
             show in folder
           </button>
         </div>
