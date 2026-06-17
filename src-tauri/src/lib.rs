@@ -1,12 +1,20 @@
 mod commands;
+mod discord_rpc;
 mod ffmpeg;
 mod models;
+
+const DISCORD_CLIENT_ID: &str = "1516792047095382087";
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     commands::rune_tags::seed_defaults();
 
     tauri::Builder::default()
+        .setup(|_app| {
+            discord_rpc::connect(DISCORD_CLIENT_ID);
+            discord_rpc::set_idle();
+            Ok(())
+        })
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
@@ -26,7 +34,13 @@ pub fn run() {
             commands::save_rune_tag,
             commands::delete_rune_tag,
             commands::apply_rune_tag,
+            commands::update_discord_presence,
         ])
+        .on_event(|_app, event| {
+            if let tauri::RunEvent::Exit = event {
+                discord_rpc::disconnect();
+            }
+        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

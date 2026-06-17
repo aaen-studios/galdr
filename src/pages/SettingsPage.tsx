@@ -99,20 +99,23 @@ export default function SettingsPage({ onNavigate }: Props) {
         </div>
       </div>
 
-      <div className="card">
-        <label className="label">dev options</label>
-        <div className="row">
-          <label className="toggle-label" style={{ flex: 1 }}>
-            rune tags nav: titlebar vs home card
-          </label>
-          <button
-            className={`btn toggle-btn${showRuneInTitlebar ? " active" : ""}`}
-            onClick={() => setShowRuneInTitlebar(!showRuneInTitlebar)}
-          >
-            {showRuneInTitlebar ? "titlebar" : "home"}
-          </button>
+
+      {import.meta.env.DEV_MODE && (
+        <div className="card">
+          <label className="label">dev options</label>
+          <div className="row">
+            <label className="toggle-label" style={{ flex: 1 }}>
+              rune tags nav: titlebar vs home card
+            </label>
+            <button
+              className={`btn toggle-btn${showRuneInTitlebar ? " active" : ""}`}
+              onClick={() => setShowRuneInTitlebar(!showRuneInTitlebar)}
+            >
+              {showRuneInTitlebar ? "titlebar" : "home"}
+            </button>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

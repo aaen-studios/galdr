@@ -2,6 +2,7 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::Emitter;
 
+use crate::discord_rpc;
 use crate::ffmpeg::{build_args, probe_file, run_conversion};
 use crate::models::{BatchConversionParams, ConversionParams, ScannedFile};
 
@@ -49,12 +50,21 @@ pub async fn start_conversion(
         .map(|info| info.duration)
         .unwrap_or(0.0);
 
+    let file_name = std::path::Path::new(&params.input_path)
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("unknown")
+        .to_string();
+
+    discord_rpc::set_converting(&file_name, 0.0, &params.output_format);
+
     let args = build_args(&params);
     let events = run_conversion(&args, duration)?;
 
     for event in &events {
         match event {
             crate::ffmpeg::FfmpegEvent::Progress(p) => {
+                discord_rpc::set_converting(&file_name, *p, &params.output_format);
                 let _ = app_handle.emit(
                     "conversion-progress",
                     ConversionProgressPayload {
@@ -72,18 +82,20 @@ pub async fn start_conversion(
                 );
             }
             crate::ffmpeg::FfmpegEvent::Done(path) => {
+                discord_rpc::set_idle();
                 return Ok(ConversionDonePayload {
                     job_id: "default".to_string(),
                     output_path: path.clone(),
                 });
             }
             crate::ffmpeg::FfmpegEvent::Error(msg) => {
+                discord_rpc::set_idle();
                 return Err(msg.clone());
             }
         }
     }
 
-    Err("Conversion produced no output".to_string())
+    discord_rpc::set_idle();
 }
 
 #[tauri::command]
