@@ -3,20 +3,21 @@ import ScrambleText from "../components/ScrambleText";
 import { useGaldrStore } from "../store";
 
 interface Props {
-  onNavigate: (page: "convert" | "batch" | "compress" | "runes") => void;
+  onNavigate: (page: "convert" | "batch" | "compress" | "runes" | "forge") => void;
 }
 
 interface ToolCard {
   rune: string;
   label: string;
   desc: string;
-  target: "convert" | "batch" | "compress" | "runes";
+  target: "convert" | "batch" | "compress" | "runes" | "forge";
 }
 
 const TOOLS: ToolCard[] = [
   { rune: "ᚨ", label: "convert", desc: "single file conversion", target: "convert" },
   { rune: "ᚷ", label: "batch", desc: "bulk folder conversion", target: "batch" },
   { rune: "ᛉ", label: "compress", desc: "file size reduction", target: "compress" },
+  { rune: "ᚲ", label: "forge", desc: "video editor timeline", target: "forge" },
   { rune: "ᚠ", label: "rune tags", desc: "saved presets", target: "runes" },
 ];
 

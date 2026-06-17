@@ -37,6 +37,10 @@ pub fn run() {
             commands::apply_rune_tag,
             commands::update_discord_presence,
             commands::set_discord_enabled,
+            commands::export_timeline,
+            commands::cancel_forge_export,
+            commands::save_project_file,
+            commands::load_project_file,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

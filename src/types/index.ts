@@ -90,3 +90,70 @@ export interface BatchProgress {
   current_file: string;
   file_progress: number;
 }
+
+// ── Forge (Video Editor) Types ──
+
+export interface ForgeClip {
+  id: string;
+  name: string;
+  sourcePath: string;
+  /** Position on timeline (seconds) */
+  startTime: number;
+  /** Duration on timeline after trim + speed (seconds) */
+  duration: number;
+  /** In-point in source media (seconds) */
+  sourceStart: number;
+  /** Out-point in source media (seconds) */
+  sourceEnd: number;
+  /** Playback speed (0.25 - 4.0) */
+  speed: number;
+  selected: boolean;
+}
+
+export interface ForgeTrack {
+  clips: ForgeClip[];
+  height: number;
+  muted: boolean;
+  locked: boolean;
+}
+
+export interface ForgeMarker {
+  time: number;
+  label: string;
+}
+
+export interface ForgeProjectData {
+  fps: number;
+  width: number;
+  height: number;
+  videoTrack: ForgeTrack;
+  audioTrack: ForgeTrack;
+  markers: ForgeMarker[];
+  playheadTime: number;
+  zoomLevel: number;
+}
+
+/**
+ * Universal .galdr project file format.
+ * The `app` field determines which tool interprets `data`.
+ * This structure can be extended for batch jobs, settings, etc.
+ */
+export interface GaldrProjectFile {
+  version: string;
+  type: "galdr-project";
+  app: string;
+  name: string;
+  created: string;
+  updated: string;
+  data: ForgeProjectData;
+  extensions: Record<string, unknown>;
+}
+
+export interface MediaLibraryItem {
+  id: string;
+  name: string;
+  path: string;
+  duration: number;
+  width?: number;
+  height?: number;
+}

@@ -8,13 +8,14 @@ import BatchConvertPage from "./pages/BatchConvertPage";
 import CompressPage from "./pages/CompressPage";
 import SettingsPage from "./pages/SettingsPage";
 import RunesPage from "./pages/RunesPage";
+import ForgePage from "./pages/ForgePage";
 import ScrambleText from "./components/ScrambleText";
 import UpdateBanner from "./components/UpdateBanner";
 import PageTransition from "./transitions";
 import { useGaldrStore } from "./store";
 import "./App.css";
 
-type Page = "home" | "convert" | "batch" | "compress" | "settings" | "runes";
+type Page = "home" | "convert" | "batch" | "compress" | "settings" | "runes" | "forge";
 
 function App() {
   const [page, setPage] = useState<Page>("home");
@@ -107,6 +108,11 @@ function App() {
         { label: "runes", target: "runes" },
       ];
     }
+    if (page === "forge") {
+      return [
+        { label: "forge", target: "forge" },
+      ];
+    }
     return [{ label: page, target: page }];
   })();
 
@@ -165,6 +171,7 @@ function App() {
           {page === "compress" && <CompressPage />}
           {page === "settings" && <SettingsPage onNavigate={setPage} />}
           {page === "runes" && <RunesPage />}
+          {page === "forge" && <ForgePage />}
         </PageTransition>
       </main>
     </div>
