@@ -15,6 +15,18 @@ pub struct ConversionParams {
     pub crf: Option<u8>,
     pub preset: Option<String>,
     pub quality: Option<f64>,
+    pub trim_start: Option<f64>,
+    pub trim_end: Option<f64>,
+    pub crop_w: Option<u32>,
+    pub crop_h: Option<u32>,
+    pub crop_x: Option<u32>,
+    pub crop_y: Option<u32>,
+    pub crop_ratio: Option<String>,
+    pub speed_video: Option<f64>,
+    pub speed_audio: Option<f64>,
+    pub rotate: Option<u32>,
+    pub sample_rate: Option<u32>,
+    pub channels: Option<u8>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -49,6 +61,18 @@ impl Default for ConversionParams {
             crf: None,
             preset: None,
             quality: None,
+            trim_start: None,
+            trim_end: None,
+            crop_w: None,
+            crop_h: None,
+            crop_x: None,
+            crop_y: None,
+            crop_ratio: None,
+            speed_video: None,
+            speed_audio: None,
+            rotate: None,
+            sample_rate: None,
+            channels: None,
         }
     }
 }

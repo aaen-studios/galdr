@@ -4,6 +4,8 @@ mod models;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    commands::rune_tags::seed_defaults();
+
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
@@ -18,6 +20,12 @@ pub fn run() {
             commands::is_directory,
             commands::cancel_conversion,
             commands::estimate_compress_size,
+            commands::extract_frames,
+            commands::read_image_data_url,
+            commands::list_rune_tags,
+            commands::save_rune_tag,
+            commands::delete_rune_tag,
+            commands::apply_rune_tag,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

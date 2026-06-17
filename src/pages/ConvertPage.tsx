@@ -9,6 +9,7 @@ import Dropdown from "../components/Dropdown";
 import ScrambleText from "../components/ScrambleText";
 import { FORMAT_OPTIONS } from "../options";
 import type { FormatOption } from "../options";
+import CommandPreview from "../components/CommandPreview";
 
 const IMAGE_CODECS = ["png", "jpeg", "gif", "bmp", "tiff", "webp"];
 
@@ -296,6 +297,10 @@ export default function ConvertPage() {
             show in folder
           </button>
         </div>
+      )}
+
+      {conversionParams.input_path && (
+        <CommandPreview params={conversionParams} outputDir={outputDir} mediaType={mediaType} />
       )}
     </div>
   );

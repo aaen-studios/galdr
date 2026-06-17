@@ -11,6 +11,39 @@ export interface ConversionParams {
   crf?: number;
   preset?: string;
   quality?: number;
+  trim_start?: number;
+  trim_end?: number;
+  crop_w?: number;
+  crop_h?: number;
+  crop_x?: number;
+  crop_y?: number;
+  crop_ratio?: string;
+  speed_video?: number;
+  speed_audio?: number;
+  rotate?: number;
+  sample_rate?: number;
+  channels?: number;
+}
+
+export interface PresetParams {
+  output_format: string;
+  video_codec?: string;
+  audio_codec?: string;
+  video_bitrate?: string;
+  audio_bitrate?: string;
+  resolution?: [number, number];
+  framerate?: number;
+  crf?: number;
+  preset?: string;
+  quality?: number;
+}
+
+export interface RuneTag {
+  id: string;
+  name: string;
+  rune: string;
+  description: string;
+  params: PresetParams;
 }
 
 export interface StreamInfo {

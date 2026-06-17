@@ -38,6 +38,23 @@ pub fn estimate_compress_size(
     // Quality factor: how much of the bitrate to keep
     let quality_factor = 0.05 + quality * 0.90;
 
+    // Resolution scaling at very low quality
+    let resolution_scale = if quality < 0.05 {
+        0.35
+    } else if quality < 0.10 {
+        0.50
+    } else if quality < 0.15 {
+        0.60
+    } else if quality < 0.20 {
+        0.75
+    } else if quality < 0.25 {
+        0.85
+    } else {
+        1.0
+    };
+    // Resolution affects area (width × height), so factor is squared
+    let resolution_factor = resolution_scale * resolution_scale;
+
     // Format-specific efficiency and codec factors
     let efficiency = format_efficiency(&output_format, has_video, has_audio);
     let is_lossless = is_lossless_format(&output_format);
@@ -49,7 +66,7 @@ pub fn estimate_compress_size(
         // ── Duration-based estimate (video/audio with known bitrate) ──
         let source_bps = source_bitrate as f64;
         let target_bps = source_bps * quality_factor * efficiency;
-        let estimated = (target_bps * duration / 8.0) as u64;
+        let estimated = (target_bps * duration / 8.0 * resolution_factor) as u64;
         // Don't over-promise: clamp to minimum reasonable size
         estimated.max(original_size / 100).min(original_size * 2)
     } else if let Some(vs) = info.streams.iter().find(|s| s.kind == "video") {
@@ -73,7 +90,7 @@ pub fn estimate_compress_size(
         };
 
         let target_bpp = (source_bpp * actual_factor).max(0.1);
-        let estimated = (target_bpp * w * h * frame_count / 8.0) as u64;
+        let estimated = (target_bpp * w * h * frame_count / 8.0 * resolution_factor) as u64;
         estimated.max(original_size / 100).min(original_size * 2)
     } else if has_audio {
         // ── Audio-only with no known bitrate ──
@@ -148,7 +165,9 @@ fn audio_target_bitrate(quality: f64, format: &str) -> f64 {
         q if q >= 0.50 => 128_000.0,
         q if q >= 0.30 => 96_000.0,
         q if q >= 0.15 => 64_000.0,
-        _ => 32_000.0,
+        q if q >= 0.05 => 32_000.0,
+        q if q >= 0.02 => 16_000.0,
+        _ => 8_000.0,
     };
     let fmt_factor: f64 = match format {
         "opus" => 0.6,

@@ -6,6 +6,7 @@ import Dropdown from "../components/Dropdown";
 import ScrambleText from "../components/ScrambleText";
 import { EXT_OPTIONS, FMT_OPTIONS } from "../options";
 import type { ScannedFile, BatchProgress } from "../types";
+import CommandPreview from "../components/CommandPreview";
 
 function fmtSize(bytes: number): string {
   if (bytes < 1024) return `${bytes}B`;
@@ -390,6 +391,16 @@ export default function BatchConvertPage() {
               <div className="log-panel" ref={logPanelRef}>
                 {log.map((l, i) => <div key={i} className="log-line">{l}</div>)}
               </div>
+            )}
+
+            {files.length > 0 && inputDir && outputDir && (
+              <CommandPreview
+                params={{
+                  input_path: files.find((f) => f.name.endsWith(`.${inputExt}`))?.path || files[0]?.path || "",
+                  output_dir: outputDir,
+                  output_format: outputFmt,
+                }}
+              />
             )}
             </>
           ) : (

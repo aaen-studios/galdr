@@ -6,13 +6,14 @@ import ConvertPage from "./pages/ConvertPage";
 import BatchConvertPage from "./pages/BatchConvertPage";
 import CompressPage from "./pages/CompressPage";
 import SettingsPage from "./pages/SettingsPage";
+import RunesPage from "./pages/RunesPage";
 import ScrambleText from "./components/ScrambleText";
 import UpdateBanner from "./components/UpdateBanner";
 import PageTransition from "./transitions";
 import { useGaldrStore } from "./store";
 import "./App.css";
 
-type Page = "home" | "convert" | "batch" | "compress" | "settings";
+type Page = "home" | "convert" | "batch" | "compress" | "settings" | "runes";
 
 function App() {
   const [page, setPage] = useState<Page>("home");
@@ -23,6 +24,7 @@ function App() {
   const taskbarProgress = useGaldrStore((s) => s.taskbarProgress);
   const taskbarFlash = useGaldrStore((s) => s.taskbarFlash);
   const setTaskbarFlash = useGaldrStore((s) => s.setTaskbarFlash);
+  const showRuneInTitlebar = useGaldrStore((s) => s.showRuneInTitlebar);
   const win = getCurrentWindow();
   const prevFlash = useRef(false);
 
@@ -63,6 +65,15 @@ function App() {
     }
   };
 
+  const handleRunes = () => {
+    if (page === "runes") {
+      setPage(prevPage);
+    } else {
+      setPrevPage(page);
+      setPage("runes");
+    }
+  };
+
   const rootSegs: { label: string; target: Page }[] = [
     { label: "~", target: "home" },
     { label: "galdr", target: "home" },
@@ -86,6 +97,11 @@ function App() {
         { label: "compress", target: "compress" },
       ];
     }
+    if (page === "runes") {
+      return [
+        { label: "runes", target: "runes" },
+      ];
+    }
     return [{ label: page, target: page }];
   })();
 
@@ -95,6 +111,11 @@ function App() {
     <div className="app-shell">
       <header className="titlebar" data-tauri-drag-region>
         <div className="titlebar-left">
+          {showRuneInTitlebar && (
+            <button className="titlebar-btn titlebar-rune-btn" onClick={handleRunes}>
+              <span className="ts-rune">ᚠ</span>
+            </button>
+          )}
           <button className="titlebar-btn titlebar-settings" onClick={handleSettings}>
             <span className="ts-rune">ᚲ</span>
             <span className="ts-label">settings</span>
@@ -138,6 +159,7 @@ function App() {
           {page === "batch" && <BatchConvertPage />}
           {page === "compress" && <CompressPage />}
           {page === "settings" && <SettingsPage onNavigate={setPage} />}
+          {page === "runes" && <RunesPage />}
         </PageTransition>
       </main>
     </div>

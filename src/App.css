@@ -910,6 +910,176 @@ body {
   color: #8b6914;
 }
 
+/* Settings Panel */
+.settings-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  background: transparent;
+  border: none;
+  color: var(--fg-dim);
+  font-family: inherit;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 0;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+
+.settings-toggle:hover {
+  color: var(--fg);
+}
+
+.settings-arrow {
+  font-size: 10px;
+  color: var(--fg-faint);
+}
+
+.settings-toggle-label {
+  color: var(--fg-dim);
+  letter-spacing: 0.15em;
+}
+
+.settings-body {
+  overflow: hidden;
+}
+
+.settings-section {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--fg-faint);
+}
+
+.settings-section .label {
+  margin-bottom: 8px;
+}
+
+.settings-trim-row {
+  display: flex;
+  gap: 16px;
+}
+
+.settings-trim-field {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.settings-field-label {
+  font-size: 11px;
+  color: var(--fg-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.settings-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  background: var(--fg-faint);
+  outline: none;
+  cursor: pointer;
+}
+
+.settings-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 10px;
+  height: 10px;
+  background: var(--fg);
+  border: none;
+  cursor: pointer;
+  border-radius: 0;
+}
+
+.settings-slider::-moz-range-thumb {
+  width: 10px;
+  height: 10px;
+  background: var(--fg);
+  border: none;
+  cursor: pointer;
+  border-radius: 0;
+}
+
+.settings-time-input {
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--fg-faint);
+  color: var(--fg);
+  font-family: inherit;
+  font-size: 13px;
+  padding: 4px 0;
+  outline: none;
+  width: 80px;
+  text-align: center;
+}
+
+.settings-time-input:focus {
+  border-bottom-color: var(--fg);
+}
+
+.settings-slider-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 0;
+}
+
+.settings-slider-val {
+  font-size: 12px;
+  color: var(--fg-dim);
+  width: 48px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.settings-crop-inputs {
+  margin-top: 8px;
+}
+
+.settings-crop-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.settings-crop-label {
+  font-size: 11px;
+  color: var(--fg-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  width: 18px;
+  flex-shrink: 0;
+}
+
+.settings-crop-input {
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--fg-faint);
+  color: var(--fg);
+  font-family: inherit;
+  font-size: 13px;
+  padding: 4px 0;
+  outline: none;
+  width: 60px;
+  text-align: center;
+  -moz-appearance: textfield;
+}
+
+.settings-crop-input::-webkit-outer-spin-button,
+.settings-crop-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.settings-crop-input:focus {
+  border-bottom-color: var(--fg);
+}
+
 /* Warning alert */
 .alert-warn {
   margin-top: 12px;
@@ -1040,6 +1210,226 @@ body {
   letter-spacing: 0.05em;
   padding: 0 4px;
   user-select: none;
+}
+
+/* ── Media Preview ── */
+.media-preview {
+  margin-top: 12px;
+  margin-bottom: 28px;
+  border: 1px solid var(--fg-faint);
+  background: var(--bg-dim);
+}
+
+.preview-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  background: transparent;
+  border: none;
+  color: var(--fg-dim);
+  font-family: inherit;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 10px 16px;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+
+.preview-toggle:hover {
+  color: var(--fg);
+  background: var(--bg);
+}
+
+.preview-toggle-arrow {
+  font-size: 10px;
+  transition: transform 0.2s;
+  flex-shrink: 0;
+}
+
+.preview-toggle-arrow.open {
+  transform: rotate(90deg);
+}
+
+.preview-toggle-label {
+  flex: 1;
+  text-align: left;
+}
+
+.preview-toggle-delta {
+  font-size: 11px;
+  color: var(--fg-faint);
+}
+
+.preview-body {
+  overflow: hidden;
+}
+
+.preview-content {
+  padding: 16px;
+  border-top: 1px solid var(--fg-faint);
+}
+
+/* Comparison Container */
+.comparison-wrapper {
+  width: 100%;
+}
+
+.comparison-container {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  cursor: col-resize;
+  background: var(--bg);
+  user-select: none;
+}
+
+.comparison-spacer {
+  display: block;
+  width: 100%;
+  height: auto;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.comparison-container img {
+  display: block;
+  width: 100%;
+  height: auto;
+  pointer-events: none;
+}
+
+.comparison-original,
+.comparison-compressed {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.comparison-original {
+  z-index: 1;
+}
+
+.comparison-compressed {
+  z-index: 2;
+}
+
+.comparison-label {
+  position: absolute;
+  bottom: 8px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fg);
+  background: rgba(0, 0, 0, 0.6);
+  padding: 2px 8px;
+  pointer-events: none;
+}
+
+.comparison-label.left {
+  left: 8px;
+}
+
+.comparison-label.right {
+  right: 8px;
+}
+
+.comparison-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--fg);
+  z-index: 3;
+  pointer-events: none;
+  transform: translateX(-1px);
+}
+
+.comparison-handle-nub {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--fg);
+  color: var(--bg);
+  font-size: 11px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+
+.comparison-pos-info {
+  font-size: 11px;
+  color: var(--fg-dim);
+  text-align: center;
+  padding: 10px 0 4px;
+}
+
+/* Fallback */
+.comparison-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 24px;
+  background: var(--bg);
+}
+
+.comparison-fallback-text {
+  font-size: 12px;
+  color: var(--fg-faint);
+  letter-spacing: 0.05em;
+}
+
+/* Audio Comparison */
+.audio-comparison {
+  padding: 4px 0;
+}
+
+.metadata-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.metadata-table th {
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fg-faint);
+  text-align: left;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--fg-faint);
+}
+
+.metadata-table th:first-child {
+  width: 100px;
+}
+
+.metadata-table td {
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--fg-faint);
+  color: var(--fg-dim);
+}
+
+.metadata-table tr:last-child td {
+  border-bottom: none;
+}
+
+.meta-label {
+  color: var(--fg) !important;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 11px;
+}
+
+.meta-val {
+  font-family: inherit;
 }
 
 /* Update Banner */
@@ -1173,4 +1563,449 @@ body {
 .update-modal .btn-primary {
   flex: 1;
   min-width: 0;
+}
+
+/* ── Command Alchemy Preview ── */
+.command-preview {
+  margin-top: 20px;
+  border: 1px solid var(--fg-faint);
+  background: var(--bg);
+}
+
+.command-preview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--fg-faint);
+  background: var(--bg-dim);
+}
+
+.command-preview-label {
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--fg-dim);
+}
+
+.command-preview-copy {
+  background: transparent;
+  border: 1px solid var(--fg-faint);
+  color: var(--fg-dim);
+  font-family: inherit;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 2px 10px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.command-preview-copy:hover {
+  border-color: var(--fg);
+  color: var(--fg);
+}
+
+.command-preview-body {
+  padding: 10px 12px;
+  overflow-x: auto;
+  min-height: 36px;
+}
+
+.command-preview-code {
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 1.7;
+  white-space: pre;
+  color: var(--fg-dim);
+}
+
+.command-token {
+  white-space: pre;
+}
+
+.command-token-binary {
+  color: var(--fg);
+  font-weight: bold;
+}
+
+.command-token-flag {
+  color: #8bc8ff;
+  cursor: help;
+}
+
+.command-token-value {
+  color: var(--fg);
+}
+
+.command-token-path {
+  color: var(--fg-dim);
+  text-decoration: underline;
+  text-decoration-color: var(--fg-faint);
+  text-underline-offset: 2px;
+}
+
+.command-token-text {
+  color: var(--fg-faint);
+}
+
+.command-preview-placeholder {
+  font-size: 11px;
+  color: var(--fg-faint);
+  font-style: italic;
+}
+
+.command-tooltip {
+  position: fixed;
+  transform: translate(-50%, -100%);
+  background: #1a1a1a;
+  border: 1px solid var(--fg-faint);
+  padding: 6px 10px;
+  pointer-events: none;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.command-tooltip-flag {
+  font-size: 12px;
+  color: #8bc8ff;
+  letter-spacing: 0.05em;
+}
+
+.command-tooltip-cat {
+  font-size: 9px;
+  color: var(--fg-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.command-tooltip-desc {
+  font-size: 11px;
+  color: var(--fg-dim);
+  max-width: 280px;
+}
+
+/* Rune Tags Page */
+.runes-page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.rune-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.rune-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-dim);
+  border: 1px solid var(--fg-faint);
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+
+.rune-card-main {
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  gap: 6px;
+  flex: 1;
+}
+
+.rune-card-rune {
+  font-size: 32px;
+  line-height: 1;
+  color: var(--fg);
+  margin-bottom: 4px;
+}
+
+.rune-card-rune.new {
+  font-size: 28px;
+  color: var(--fg-dim);
+}
+
+.rune-card-name {
+  font-size: 14px;
+  color: var(--fg);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.rune-card-desc {
+  font-size: 11px;
+  color: var(--fg-dim);
+}
+
+.rune-card-params {
+  font-size: 10px;
+  color: var(--fg-faint);
+  margin-top: 4px;
+  word-break: break-all;
+}
+
+.rune-card-delete {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: none;
+  border: none;
+  color: var(--fg-faint);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 2px 6px;
+  font-family: inherit;
+}
+
+.rune-card-delete:hover {
+  color: #ff6b6b;
+}
+
+.rune-card-new {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  gap: 8px;
+  background: none;
+  border: 1px dashed var(--fg-faint);
+  cursor: pointer;
+  font-family: inherit;
+  color: var(--fg-dim);
+}
+
+.rune-card-new:hover {
+  border-color: var(--fg-dim);
+  color: var(--fg);
+}
+
+.rune-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 48px 16px;
+}
+
+.rune-empty-icon {
+  font-size: 40px;
+  color: var(--fg-faint);
+}
+
+.rune-empty-text {
+  font-size: 12px;
+  color: var(--fg-dim);
+}
+
+/* Rune Tag Editor */
+.rune-editor-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.rune-editor {
+  background: var(--bg);
+  border: 1px solid var(--fg-faint);
+  width: 480px;
+  max-width: 90vw;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.rune-editor-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  border-bottom: 1px solid var(--fg-faint);
+}
+
+.rune-editor-rune {
+  font-size: 28px;
+  line-height: 1;
+}
+
+.rune-editor-title {
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--fg);
+}
+
+.rune-editor-body {
+  padding: 16px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.rune-editor-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.rune-editor-label {
+  font-size: 11px;
+  color: var(--fg-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.rune-editor-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rune-editor-sep {
+  color: var(--fg-dim);
+  font-size: 12px;
+}
+
+.rune-editor-divider {
+  display: flex;
+  align-items: center;
+  padding: 8px 0;
+}
+
+.rune-editor-divider::before,
+.rune-editor-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--fg-faint);
+}
+
+.rune-editor-divider-label {
+  font-size: 10px;
+  color: var(--fg-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 0 12px;
+}
+
+.rune-editor-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--fg-faint);
+}
+
+/* Rune Picker */
+.rune-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rune-picker-input {
+  width: 48px;
+  text-align: center;
+  font-size: 20px;
+}
+
+.rune-picker-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.rune-picker-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-dim);
+  border: 1px solid var(--fg-faint);
+  color: var(--fg-dim);
+  cursor: pointer;
+  font-size: 16px;
+  font-family: inherit;
+}
+
+.rune-picker-btn:hover {
+  border-color: var(--fg-dim);
+  color: var(--fg);
+}
+
+.rune-picker-btn.active {
+  border-color: var(--fg);
+  color: var(--fg);
+  background: var(--fg-faint);
+}
+
+/* Titlebar Rune Button */
+.titlebar-rune-btn {
+  width: 36px;
+  text-align: center;
+}
+
+/* Toggle Button */
+.toggle-btn {
+  min-width: 60px;
+  text-transform: uppercase;
+  font-size: 11px;
+}
+
+.toggle-btn.active {
+  border-color: var(--fg);
+  color: var(--fg);
+}
+
+.toggle-label {
+  font-size: 12px;
+  color: var(--fg-dim);
+  cursor: pointer;
+}
+
+/* Rune Tag Chips (preset selector in ConvertPage) */
+.rune-tag-selector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.rune-tag-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: 1px solid var(--fg-faint);
+  color: var(--fg-dim);
+  padding: 4px 10px;
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.rune-tag-chip:hover {
+  border-color: var(--fg);
+  color: var(--fg);
+}
+
+.rune-tag-chip-rune {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.rune-tag-chip-name {
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }

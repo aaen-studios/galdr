@@ -12,7 +12,7 @@ interface Props {
 }
 
 export default function SettingsPage({ onNavigate }: Props) {
-  const { outputDir, setOutputDir, transitionStyle, setTransitionStyle, triggerTransitionTest, setUpdateDismissed } = useGaldrStore();
+  const { outputDir, setOutputDir, transitionStyle, setTransitionStyle, triggerTransitionTest, setUpdateDismissed, showRuneInTitlebar, setShowRuneInTitlebar } = useGaldrStore();
   const [version, setVersion] = useState("");
 
   useEffect(() => {
@@ -95,6 +95,21 @@ export default function SettingsPage({ onNavigate }: Props) {
             onClick={triggerTransitionTest}
           >
             ᛟ test
+          </button>
+        </div>
+      </div>
+
+      <div className="card">
+        <label className="label">dev options</label>
+        <div className="row">
+          <label className="toggle-label" style={{ flex: 1 }}>
+            rune tags nav: titlebar vs home card
+          </label>
+          <button
+            className={`btn toggle-btn${showRuneInTitlebar ? " active" : ""}`}
+            onClick={() => setShowRuneInTitlebar(!showRuneInTitlebar)}
+          >
+            {showRuneInTitlebar ? "titlebar" : "home"}
           </button>
         </div>
       </div>

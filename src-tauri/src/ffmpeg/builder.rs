@@ -4,6 +4,14 @@ pub fn build_args(params: &ConversionParams) -> Vec<String> {
     let mut args: Vec<String> = Vec::new();
 
     args.push("-y".to_string());
+
+    if let Some(start) = params.trim_start {
+        if start > 0.0 {
+            args.push("-ss".to_string());
+            args.push(start.to_string());
+        }
+    }
+
     args.push("-i".to_string());
     args.push(params.input_path.to_string_lossy().to_string());
 
@@ -37,6 +45,13 @@ pub fn build_args(params: &ConversionParams) -> Vec<String> {
         args.push(bitrate.clone());
     }
 
+    if let Some(end) = params.trim_end {
+        if end > 0.0 {
+            args.push("-to".to_string());
+            args.push(end.to_string());
+        }
+    }
+
     // Build filter graph from parts (resolution, GIF pipeline, etc.)
     let mut filter_parts: Vec<String> = Vec::new();
 
@@ -46,6 +61,69 @@ pub fn build_args(params: &ConversionParams) -> Vec<String> {
 
     if let Some(fps) = params.framerate {
         filter_parts.push(format!("fps={}", fps));
+    }
+
+    // Crop (either from ratio preset or manual dimensions)
+    if let Some(ratio) = &params.crop_ratio {
+        let r = match ratio.as_str() {
+            "16:9" => "16/9",
+            "4:3" => "4/3",
+            "1:1" => "1/1",
+            "9:16" => "9/16",
+            _ => "16/9",
+        };
+        filter_parts.push(format!(
+            "crop='min(iw\\,ih*{r})':'min(ih\\,iw/{r})':'(iw-min(iw\\,ih*{r}))/2':'(ih-min(ih\\,iw/{r}))/2'",
+            r = r
+        ));
+    } else if params.crop_w.is_some() || params.crop_h.is_some() {
+        let cw = params.crop_w.unwrap_or(0);
+        let ch = params.crop_h.unwrap_or(0);
+        let cx = params.crop_x.unwrap_or(0);
+        let cy = params.crop_y.unwrap_or(0);
+        let cw_even = if cw > 0 { cw - (cw % 2) } else { 0 };
+        let ch_even = if ch > 0 { ch - (ch % 2) } else { 0 };
+        if cw_even > 0 && ch_even > 0 {
+            filter_parts.push(format!("crop={}:{}:{}:{}", cw_even, ch_even, cx, cy));
+        }
+    }
+
+    // Rotate (transpose)
+    if let Some(angle) = params.rotate {
+        match angle {
+            90 => filter_parts.push("transpose=1".to_string()),
+            180 => filter_parts.push("transpose=1,transpose=1".to_string()),
+            270 => filter_parts.push("transpose=2".to_string()),
+            _ => {}
+        }
+    }
+
+    // Video speed (setpts)
+    if let Some(spd) = params.speed_video {
+        if (spd - 1.0).abs() > f64::EPSILON && spd > 0.0 {
+            filter_parts.push(format!("setpts={}*PTS", 1.0 / spd));
+        }
+    }
+
+    // Quality-driven resolution downscaling for extra compression
+    if let Some(quality) = params.quality {
+        if quality < 0.25 && params.resolution.is_none() {
+            let scale = if quality < 0.05 {
+                0.35
+            } else if quality < 0.10 {
+                0.50
+            } else if quality < 0.15 {
+                0.60
+            } else if quality < 0.20 {
+                0.75
+            } else {
+                0.85
+            };
+            filter_parts.push(format!(
+                "scale='trunc(iw*{}/2)*2':'trunc(ih*{}/2)*2':flags=lanczos",
+                scale, scale
+            ));
+        }
     }
 
     // Format-specific quality settings
@@ -61,6 +139,7 @@ pub fn build_args(params: &ConversionParams) -> Vec<String> {
                 if params.audio_codec.is_none() && params.audio_bitrate.is_none() {
                     args.push("-b:a".to_string());
                     args.push(audio_bitrate(quality));
+                    maybe_mono(&mut args, quality);
                 }
             }
             "mkv" | "webm" => {
@@ -72,13 +151,14 @@ pub fn build_args(params: &ConversionParams) -> Vec<String> {
                 if params.audio_codec.is_none() && params.audio_bitrate.is_none() {
                     args.push("-b:a".to_string());
                     args.push(audio_bitrate(quality));
+                    maybe_mono(&mut args, quality);
                 }
             }
 
             // ── GIF ──
             "gif" => {
-                let max_colors = (16.0 + quality * 240.0).clamp(16.0, 256.0).round() as u32;
-                let fps = (5.0 + quality * 25.0).clamp(5.0, 30.0).round() as u32;
+                let max_colors = (4.0 + quality * 252.0).clamp(4.0, 256.0).round() as u32;
+                let fps = (2.0 + quality * 28.0).clamp(2.0, 30.0).round() as u32;
                 let bayer_scale = ((1.0 - quality) * 5.0).clamp(0.0, 5.0).round() as u32;
                 let has_filter = !filter_parts.is_empty();
                 let prefix = if has_filter {
@@ -157,6 +237,7 @@ pub fn build_args(params: &ConversionParams) -> Vec<String> {
                 if params.audio_bitrate.is_none() {
                     args.push("-b:a".to_string());
                     args.push(audio_bitrate(quality));
+                    maybe_mono(&mut args, quality);
                 }
                 args.push("-vn".to_string());
             }
@@ -168,6 +249,7 @@ pub fn build_args(params: &ConversionParams) -> Vec<String> {
                 if params.audio_bitrate.is_none() {
                     args.push("-b:a".to_string());
                     args.push(audio_bitrate(quality));
+                    maybe_mono(&mut args, quality);
                 }
                 args.push("-vn".to_string());
             }
@@ -179,6 +261,7 @@ pub fn build_args(params: &ConversionParams) -> Vec<String> {
                 if params.audio_bitrate.is_none() {
                     args.push("-b:a".to_string());
                     args.push(audio_bitrate(quality));
+                    maybe_mono(&mut args, quality);
                 }
                 args.push("-vn".to_string());
             }
@@ -186,6 +269,7 @@ pub fn build_args(params: &ConversionParams) -> Vec<String> {
                 if params.audio_bitrate.is_none() {
                     args.push("-b:a".to_string());
                     args.push("1411k".to_string());
+                    maybe_mono(&mut args, quality);
                 }
                 args.push("-vn".to_string());
             }
@@ -203,6 +287,7 @@ pub fn build_args(params: &ConversionParams) -> Vec<String> {
                 if params.audio_bitrate.is_none() {
                     args.push("-b:a".to_string());
                     args.push(audio_bitrate(quality));
+                    maybe_mono(&mut args, quality);
                 }
                 args.push("-vn".to_string());
             }
@@ -214,6 +299,7 @@ pub fn build_args(params: &ConversionParams) -> Vec<String> {
                 if params.audio_bitrate.is_none() {
                     args.push("-b:a".to_string());
                     args.push(audio_bitrate(quality));
+                    maybe_mono(&mut args, quality);
                 }
                 args.push("-vn".to_string());
             }
@@ -241,6 +327,40 @@ pub fn build_args(params: &ConversionParams) -> Vec<String> {
         args.push(filter_parts.join(","));
     }
 
+    // Audio speed (atempo chaining for values outside 0.5–2.0 range)
+    if let Some(spd) = params.speed_audio {
+        if (spd - 1.0).abs() > f64::EPSILON && spd > 0.0 {
+            let mut af_parts: Vec<String> = Vec::new();
+            let mut remaining = spd;
+            while remaining < 0.5 {
+                af_parts.push("atempo=0.5".to_string());
+                remaining /= 0.5;
+            }
+            while remaining > 2.0 {
+                af_parts.push("atempo=2.0".to_string());
+                remaining /= 2.0;
+            }
+            if (remaining - 1.0).abs() > f64::EPSILON {
+                af_parts.push(format!("atempo={}", remaining));
+            }
+            if !af_parts.is_empty() {
+                args.push("-af".to_string());
+                args.push(af_parts.join(","));
+            }
+        }
+    }
+
+    // Sample rate and channels
+    if let Some(rate) = params.sample_rate {
+        args.push("-ar".to_string());
+        args.push(rate.to_string());
+    }
+
+    if let Some(ch) = params.channels {
+        args.push("-ac".to_string());
+        args.push(ch.to_string());
+    }
+
     let input_stem = params.input_path
         .file_stem()
         .and_then(|s| s.to_str())
@@ -265,9 +385,18 @@ fn audio_bitrate(quality: f64) -> String {
         q if q >= 0.50 => "128k",
         q if q >= 0.30 => "96k",
         q if q >= 0.15 => "64k",
-        _ => "32k",
+        q if q >= 0.05 => "32k",
+        q if q >= 0.02 => "16k",
+        _ => "8k",
     }
     .to_string()
+}
+
+fn maybe_mono(args: &mut Vec<String>, quality: f64) {
+    if quality < 0.15 {
+        args.push("-ac".to_string());
+        args.push("1".to_string());
+    }
 }
 
 #[cfg(test)]
@@ -348,7 +477,7 @@ mod tests {
     fn test_audio_bitrate_low() {
         let args = build_args(&make_params("mp3", Some(0.0)));
         let br = flag_value(&args, "-b:a").unwrap();
-        assert_eq!(br, "32k");
+        assert_eq!(br, "8k");
     }
 
     #[test]

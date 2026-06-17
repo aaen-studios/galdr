@@ -1,32 +1,39 @@
 import { useState } from "react";
 import ScrambleText from "../components/ScrambleText";
+import { useGaldrStore } from "../store";
 
 interface Props {
-  onNavigate: (page: "convert" | "batch" | "compress") => void;
+  onNavigate: (page: "convert" | "batch" | "compress" | "runes") => void;
 }
 
 interface ToolCard {
   rune: string;
   label: string;
   desc: string;
-  target: "convert" | "batch" | "compress";
+  target: "convert" | "batch" | "compress" | "runes";
 }
 
 const TOOLS: ToolCard[] = [
   { rune: "ᚨ", label: "convert", desc: "single file conversion", target: "convert" },
   { rune: "ᚷ", label: "batch", desc: "bulk folder conversion", target: "batch" },
   { rune: "ᛉ", label: "compress", desc: "file size reduction", target: "compress" },
+  { rune: "ᚠ", label: "rune tags", desc: "saved presets", target: "runes" },
 ];
 
 export default function HomePage({ onNavigate }: Props) {
   const [hoveredCard, setHoveredCard] = useState(-1);
+  const showRuneInTitlebar = useGaldrStore((s) => s.showRuneInTitlebar);
+
+  const tools = showRuneInTitlebar
+    ? TOOLS.filter((t) => t.target !== "runes")
+    : TOOLS;
 
   return (
     <div className="page">
       <div className="home-page-wrapper">
         <div className="home-tagline">ᚱ choose your path</div>
         <div className="home-cards">
-          {TOOLS.map((t, i) => (
+          {tools.map((t, i) => (
             <div
               key={t.target}
               className="home-card"

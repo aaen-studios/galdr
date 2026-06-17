@@ -8,7 +8,9 @@ import { useGaldrStore } from "../store";
 import CustomSelect from "../components/CustomSelect";
 import QualitySlider from "../components/QualitySlider";
 import ScrambleText from "../components/ScrambleText";
+import MediaPreview from "../components/MediaPreview";
 import type { MediaInfo } from "../types";
+import CommandPreview from "../components/CommandPreview";
 
 const FORMAT_OPTIONS = [
   { value: "mp4", label: "mp4 (video)", type: "video" as const },
@@ -65,6 +67,7 @@ export default function CompressPage() {
   const [outputFormat, setOutputFormat] = useState("mp4");
   const [filteredOptions, setFilteredOptions] = useState(FORMAT_OPTIONS);
   const [estimate, setEstimate] = useState<{ original: number; estimated: number; can_compress: boolean } | null>(null);
+  const [compressedInfo, setCompressedInfo] = useState<MediaInfo | null>(null);
   const [log, setLog] = useState<string[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
   const [btnHover, setBtnHover] = useState(false);
@@ -162,6 +165,7 @@ export default function CompressPage() {
     setError(null);
     setLog([]);
     setLastOutputPath(null);
+    setCompressedInfo(null);
     setInputPath(path);
     try {
       const info = await invoke<MediaInfo>("get_media_info", { path });
@@ -218,6 +222,12 @@ export default function CompressPage() {
       );
       setLog((p) => [...p, `> ${r.output_path}`]);
       setLastOutputPath(r.output_path);
+      try {
+        const cinfo = await invoke<MediaInfo>("get_media_info", { path: r.output_path });
+        setCompressedInfo(cinfo);
+      } catch {
+        // preview not available
+      }
     } catch (e) {
       const m = typeof e === "string" ? e : "failed";
       setLog((p) => [...p, `! ${m}`]);
@@ -228,7 +238,7 @@ export default function CompressPage() {
   }, [inputPath, outputDir, mediaType, outputFormat, quality, setOutputDir, setIsConverting, setError, setLastOutputPath, setConversionProgress]);
 
   const sizeIncrease = estimate && estimate.estimated >= estimate.original;
-  const btnDisabled = !inputPath || isConverting || false;
+  const btnDisabled = !inputPath || isConverting;
 
   return (
     <div className="page">
@@ -358,6 +368,19 @@ export default function CompressPage() {
             show in folder
           </button>
         </div>
+      )}
+
+      {lastOutputPath && mediaInfo && compressedInfo && (
+        <MediaPreview
+          originalPath={inputPath}
+          compressedPath={lastOutputPath}
+          originalInfo={mediaInfo}
+          compressedInfo={compressedInfo}
+        />
+      )}
+
+      {inputPath && (
+        <CommandPreview params={{ input_path: inputPath, output_dir: outputDir || "", output_format: outputFormat, quality }} mediaType={mediaType} />
       )}
     </div>
   );

@@ -233,6 +233,18 @@ pub async fn start_batch_conversion(
             crf: None,
             preset: None,
             quality: None,
+            trim_start: None,
+            trim_end: None,
+            crop_w: None,
+            crop_h: None,
+            crop_x: None,
+            crop_y: None,
+            crop_ratio: None,
+            speed_video: None,
+            speed_audio: None,
+            rotate: None,
+            sample_rate: None,
+            channels: None,
         };
 
         let args = build_args(&single_params);

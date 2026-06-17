@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { MediaInfo, ConversionParams } from "../types";
+import type { MediaInfo, ConversionParams, RuneTag } from "../types";
 import type { TransitionStyle } from "../transitions";
 import { DEFAULT_TRANSITION } from "../transitions";
 
@@ -28,6 +28,9 @@ interface GaldrState {
   updateProgress: number;
   updateDismissed: boolean;
 
+  runeTags: RuneTag[];
+  showRuneInTitlebar: boolean;
+
   setMediaInfo: (info: MediaInfo | null) => void;
   setConversionParams: (params: Partial<ConversionParams>) => void;
   setIsConverting: (v: boolean) => void;
@@ -50,6 +53,8 @@ interface GaldrState {
   setUpdateNotes: (v: string | null) => void;
   setUpdateProgress: (v: number) => void;
   setUpdateDismissed: (v: boolean) => void;
+  setRuneTags: (tags: RuneTag[]) => void;
+  setShowRuneInTitlebar: (v: boolean) => void;
 }
 
 const defaultParams: ConversionParams = {
@@ -65,6 +70,18 @@ const defaultParams: ConversionParams = {
   crf: undefined,
   preset: undefined,
   quality: undefined,
+  trim_start: undefined,
+  trim_end: undefined,
+  crop_w: undefined,
+  crop_h: undefined,
+  crop_x: undefined,
+  crop_y: undefined,
+  crop_ratio: undefined,
+  speed_video: undefined,
+  speed_audio: undefined,
+  rotate: undefined,
+  sample_rate: undefined,
+  channels: undefined,
 };
 
 export const useGaldrStore = create<GaldrState>((set) => ({
@@ -89,6 +106,8 @@ export const useGaldrStore = create<GaldrState>((set) => ({
   updateNotes: null,
   updateProgress: 0,
   updateDismissed: false,
+  runeTags: [],
+  showRuneInTitlebar: true,
 
   setMediaInfo: (info) => set({ mediaInfo: info }),
   setConversionParams: (params) =>
@@ -122,4 +141,6 @@ export const useGaldrStore = create<GaldrState>((set) => ({
   setUpdateNotes: (v) => set({ updateNotes: v }),
   setUpdateProgress: (v) => set({ updateProgress: v }),
   setUpdateDismissed: (v) => set({ updateDismissed: v }),
+  setRuneTags: (tags) => set({ runeTags: tags }),
+  setShowRuneInTitlebar: (v) => set({ showRuneInTitlebar: v }),
 }));
