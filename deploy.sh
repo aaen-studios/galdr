@@ -131,7 +131,11 @@ case "$PLATFORM" in
     ARCHIVE="${INSTALLER}.zip"
     if [ -n "$INSTALLER" ] && [ ! -f "$ARCHIVE" ]; then
       echo "⟳ Creating $ARCHIVE ..."
-      (cd "$BUNDLE_DIR" && zip "$(basename "$ARCHIVE")" "$(basename "$INSTALLER")")
+      if command -v zip &>/dev/null; then
+        (cd "$BUNDLE_DIR" && zip "$(basename "$ARCHIVE")" "$(basename "$INSTALLER")")
+      else
+        powershell -Command "Compress-Archive -Path \"$INSTALLER\" -DestinationPath \"$ARCHIVE\" -Force"
+      fi
     fi
     ;;
   linux)
