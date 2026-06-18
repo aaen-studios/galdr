@@ -213,31 +213,28 @@ export default function ForgePage() {
     };
   }, [addClipToVideo, addClipToAudio]);
 
-  // Preview resize: height relative to the preview element itself, not the page
   const handleResizeStart = useCallback((e: React.PointerEvent) => {
     e.preventDefault();
-    setResizing(true);
-  }, []);
-
-  useEffect(() => {
-    if (!resizing) return;
     const el = previewRef.current;
     if (!el) return;
-    const previewTop = el.getBoundingClientRect().top;
+    const startY = e.clientY;
+    const startHeight = el.offsetHeight;
 
-    const onMove = (e: PointerEvent) => {
-      const h = Math.max(140, Math.min(600, e.clientY - previewTop));
-      setPreviewHeight(h);
+    setResizing(true);
+
+    const onMove = (moveE: PointerEvent) => {
+      const delta = moveE.clientY - startY;
+      setPreviewHeight(Math.max(140, Math.min(600, startHeight + delta)));
     };
-    const onUp = () => setResizing(false);
-
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp);
-    return () => {
+    const onUp = () => {
+      setResizing(false);
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
     };
-  }, [resizing]);
+
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  }, []);
 
   const handleExport = useCallback(async () => {
     try {

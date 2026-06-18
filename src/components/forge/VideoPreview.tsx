@@ -6,34 +6,37 @@ import type { ForgeClip } from "../../types";
 export default function VideoPreview() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const preloadRef = useRef<HTMLVideoElement>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
 
   const playingRef = useRef(false);
   const currentClipIdxRef = useRef(-1);
   const playheadTimeRef = useRef(0);
   const clipsRef = useRef<ForgeClip[]>([]);
+  const audioClipsRef = useRef<ForgeClip[]>([]);
+  const activeAudioIdxRef = useRef(-1);
   const fpsRef = useRef(30);
   const isSwitchingRef = useRef(false);
   const onTimeUpdateRef = useRef<() => void>(() => {});
 
-  /* ── React state (UI-facing) ──────────────────────────────────────── */
   const [isPlaying, setIsPlaying] = useState(false);
   const [hasError, setHasError] = useState<string | null>(null);
 
-  /* ── Store subscriptions ──────────────────────────────────────────── */
   const project = useForgeStore((s) => s.project);
   const clipVersion = useForgeStore((s) => s.clipVersion);
   const setPlayhead = useForgeStore((s) => s.setPlayhead);
 
   const clips = project.videoTrack.clips;
+  const audioClips = project.audioTrack.clips;
   const fps = project.fps || 30;
   const playheadTime = project.playheadTime;
+  const fmtW = project.width || 1920;
+  const fmtH = project.height || 1080;
 
-  /* ── Keep refs in sync every render (zero-cost) ──────────────────── */
   clipsRef.current = clips;
+  audioClipsRef.current = audioClips;
   fpsRef.current = fps;
   playheadTimeRef.current = playheadTime;
 
-  /* ── Asset URL helper (Tauri asset protocol — zero-copy) ──────────── */
   const assetUrl = useCallback((path: string) => convertFileSrc(path), []);
 
   const timelineToSource = useCallback(
@@ -61,6 +64,19 @@ export default function VideoPreview() {
     [],
   );
 
+  const findAudioAt = useCallback(
+    (time: number): { clip: ForgeClip; index: number } | null => {
+      const a = audioClipsRef.current;
+      for (let i = a.length - 1; i >= 0; i--) {
+        const c = a[i];
+        if (time >= c.startTime && time < c.startTime + c.duration)
+          return { clip: c, index: i };
+      }
+      return null;
+    },
+    [],
+  );
+
   const getMaxEnd = useCallback(
     () =>
       clipsRef.current.reduce(
@@ -70,7 +86,6 @@ export default function VideoPreview() {
     [],
   );
 
-  /* ── Point a <video> at a given clip + timeline time ─────────────── */
   const pointVideoAt = useCallback(
     (
       vid: HTMLVideoElement,
@@ -101,7 +116,49 @@ export default function VideoPreview() {
     [assetUrl, timelineToSource],
   );
 
-  /* ── Preload next clip in hidden element ──────────────────────────── */
+  const syncAudio = useCallback((timelineTime: number) => {
+    const aud = audioRef.current;
+    if (!aud) return;
+    const a = audioClipsRef.current;
+    if (a.length === 0) return;
+
+    const found = findAudioAt(timelineTime);
+    if (!found) {
+      if (!aud.paused) aud.pause();
+      activeAudioIdxRef.current = -1;
+      return;
+    }
+
+    const seek = timelineToSource(found.clip, timelineTime);
+    const clamped = Math.max(
+      found.clip.sourceStart,
+      Math.min(seek, found.clip.sourceEnd - 0.001),
+    );
+
+    if (found.index !== activeAudioIdxRef.current) {
+      activeAudioIdxRef.current = found.index;
+      const src = assetUrl(found.clip.sourcePath);
+      if (aud.src !== src) {
+        aud.src = src;
+        aud.onloadedmetadata = () => {
+          aud.currentTime = clamped;
+          if (playingRef.current || document.visibilityState === "visible")
+            aud.play().catch(() => {});
+        };
+      } else {
+        aud.currentTime = clamped;
+        if (playingRef.current) aud.play().catch(() => {});
+      }
+    } else {
+      if (Math.abs(aud.currentTime - clamped) > 0.1) {
+        aud.currentTime = clamped;
+      }
+      if (playingRef.current && aud.paused) {
+        aud.play().catch(() => {});
+      }
+    }
+  }, [assetUrl, timelineToSource, findAudioAt]);
+
   const preloadNext = useCallback(
     (fromIndex: number) => {
       const pre = preloadRef.current;
@@ -133,10 +190,8 @@ export default function VideoPreview() {
     [assetUrl, timelineToSource, findClipAt],
   );
 
-  /* ── Guard: switch to next clip when current clip ends ────────────── */
   const switchToNextRef = useRef<() => void>(() => {});
 
-  /* ── Core timeupdate handler ──────────────────────────────────────── */
   const handleTimeUpdateInternal = useCallback(() => {
     if (!playingRef.current) return;
     if (isSwitchingRef.current) return;
@@ -157,9 +212,9 @@ export default function VideoPreview() {
     }
 
     setPlayhead(timelineTime);
-  }, [setPlayhead, sourceToTimeline]);
+    syncAudio(timelineTime);
+  }, [setPlayhead, sourceToTimeline, syncAudio]);
 
-  /* Build the switch-to-next function (depends on many refs, kept current) */
   switchToNextRef.current = useCallback(() => {
     if (isSwitchingRef.current) return;
     isSwitchingRef.current = true;
@@ -188,8 +243,8 @@ export default function VideoPreview() {
     }
 
     currentClipIdxRef.current = found.index;
+    syncAudio(found.clip.startTime);
 
-    /* Try seamless transition from preloaded element */
     const pre = preloadRef.current;
     if (pre && pre.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
       const nextSrc = assetUrl(found.clip.sourcePath);
@@ -213,71 +268,75 @@ export default function VideoPreview() {
     }
 
     preloadNext(found.index);
-  }, [setPlayhead, pointVideoAt, preloadNext, assetUrl, findClipAt]);
+  }, [setPlayhead, pointVideoAt, preloadNext, assetUrl, findClipAt, syncAudio]);
 
-  /* Wire the timeupdate ref */
   onTimeUpdateRef.current = handleTimeUpdateInternal;
   const onTimeUpdate = useCallback(() => onTimeUpdateRef.current(), []);
 
-  /* ── Clip change reaction ─────────────────────────────────────────── */
   useEffect(() => {
     setHasError(null);
-    if (clips.length === 0) return;
+    if (clips.length === 0 && audioClips.length === 0) return;
     if (playingRef.current) return;
 
-    const found = findClipAt(playheadTime);
-    if (found) {
-      currentClipIdxRef.current = found.index;
-      const vid = videoRef.current;
-      if (vid) pointVideoAt(vid, found.clip, playheadTime);
-    } else {
-      const gap = clips.find((c) => c.startTime >= playheadTime);
-      if (gap) {
-        const idx = clips.indexOf(gap);
-        currentClipIdxRef.current = idx;
+    if (clips.length > 0) {
+      const found = findClipAt(playheadTime);
+      if (found) {
+        currentClipIdxRef.current = found.index;
         const vid = videoRef.current;
-        if (vid) pointVideoAt(vid, gap, gap.startTime);
+        if (vid) pointVideoAt(vid, found.clip, playheadTime);
       } else {
-        currentClipIdxRef.current = -1;
+        const gap = clips.find((c) => c.startTime >= playheadTime);
+        if (gap) {
+          const idx = clips.indexOf(gap);
+          currentClipIdxRef.current = idx;
+          const vid = videoRef.current;
+          if (vid) pointVideoAt(vid, gap, gap.startTime);
+        } else {
+          currentClipIdxRef.current = -1;
+        }
       }
     }
+
+    syncAudio(playheadTime);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clipVersion]);
 
-  /* Sync display when playhead moves externally (scrub etc.) during pause */
   useEffect(() => {
     if (playingRef.current) return;
     const vid = videoRef.current;
     if (!vid) return;
-    const a = clipsRef.current;
-    if (a.length === 0) return;
 
-    const found = findClipAt(playheadTime);
-    if (found) {
-      if (currentClipIdxRef.current !== found.index) {
-        currentClipIdxRef.current = found.index;
-        pointVideoAt(vid, found.clip, playheadTime);
-      } else {
-        const c = found.clip;
-        const seek = timelineToSource(c, playheadTime);
-        if (Math.abs(vid.currentTime - seek) > 0.5 / fpsRef.current) {
-          vid.currentTime = Math.max(
-            c.sourceStart,
-            Math.min(seek, c.sourceEnd - 0.001),
-          );
+    const a = clipsRef.current;
+    if (a.length > 0) {
+      const found = findClipAt(playheadTime);
+      if (found) {
+        if (currentClipIdxRef.current !== found.index) {
+          currentClipIdxRef.current = found.index;
+          pointVideoAt(vid, found.clip, playheadTime);
+        } else {
+          const c = found.clip;
+          const seek = timelineToSource(c, playheadTime);
+          if (Math.abs(vid.currentTime - seek) > 0.5 / fpsRef.current) {
+            vid.currentTime = Math.max(
+              c.sourceStart,
+              Math.min(seek, c.sourceEnd - 0.001),
+            );
+          }
         }
       }
     }
+
+    syncAudio(playheadTime);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playheadTime]);
 
-  /* ── Play / pause toggle ──────────────────────────────────────────── */
   const togglePlay = useCallback(() => {
     isSwitchingRef.current = false;
     if (playingRef.current) {
       playingRef.current = false;
       setIsPlaying(false);
       videoRef.current?.pause();
+      audioRef.current?.pause();
       return;
     }
 
@@ -310,9 +369,10 @@ export default function VideoPreview() {
     currentClipIdxRef.current = found.index;
     preloadNext(found.index);
 
-    /* Signal playing immediately to prevent double-play race */
     playingRef.current = true;
     setIsPlaying(true);
+
+    syncAudio(t);
 
     pointVideoAt(vid, found.clip, t, () => {
       vid.play().catch(() => {
@@ -320,9 +380,8 @@ export default function VideoPreview() {
         setIsPlaying(false);
       });
     });
-  }, [setPlayhead, findClipAt, getMaxEnd, pointVideoAt, preloadNext]);
+  }, [setPlayhead, findClipAt, getMaxEnd, pointVideoAt, preloadNext, syncAudio]);
 
-  /* ── Seek ─────────────────────────────────────────────────────────── */
   const seek = useCallback(
     (time: number) => {
       isSwitchingRef.current = false;
@@ -352,11 +411,12 @@ export default function VideoPreview() {
           vid.pause();
         }
       }
+
+      syncAudio(time);
     },
-    [setPlayhead, findClipAt, pointVideoAt],
+    [setPlayhead, findClipAt, pointVideoAt, syncAudio],
   );
 
-  /* ── Frame step ───────────────────────────────────────────────────── */
   const stepFrame = useCallback(
     (dir: number) => {
       const step = dir / fpsRef.current;
@@ -365,24 +425,23 @@ export default function VideoPreview() {
     [seek],
   );
 
-  /* ── Keyboard toggle listener (used by ForgePage Space handler) ───── */
   useEffect(() => {
     const handler = () => togglePlay();
     window.addEventListener("forge-toggle-play", handler);
     return () => window.removeEventListener("forge-toggle-play", handler);
   }, [togglePlay]);
 
-  /* ── Cleanup ──────────────────────────────────────────────────────── */
   useEffect(() => {
     return () => {
       playingRef.current = false;
       const vid = videoRef.current;
       if (vid) vid.pause();
+      const aud = audioRef.current;
+      if (aud) aud.pause();
     };
   }, []);
 
-  /* ── Derived values for UI ────────────────────────────────────────── */
-  const hasVideo = clips.length > 0;
+  const hasVideo = clips.length > 0 || audioClips.length > 0;
   const totalDuration = clips.reduce(
     (m, c) => Math.max(m, c.startTime + c.duration),
     0,
@@ -395,12 +454,14 @@ export default function VideoPreview() {
     return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}.${ms}`;
   };
 
-  /* ── Render ───────────────────────────────────────────────────────── */
   return (
     <div className="forge-preview-inner">
       <div className="forge-preview-canvas">
         {hasVideo ? (
-          <div className="forge-preview-video-wrapper">
+          <div
+            className="forge-preview-video-wrapper"
+            style={{ aspectRatio: `${fmtW}/${fmtH}` }}
+          >
             <video
               ref={videoRef}
               muted
@@ -414,7 +475,6 @@ export default function VideoPreview() {
               onError={() => setHasError("Video error")}
               playsInline
             />
-            {/* Hidden preload element */}
             <video
               ref={preloadRef}
               muted
@@ -422,6 +482,15 @@ export default function VideoPreview() {
               playsInline
               style={{ display: "none" }}
             />
+            <audio
+              ref={audioRef}
+              preload="auto"
+              style={{ display: "none" }}
+            />
+            <div className="forge-preview-format-overlay" />
+            <div className="forge-preview-format-label">
+              {fmtW}×{fmtH}
+            </div>
           </div>
         ) : hasError ? (
           <div className="forge-preview-placeholder">

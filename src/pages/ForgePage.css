@@ -286,7 +286,7 @@
   width: 100%;
   max-width: 100%;
   max-height: 100%;
-  aspect-ratio: 16 / 9;
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -299,6 +299,24 @@
   height: 100%;
   display: block;
   object-fit: contain;
+}
+
+.forge-preview-format-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.forge-preview-format-label {
+  position: absolute;
+  bottom: 4px;
+  right: 6px;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.35);
+  letter-spacing: 0.05em;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
 }
 
 .forge-rendering-overlay {
