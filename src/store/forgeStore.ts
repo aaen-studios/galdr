@@ -239,7 +239,6 @@ export const useForgeStore = create<ForgeState>((set, get) => ({
   },
 
   moveClip: (clipId, newStartTime, trackKey) => {
-    get().pushUndo();
     const track = get().project[trackKey === "video" ? "videoTrack" : "audioTrack"];
     const clip = track.clips.find((c) => c.id === clipId);
     if (!clip) return;
@@ -254,7 +253,6 @@ export const useForgeStore = create<ForgeState>((set, get) => ({
   },
 
   trimClip: (clipId, sourceStart, sourceEnd, trackKey) => {
-    get().pushUndo();
     const track = get().project[trackKey === "video" ? "videoTrack" : "audioTrack"];
     const found = track.clips.find((c) => c.id === clipId);
     if (!found) return;

@@ -14,6 +14,7 @@ export default function Timeline() {
   const updateClip = useForgeStore((s) => s.updateClip);
   const selectClip = useForgeStore((s) => s.selectClip);
   const splitClipAtPlayhead = useForgeStore((s) => s.splitClipAtPlayhead);
+  const pushUndo = useForgeStore((s) => s.pushUndo);
   const snapEnabled = useForgeStore((s) => s.snapEnabled);
   const setSnapEnabled = useForgeStore((s) => s.setSnapEnabled);
   const undo = useForgeStore((s) => s.undo);
@@ -113,8 +114,11 @@ export default function Timeline() {
   );
 
   const handleMouseUp = useCallback(() => {
+    if (dragging && (dragging.type === "clip" || dragging.type === "trim-start" || dragging.type === "trim-end")) {
+      pushUndo();
+    }
     setDragging(null);
-  }, []);
+  }, [dragging, pushUndo]);
 
   const handleClipMouseDown = useCallback(
     (e: React.MouseEvent, clipId: string, track: "video" | "audio") => {

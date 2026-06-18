@@ -76,6 +76,9 @@ export default function ForgePage() {
       } else if (e.key === "z" && e.ctrlKey) {
         e.preventDefault();
         undo();
+      } else if (e.key === "y" && e.ctrlKey) {
+        e.preventDefault();
+        redo();
       } else if (e.key === "s" && e.ctrlKey) {
         e.preventDefault();
         saveProject();
