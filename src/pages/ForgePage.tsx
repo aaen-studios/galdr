@@ -2,6 +2,7 @@ import { useRef, useEffect, useCallback, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { save } from "@tauri-apps/plugin-dialog";
+import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import VideoPreview from "../components/forge/VideoPreview";
 import SourceBrowser from "../components/forge/SourceBrowser";
 import Timeline from "../components/forge/Timeline";
@@ -13,6 +14,11 @@ export default function ForgePage() {
   const project = useForgeStore((s) => s.project);
   const isExporting = useForgeStore((s) => s.isExporting);
   const exportProgress = useForgeStore((s) => s.exportProgress);
+  const exportResultPath = useForgeStore((s) => s.exportResultPath);
+  const exportError = useForgeStore((s) => s.exportError);
+  const isRendering = useForgeStore((s) => s.isRendering);
+  const renderProgress = useForgeStore((s) => s.renderProgress);
+  const renderResultPath = useForgeStore((s) => s.renderResultPath);
   const undo = useForgeStore((s) => s.undo);
   const redo = useForgeStore((s) => s.redo);
   const splitClipAtPlayhead = useForgeStore((s) => s.splitClipAtPlayhead);
@@ -24,6 +30,11 @@ export default function ForgePage() {
   const resetProject = useForgeStore((s) => s.resetProject);
   const setExporting = useForgeStore((s) => s.setExporting);
   const setExportProgress = useForgeStore((s) => s.setExportProgress);
+  const setExportResultPath = useForgeStore((s) => s.setExportResultPath);
+  const setExportError = useForgeStore((s) => s.setExportError);
+  const setRendering = useForgeStore((s) => s.setRendering);
+  const setRenderProgress = useForgeStore((s) => s.setRenderProgress);
+  const setRenderResultPath = useForgeStore((s) => s.setRenderResultPath);
   const updateClip = useForgeStore((s) => s.updateClip);
   const importMediaFiles = useForgeStore((s) => s.importMediaFiles);
   const addToLibrary = useForgeStore((s) => s.addToLibrary);
@@ -38,6 +49,7 @@ export default function ForgePage() {
   const [exportFormat, setExportFormat] = useState<"mp4" | "mkv">("mp4");
   const [exportQuality, setExportQuality] = useState<"high" | "medium" | "fast">("medium");
   const [exportResolution, setExportResolution] = useState<"source" | "1080p" | "720p">("source");
+  const [exportDest, setExportDest] = useState<string | null>(null);
 
   const selectedClip =
     project.videoTrack.clips.find((c) => c.selected) ||
@@ -236,7 +248,7 @@ export default function ForgePage() {
     window.addEventListener("pointerup", onUp);
   }, []);
 
-  const handleExport = useCallback(async () => {
+  const handleChooseDest = useCallback(async () => {
     try {
       const filters = exportFormat === "mp4"
         ? [{ name: "MP4 Video", extensions: ["mp4"] }]
@@ -246,25 +258,36 @@ export default function ForgePage() {
         defaultPath: `timeline_export.${exportFormat}`,
       });
       if (!path) return;
+      setExportDest(path);
+      setExportError(null);
+    } catch {
+      // dialog dismissed
+    }
+  }, [exportFormat, setExportError]);
 
-      setShowExportOptions(false);
-      setExporting(true);
-      setExportProgress(0);
-      const unlisten = await listen<{ progress: number }>("forge-export-progress", (e) => {
-        setExportProgress(e.payload.progress);
-      });
+  const handleStartExport = useCallback(async () => {
+    if (!exportDest) return;
+    setShowExportOptions(false);
+    setExporting(true);
+    setExportProgress(0);
+    setExportResultPath(null);
+    setExportError(null);
+    const unlisten = await listen<{ progress: number }>("forge-export-progress", (e) => {
+      setExportProgress(e.payload.progress);
+    });
 
-      await invoke("export_timeline", {
+    try {
+      const result = await invoke<string>("export_timeline", {
         project: {
           fps: project.fps,
           width: project.width,
           height: project.height,
-          video_track: project.videoTrack,
-          audio_track: project.audioTrack,
-          zoom_level: project.zoomLevel,
+          videoTrack: project.videoTrack,
+          audioTrack: project.audioTrack,
+          zoomLevel: project.zoomLevel,
         },
         options: {
-          output_path: path,
+          output_path: exportDest,
           format: exportFormat,
           quality: exportQuality,
           resolution: exportResolution,
@@ -274,11 +297,60 @@ export default function ForgePage() {
       unlisten();
       setExporting(false);
       setExportProgress(1);
-    } catch (err) {
+      setExportDest(null);
+      setExportResultPath(result);
+    } catch (err: any) {
       console.error("Export failed:", err);
+      unlisten();
       setExporting(false);
+      setExportError(err?.toString() || "Export failed");
     }
-  }, [project, exportFormat, exportQuality, exportResolution, setExporting, setExportProgress]);
+  }, [exportDest, project, exportFormat, exportQuality, exportResolution, setExporting, setExportProgress, setExportResultPath, setExportError]);
+
+  const handleCancelExport = useCallback(async () => {
+    try {
+      await invoke("cancel_forge_export");
+    } catch {
+      // ignore
+    }
+    setExporting(false);
+    setExportError("Export cancelled");
+    setExportDest(null);
+  }, [setExporting, setExportError]);
+
+  const handleRenderPreview = useCallback(async () => {
+    setShowExportOptions(false);
+    setRendering(true);
+    setRenderProgress(0);
+    setRenderResultPath(null);
+    try {
+      const unlisten = await listen<{ progress: number }>("forge-render-progress", (e) => {
+        setRenderProgress(e.payload.progress);
+      });
+
+      const result = await invoke<string>("pre_render_timeline", {
+        project: {
+          fps: project.fps,
+          width: project.width,
+          height: project.height,
+          videoTrack: project.videoTrack,
+          audioTrack: project.audioTrack,
+          zoomLevel: project.zoomLevel,
+        },
+      });
+
+      unlisten();
+      setRendering(false);
+      setRenderProgress(1);
+      setRenderResultPath(result);
+    } catch (err: any) {
+      console.error("Render failed:", err);
+      setRendering(false);
+      setRenderResultPath(null);
+    }
+  }, [project, setRendering, setRenderProgress, setRenderResultPath]);
+
+  const isBusy = isExporting || isRendering;
 
   return (
     <div className="forge-page">
@@ -324,15 +396,20 @@ export default function ForgePage() {
           <button
             className="forge-btn forge-btn-cast"
             onClick={() => setShowExportOptions(true)}
-            disabled={isExporting || project.videoTrack.clips.length === 0}
+            disabled={isBusy || project.videoTrack.clips.length === 0}
           >
-            {isExporting ? `exporting ${Math.round(exportProgress * 100)}%` : "ᚲ export"}
+            {isExporting
+              ? `exporting ${Math.round(exportProgress * 100)}%`
+              : isRendering
+                ? `rendering ${Math.round(renderProgress * 100)}%`
+                : "ᚲ export"}
           </button>
         </div>
         <Timeline />
       </div>
 
-      {showExportOptions && !isExporting && (
+      {/* ── Export Options Modal ── */}
+      {showExportOptions && !isBusy && (
         <div className="forge-export-overlay">
           <div className="forge-export-options">
             <span className="forge-export-rune">ᚲ</span>
@@ -364,20 +441,37 @@ export default function ForgePage() {
               </select>
             </div>
 
+            {exportDest && (
+              <div className="forge-export-field">
+                <label>output path</label>
+                <span className="forge-export-chosen-path" title={exportDest}>{exportDest}</span>
+              </div>
+            )}
+
             <div className="forge-export-actions">
-              <button className="forge-btn" onClick={() => setShowExportOptions(false)}>cancel</button>
-              <button className="forge-btn forge-btn-cast" onClick={handleExport}>
-                choose destination...
+              <button className="forge-btn" onClick={() => { setShowExportOptions(false); setExportDest(null); }}>cancel</button>
+              <button className="forge-btn" onClick={handleRenderPreview} title="Fast preview render to temp file">
+                ᚲ render preview
               </button>
+              {exportDest ? (
+                <button className="forge-btn forge-btn-cast" onClick={handleStartExport}>
+                  ᚲ render
+                </button>
+              ) : (
+                <button className="forge-btn forge-btn-cast" onClick={handleChooseDest}>
+                  ᚲ choose destination...
+                </button>
+              )}
             </div>
           </div>
         </div>
       )}
 
+      {/* ── Export Progress Modal ── */}
       {isExporting && (
         <div className="forge-export-overlay">
           <div className="forge-export-modal">
-            <span className="forge-export-rune">ᚲ</span>
+            <span className="forge-export-rune forge-export-rune-spin">ᚲ</span>
             <span className="forge-export-title">exporting timeline...</span>
             <div className="progress-bar-container">
               <div
@@ -386,6 +480,78 @@ export default function ForgePage() {
               />
             </div>
             <span className="progress-text">{Math.round(exportProgress * 100)}%</span>
+            <button className="forge-btn forge-export-cancel-btn" onClick={handleCancelExport}>
+              cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Render Progress Modal ── */}
+      {isRendering && (
+        <div className="forge-export-overlay">
+          <div className="forge-export-modal">
+            <span className="forge-export-rune forge-export-rune-spin">ᚲ</span>
+            <span className="forge-export-title">rendering preview...</span>
+            <div className="progress-bar-container">
+              <div
+                className="progress-bar"
+                style={{ width: `${Math.round(renderProgress * 100)}%` }}
+              />
+            </div>
+            <span className="progress-text">{Math.round(renderProgress * 100)}%</span>
+          </div>
+        </div>
+      )}
+
+      {/* ── Export Complete Modal ── */}
+      {exportResultPath && !isExporting && (
+        <div className="forge-export-overlay">
+          <div className="forge-export-modal">
+            <span className="forge-export-rune">✓</span>
+            <span className="forge-export-title">export complete</span>
+            <span className="forge-export-path" title={exportResultPath}>
+              {exportResultPath}
+            </span>
+            <div className="forge-export-actions">
+              <button className="forge-btn" onClick={() => setExportResultPath(null)}>close</button>
+              <button className="forge-btn forge-btn-cast" onClick={() => revealItemInDir(exportResultPath)}>
+                open in explorer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Export Error Modal ── */}
+      {exportError && !isExporting && (
+        <div className="forge-export-overlay">
+          <div className="forge-export-modal">
+            <span className="forge-export-rune forge-export-rune-error">✕</span>
+            <span className="forge-export-title">export failed</span>
+            <span className="forge-export-error-text">{exportError}</span>
+            <div className="forge-export-actions">
+              <button className="forge-btn forge-btn-cast" onClick={() => setExportError(null)}>close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Render Complete Modal ── */}
+      {renderResultPath && !isRendering && (
+        <div className="forge-export-overlay">
+          <div className="forge-export-modal">
+            <span className="forge-export-rune">✓</span>
+            <span className="forge-export-title">preview ready</span>
+            <span className="forge-export-path" title={renderResultPath}>
+              {renderResultPath}
+            </span>
+            <div className="forge-export-actions">
+              <button className="forge-btn" onClick={() => setRenderResultPath(null)}>close</button>
+              <button className="forge-btn forge-btn-cast" onClick={() => revealItemInDir(renderResultPath)}>
+                open in explorer
+              </button>
+            </div>
           </div>
         </div>
       )}

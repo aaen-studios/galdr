@@ -3,6 +3,7 @@ import { useForgeStore } from "../../store/forgeStore";
 
 const PADDING = 16;
 const HANDLE_WIDTH = 6;
+const TRAILING_SPACE = 400;
 
 export default function Timeline() {
   const project = useForgeStore((s) => s.project);
@@ -30,11 +31,12 @@ export default function Timeline() {
   } | null>(null);
 
   const zoom = project.zoomLevel;
-  const totalDur = Math.max(
-    10,
+  const clipsEnd = Math.max(
+    0,
     ...project.videoTrack.clips.map((c) => c.startTime + c.duration),
     ...project.audioTrack.clips.map((c) => c.startTime + c.duration)
   );
+  const totalDur = Math.max(10, clipsEnd + TRAILING_SPACE / zoom);
 
   // Labels are now in a fixed column outside the scrollable area.
   // timeToX starts at 0 from the content edge (after the fixed label column + padding).

@@ -928,6 +928,56 @@
   margin-top: 0;
 }
 
+.forge-export-rune-spin {
+  animation: forge-spin 1.5s linear infinite;
+}
+
+@keyframes forge-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.forge-export-rune-error {
+  color: #ff6b6b;
+}
+
+.forge-export-path {
+  font-size: 11px;
+  color: var(--fg-dim);
+  letter-spacing: 0.03em;
+  max-width: 380px;
+  word-break: break-all;
+  text-align: center;
+  padding: 6px 10px;
+  background: var(--bg-dim);
+  border: 1px solid var(--fg-faint);
+}
+
+.forge-export-error-text {
+  font-size: 12px;
+  color: #ff6b6b;
+  max-width: 360px;
+  word-break: break-word;
+  text-align: center;
+  line-height: 1.4;
+}
+
+.forge-export-cancel-btn {
+  margin-top: 4px;
+}
+
+.forge-export-chosen-path {
+  font-size: 10px;
+  color: var(--fg-dim);
+  letter-spacing: 0.03em;
+  word-break: break-all;
+  padding: 4px 6px;
+  background: var(--bg-dim);
+  border: 1px solid var(--fg-faint);
+  max-height: 40px;
+  overflow-y: auto;
+}
+
 /* ── Drag Ghost ── */
 .forge-drag-ghost {
   position: fixed;

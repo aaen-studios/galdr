@@ -107,6 +107,11 @@ interface ForgeState {
   redoStack: ForgeProjectData[];
   isExporting: boolean;
   exportProgress: number;
+  exportResultPath: string | null;
+  exportError: string | null;
+  isRendering: boolean;
+  renderProgress: number;
+  renderResultPath: string | null;
   snapEnabled: boolean;
   clipVersion: number;
   dragPayload: { id: string; path: string; duration: number; name: string } | null;
@@ -140,6 +145,11 @@ interface ForgeState {
 
   setExporting: (v: boolean) => void;
   setExportProgress: (v: number) => void;
+  setExportResultPath: (v: string | null) => void;
+  setExportError: (v: string | null) => void;
+  setRendering: (v: boolean) => void;
+  setRenderProgress: (v: number) => void;
+  setRenderResultPath: (v: string | null) => void;
   setSnapEnabled: (v: boolean) => void;
   setDragPayload: (payload: { id: string; path: string; duration: number; name: string } | null) => void;
 }
@@ -151,6 +161,11 @@ export const useForgeStore = create<ForgeState>((set, get) => ({
   redoStack: [],
   isExporting: false,
   exportProgress: 0,
+  exportResultPath: null,
+  exportError: null,
+  isRendering: false,
+  renderProgress: 0,
+  renderResultPath: null,
   snapEnabled: true,
   clipVersion: 0,
   dragPayload: null,
@@ -242,14 +257,21 @@ export const useForgeStore = create<ForgeState>((set, get) => ({
     get().pushUndo();
     const { project } = get();
     const ph = project.playheadTime;
+
+    const hasSelectedVideo = project.videoTrack.clips.some((c) => c.selected);
+    const hasSelectedAudio = project.audioTrack.clips.some((c) => c.selected);
+    const onlyTrack = hasSelectedVideo || hasSelectedAudio;
+
     let vClips = project.videoTrack.clips;
     let aClips = project.audioTrack.clips;
     let modified = false;
 
-    for (const [, clips, setter] of [
+    for (const [trackKey, clips, setter] of [
       ["videoTrack", vClips, (arr: ForgeClip[]) => { vClips = arr; }] as const,
       ["audioTrack", aClips, (arr: ForgeClip[]) => { aClips = arr; }] as const,
     ]) {
+      if (onlyTrack && !(trackKey === "videoTrack" ? hasSelectedVideo : hasSelectedAudio)) continue;
+
       const clip = clips.find(
         (c: ForgeClip) => ph >= c.startTime && ph < c.startTime + c.duration
       );
@@ -475,12 +497,22 @@ export const useForgeStore = create<ForgeState>((set, get) => ({
       redoStack: [],
       isExporting: false,
       exportProgress: 0,
+      exportResultPath: null,
+      exportError: null,
+      isRendering: false,
+      renderProgress: 0,
+      renderResultPath: null,
       clipVersion: get().clipVersion + 1,
     });
   },
 
   setExporting: (v) => set({ isExporting: v }),
   setExportProgress: (v) => set({ exportProgress: v }),
+  setExportResultPath: (v) => set({ exportResultPath: v }),
+  setExportError: (v) => set({ exportError: v }),
+  setRendering: (v) => set({ isRendering: v }),
+  setRenderProgress: (v) => set({ renderProgress: v }),
+  setRenderResultPath: (v) => set({ renderResultPath: v }),
   setSnapEnabled: (v) => set({ snapEnabled: v }),
   setDragPayload: (payload) => set({ dragPayload: payload }),
 }));
