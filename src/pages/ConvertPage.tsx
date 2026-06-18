@@ -10,6 +10,7 @@ import ScrambleText from "../components/ScrambleText";
 import { FORMAT_OPTIONS } from "../options";
 import type { FormatOption } from "../options";
 import CommandPreview from "../components/CommandPreview";
+import { useContextMenu } from "../components/ContextMenu";
 
 const IMAGE_CODECS = ["png", "jpeg", "gif", "bmp", "tiff", "webp"];
 
@@ -51,6 +52,7 @@ export default function ConvertPage() {
   const [isDragOver, setIsDragOver] = useState(false);
   const [mediaType, setMediaType] = useState<MediaType>(null);
   const [btnHover, setBtnHover] = useState(false);
+  const { show } = useContextMenu();
 
   useEffect(() => {
     invoke<boolean>("detect_ffmpeg").then(setFfmpegFound);
@@ -191,6 +193,69 @@ export default function ConvertPage() {
     }
   }, [conversionParams, outputDir, mediaType, setOutputDir, setIsConverting, setError, setLastOutputPath, setConversionProgress]);
 
+  const handleDropZoneContext = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (conversionParams.input_path) {
+      show(e, [
+        { label: "browse (replace)", rune: "ᛏ", action: pickFile },
+        { label: "copy path", rune: "ᚷ", action: () => navigator.clipboard.writeText(conversionParams.input_path || "") },
+        { label: "", rune: "", action: () => {}, divider: true },
+        { label: "clear file", rune: "ᚨ", action: () => {
+          setMediaInfo(null);
+          setConversionParams({ input_path: "" });
+        }},
+        { label: "reveal in folder", rune: "ᚠ", action: () => conversionParams.input_path && invoke("reveal_in_folder", { path: conversionParams.input_path }).catch(() => {}) },
+      ]);
+    } else {
+      show(e, [
+        { label: "browse files", rune: "ᚨ", action: pickFile },
+        { label: "paste path", rune: "ᚷ", action: async () => {
+          const text = await navigator.clipboard.readText();
+          if (text) loadFile(text);
+        }},
+      ]);
+    }
+  }, [show, conversionParams.input_path, pickFile, loadFile, setMediaInfo, setConversionParams]);
+
+  const handleMediaInfoContext = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!mediaInfo || !conversionParams.input_path) return;
+    const streamInfo = mediaInfo.streams.map((s) => `[${s.kind}] ${s.codec}${s.width ? ` ${s.width}x${s.height}` : ""}`).join("\n");
+    show(e, [
+      { label: "copy file path", rune: "ᛏ", action: () => navigator.clipboard.writeText(conversionParams.input_path || "") },
+      { label: "copy stream info", rune: "ᚷ", action: () => navigator.clipboard.writeText(streamInfo) },
+      { label: "copy container info", rune: "ᚨ", action: () => navigator.clipboard.writeText(`${mediaInfo.container} | ${mediaInfo.size}B | ${mediaInfo.duration}s`) },
+    ]);
+  }, [show, mediaInfo, conversionParams.input_path]);
+
+  const handleLogContext = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (log.length === 0) return;
+    show(e, [
+      { label: "copy all", rune: "ᚷ", action: () => navigator.clipboard.writeText(log.join("\n")) },
+      { label: "clear", rune: "ᚨ", action: () => setLog([]) },
+    ]);
+  }, [show, log]);
+
+  const handleResultContext = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!lastOutputPath) return;
+    show(e, [
+      { label: "show in folder", rune: "ᛏ", action: () => revealItemInDir(lastOutputPath) },
+      { label: "copy path", rune: "ᚷ", action: () => navigator.clipboard.writeText(lastOutputPath) },
+    ]);
+  }, [show, lastOutputPath]);
+
+  const handleCommandContext = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    show(e, [
+      { label: "copy command", rune: "ᚷ", action: () => {
+        const previewEl = document.querySelector(".command-preview-code");
+        if (previewEl) navigator.clipboard.writeText(previewEl.textContent || "");
+      }},
+    ]);
+  }, [show]);
+
   return (
     <div className="page">
       {!ffmpegFound && (
@@ -200,6 +265,7 @@ export default function ConvertPage() {
       <div
         className={`drop-zone${isDragOver ? " drag-over" : ""}${conversionParams.input_path ? " has-file" : ""}`}
         onClick={pickFile}
+        onContextMenu={handleDropZoneContext}
       >
         {conversionParams.input_path ? (
           <span className="drop-file">{conversionParams.input_path}</span>
@@ -219,6 +285,7 @@ export default function ConvertPage() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
+            onContextMenu={handleMediaInfoContext}
           >
           <div className="primary">
             {mediaInfo.container} | {fmtDur(mediaInfo.duration)} | {fmtSize(mediaInfo.size)}
@@ -285,13 +352,13 @@ export default function ConvertPage() {
       )}
 
       {log.length > 0 && (
-        <div className="log-panel">
+        <div className="log-panel" onContextMenu={handleLogContext}>
           {log.map((l, i) => <div key={i} className="log-line">{l}</div>)}
         </div>
       )}
 
       {lastOutputPath && (
-        <div className="result-bar">
+        <div className="result-bar" onContextMenu={handleResultContext}>
           <span className="result-path">{lastOutputPath}</span>
           <button className="btn" onClick={() => revealItemInDir(lastOutputPath)}>
             show in folder
@@ -300,7 +367,9 @@ export default function ConvertPage() {
       )}
 
       {conversionParams.input_path && (
-        <CommandPreview params={conversionParams} outputDir={outputDir} mediaType={mediaType} />
+        <div onContextMenu={handleCommandContext}>
+          <CommandPreview params={conversionParams} outputDir={outputDir} mediaType={mediaType} />
+        </div>
       )}
     </div>
   );

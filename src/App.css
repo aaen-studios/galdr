@@ -2009,3 +2009,70 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
+
+/* ── Context Menu ── */
+.ctx-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1999;
+}
+
+.ctx-menu {
+  position: fixed;
+  z-index: 2000;
+  background: var(--bg);
+  border: 1px solid var(--fg);
+  padding: 4px 0;
+  min-width: 180px;
+  pointer-events: auto;
+}
+
+.ctx-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 14px;
+  cursor: pointer;
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fg-dim);
+  user-select: none;
+  transition: none;
+}
+
+.ctx-menu-item:hover,
+.ctx-menu-item.highlighted {
+  background: var(--bg-dim);
+  color: var(--fg);
+}
+
+.ctx-menu-item.disabled {
+  opacity: 0.3;
+  cursor: default;
+  pointer-events: none;
+}
+
+.ctx-menu-rune {
+  font-size: 14px;
+  color: var(--fg-dim);
+  width: 18px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.ctx-menu-item:hover .ctx-menu-rune,
+.ctx-menu-item.highlighted .ctx-menu-rune {
+  color: var(--fg);
+}
+
+.ctx-menu-label {
+  flex: 1;
+  min-width: 0;
+}
+
+.ctx-menu-divider {
+  height: 1px;
+  background: var(--fg-faint);
+  margin: 4px 8px;
+}

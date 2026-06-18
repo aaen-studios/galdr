@@ -5,6 +5,7 @@ import { getVersion } from "@tauri-apps/api/app";
 import { useGaldrStore } from "../store";
 import Dropdown from "../components/Dropdown";
 import { TRANSITION_OPTIONS } from "../transitions";
+import { useContextMenu } from "../components/ContextMenu";
 
 const SUBFOLDERS = ["video", "audio", "image"];
 
@@ -22,6 +23,7 @@ export default function SettingsPage({ onNavigate }: Props) {
     discordEnabled, setDiscordEnabled,
   } = useGaldrStore();
   const [version, setVersion] = useState("");
+  const { show } = useContextMenu();
 
   useEffect(() => {
     getVersion().then(setVersion).catch(() => setVersion("0.1.0"));
@@ -38,11 +40,42 @@ export default function SettingsPage({ onNavigate }: Props) {
     if (sel) setOutputDir(sel as string);
   };
 
+  const handleOutputDirContext = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    show(e, [
+      { label: "browse", rune: "ᚨ", action: pickFolder },
+      { label: "copy path", rune: "ᚷ", action: () => navigator.clipboard.writeText(outputDir) },
+      ...(outputDir ? [{ label: "clear", rune: "ᛏ", action: () => setOutputDir("") }] : []),
+    ]);
+  }, [show, outputDir, pickFolder, setOutputDir]);
+
+  const handleUpdateContext = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    show(e, [
+      { label: "check for updates", rune: "ᚠ", action: () => setUpdateDismissed(false) },
+    ]);
+  }, [show, setUpdateDismissed]);
+
+  const handleTransitionContext = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    show(e, [
+      { label: "test transition", rune: "ᛟ", action: triggerTransitionTest },
+      { label: "reset to default", rune: "ᛏ", action: () => setTransitionStyle("none") },
+    ]);
+  }, [show, triggerTransitionTest, setTransitionStyle]);
+
+  const handleDiscordContext = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    show(e, [
+      { label: discordEnabled ? "turn off" : "turn on", rune: "ᚷ", action: toggleDiscord },
+    ]);
+  }, [show, discordEnabled, toggleDiscord]);
+
   return (
     <div className="page">
       <h2>ᚲ settings</h2>
 
-      <div className="card">
+      <div className="card" onContextMenu={handleOutputDirContext}>
         <label className="label">base output folder</label>
         <div className="row">
           <input className="input" value={outputDir} placeholder="not set — will prompt on convert" readOnly />
@@ -81,7 +114,7 @@ export default function SettingsPage({ onNavigate }: Props) {
         </p>
       </div>
 
-      <div className="card">
+      <div className="card" onContextMenu={handleUpdateContext}>
         <label className="label">updates</label>
         <div className="row">
           <p className="settings-hint" style={{ flex: 1, margin: 0 }}>
@@ -93,7 +126,7 @@ export default function SettingsPage({ onNavigate }: Props) {
         </div>
       </div>
 
-      <div className="card">
+      <div className="card" onContextMenu={handleTransitionContext}>
         <label className="label">page transition</label>
         <div className="row">
           <div style={{ flex: 1 }}>
@@ -130,7 +163,7 @@ export default function SettingsPage({ onNavigate }: Props) {
           </div>
         </div>
       )}
-      <div className="card">
+      <div className="card" onContextMenu={handleDiscordContext}>
         <label className="label">Discord Rich Presence</label>
         <div className="row">
           <p className="settings-hint" style={{ flex: 1, margin: 0 }}>

@@ -1,5 +1,6 @@
 import { useRef, useCallback, useState } from "react";
 import { useForgeStore } from "../../store/forgeStore";
+import { useContextMenu } from "../ContextMenu";
 
 const PADDING = 16;
 const HANDLE_WIDTH = 6;
@@ -13,12 +14,17 @@ export default function Timeline() {
   const trimClip = useForgeStore((s) => s.trimClip);
   const updateClip = useForgeStore((s) => s.updateClip);
   const selectClip = useForgeStore((s) => s.selectClip);
+  const deleteClip = useForgeStore((s) => s.deleteClip);
+  const rippleDeleteClip = useForgeStore((s) => s.rippleDeleteClip);
   const splitClipAtPlayhead = useForgeStore((s) => s.splitClipAtPlayhead);
   const pushUndo = useForgeStore((s) => s.pushUndo);
   const snapEnabled = useForgeStore((s) => s.snapEnabled);
   const setSnapEnabled = useForgeStore((s) => s.setSnapEnabled);
   const undo = useForgeStore((s) => s.undo);
   const redo = useForgeStore((s) => s.redo);
+  const addMarker = useForgeStore((s) => s.addMarker);
+  const removeMarker = useForgeStore((s) => s.removeMarker);
+  const { show } = useContextMenu();
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const rulerRef = useRef<HTMLDivElement>(null);
@@ -207,6 +213,7 @@ export default function Timeline() {
           className={`forge-clip${clip.selected ? " selected" : ""}`}
           style={{ left: x, width: w }}
           onMouseDown={(e) => handleClipMouseDown(e, clip.id, track)}
+          onContextMenu={(e) => handleClipContext(e, clip.id, track)}
         >
           <div
             className="forge-clip-handle left"
@@ -251,6 +258,58 @@ export default function Timeline() {
 
   const trackH = (h: number) => `${h}px`;
 
+  const handleClipContext = useCallback((e: React.MouseEvent, clipId: string, track: "video" | "audio") => {
+    e.stopPropagation();
+    selectClip(clipId, track);
+    const ph = project.playheadTime;
+    const clip = (track === "video" ? project.videoTrack : project.audioTrack).clips.find((c) => c.id === clipId);
+    show(e, [
+      { label: "split", rune: "✂", action: () => splitClipAtPlayhead() },
+      { label: "", rune: "", action: () => {}, divider: true },
+      { label: "set in (I)", rune: "ᛏ", action: () => {
+        if (!clip) return;
+        const clipOffset = ph - clip.startTime;
+        const sourceT = clip.sourceStart + clipOffset * clip.speed;
+        if (sourceT > clip.sourceStart && sourceT < clip.sourceEnd) {
+          updateClip(clipId, { sourceStart: sourceT }, track);
+        }
+      }},
+      { label: "set out (O)", rune: "ᚷ", action: () => {
+        if (!clip) return;
+        const clipOffset = ph - clip.startTime;
+        const sourceT = clip.sourceStart + clipOffset * clip.speed;
+        if (sourceT > clip.sourceStart && sourceT < clip.sourceEnd) {
+          updateClip(clipId, { sourceEnd: sourceT }, track);
+        }
+      }},
+      { label: "", rune: "", action: () => {}, divider: true },
+      { label: "delete", rune: "ᚨ", action: () => deleteClip(clipId, track) },
+      { label: "ripple delete", rune: "ᚷ", action: () => rippleDeleteClip(clipId, track) },
+      { label: "reset speed", rune: "ᛏ", action: () => updateClip(clipId, { speed: 1 }, track) },
+    ]);
+  }, [show, project, selectClip, splitClipAtPlayhead, updateClip, deleteClip, rippleDeleteClip]);
+
+  const handleTrackContext = useCallback((e: React.MouseEvent, track: "video" | "audio") => {
+    e.stopPropagation();
+    show(e, [
+      { label: "clear all clips", rune: "ᚷ", action: () => {
+        const clips = track === "video" ? project.videoTrack.clips : project.audioTrack.clips;
+        clips.forEach((c) => deleteClip(c.id, track));
+      }},
+      { label: "add marker here", rune: "ᛏ", action: () => addMarker(project.playheadTime, "") },
+    ]);
+  }, [show, project, deleteClip, addMarker]);
+
+  const handleRulerContext = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    show(e, [
+      { label: "add marker here", rune: "ᛏ", action: () => addMarker(project.playheadTime, "") },
+      ...(project.markers.length > 0 ? [
+        { label: "remove all markers", rune: "ᚨ", action: () => project.markers.forEach((m) => removeMarker(m.time)) },
+      ] : []),
+    ]);
+  }, [show, project, addMarker, removeMarker]);
+
   return (
     <div
       className="forge-timeline"
@@ -294,7 +353,7 @@ export default function Timeline() {
 
         <div className="forge-timeline-body" ref={scrollRef}>
           <div className="forge-timeline-inner" style={{ width: innerWidth }}>
-            <div className="forge-ruler" ref={rulerRef} onMouseDown={handleRulerMouseDown}>
+            <div className="forge-ruler" ref={rulerRef} onMouseDown={handleRulerMouseDown} onContextMenu={handleRulerContext}>
               {renderRuler()}
               {renderMarkers()}
               {renderPlayhead()}
@@ -304,6 +363,7 @@ export default function Timeline() {
               className="forge-track"
               data-track="video"
               style={{ height: trackH(project.videoTrack.height) }}
+              onContextMenu={(e) => handleTrackContext(e, "video")}
             >
               <div className="forge-track-clips">
                 {renderClips("video")}
@@ -314,6 +374,7 @@ export default function Timeline() {
               className="forge-track audio"
               data-track="audio"
               style={{ height: trackH(project.audioTrack.height) }}
+              onContextMenu={(e) => handleTrackContext(e, "audio")}
             >
               <div className="forge-track-clips">
                 {renderClips("audio")}

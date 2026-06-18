@@ -1,6 +1,7 @@
 import { useRef, useEffect, useState, useCallback } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { useForgeStore } from "../../store/forgeStore";
+import { useContextMenu } from "../ContextMenu";
 import type { ForgeClip } from "../../types";
 
 export default function VideoPreview() {
@@ -23,6 +24,7 @@ export default function VideoPreview() {
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [hasError, setHasError] = useState<string | null>(null);
+  const { show } = useContextMenu();
 
   const project = useForgeStore((s) => s.project);
   const clipVersion = useForgeStore((s) => s.clipVersion);
@@ -507,6 +509,15 @@ export default function VideoPreview() {
     0,
   );
 
+  const handlePreviewContext = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    show(e, [
+      { label: "toggle play", rune: "ᛏ", action: togglePlay },
+      { label: "step forward", rune: "ᚷ", action: () => stepFrame(1) },
+      { label: "step back", rune: "ᚨ", action: () => stepFrame(-1) },
+    ]);
+  }, [show, togglePlay, stepFrame]);
+
   const formatTime = (t: number) => {
     const m = Math.floor(t / 60);
     const s = Math.floor(t % 60);
@@ -515,7 +526,7 @@ export default function VideoPreview() {
   };
 
   return (
-    <div className="forge-preview-inner">
+    <div className="forge-preview-inner" onContextMenu={handlePreviewContext}>
       <div className="forge-preview-canvas">
         {hasVideo ? (
           <div

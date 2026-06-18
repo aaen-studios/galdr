@@ -1,9 +1,15 @@
+import { useCallback } from "react";
 import { useForgeStore, beginDrag } from "../../store/forgeStore";
+import { useContextMenu } from "../ContextMenu";
+import { invoke } from "@tauri-apps/api/core";
 
 export default function SourceBrowser() {
   const mediaLibrary = useForgeStore((s) => s.mediaLibrary);
   const importMediaFiles = useForgeStore((s) => s.importMediaFiles);
   const removeFromLibrary = useForgeStore((s) => s.removeFromLibrary);
+  const addClipToVideo = useForgeStore((s) => s.addClipToVideo);
+  const addClipToAudio = useForgeStore((s) => s.addClipToAudio);
+  const { show } = useContextMenu();
 
   const formatDur = (s: number) => {
     const m = Math.floor(s / 60);
@@ -15,6 +21,29 @@ export default function SourceBrowser() {
     e.preventDefault();
     beginDrag({ id: item.id, path: item.path, duration: item.duration, name: item.name });
   };
+
+  const handleItemContext = useCallback((e: React.MouseEvent, item: typeof mediaLibrary[0]) => {
+    e.stopPropagation();
+    const baseClip = {
+      id: crypto.randomUUID(),
+      name: item.name,
+      sourcePath: item.path,
+      startTime: 0,
+      duration: item.duration,
+      sourceStart: 0,
+      sourceEnd: item.duration,
+      speed: 1,
+      selected: false,
+    };
+    show(e, [
+      { label: "add to V1", rune: "ᛏ", action: () => addClipToVideo({ ...baseClip, id: crypto.randomUUID() }) },
+      { label: "add to A1", rune: "ᚷ", action: () => addClipToAudio({ ...baseClip, id: crypto.randomUUID() }) },
+      { label: "", rune: "", action: () => {}, divider: true },
+      { label: "remove", rune: "ᚨ", action: () => removeFromLibrary(item.id) },
+      { label: "copy path", rune: "ᛏ", action: () => navigator.clipboard.writeText(item.path) },
+      { label: "reveal in folder", rune: "ᚠ", action: () => invoke("reveal_in_folder", { path: item.path }).catch(() => {}) },
+    ]);
+  }, [show, addClipToVideo, addClipToAudio, removeFromLibrary]);
 
   return (
     <div className="forge-source">
@@ -36,6 +65,7 @@ export default function SourceBrowser() {
             key={item.id}
             className="forge-source-item"
             onPointerDown={(e) => handlePointerDown(e, item)}
+            onContextMenu={(e) => handleItemContext(e, item)}
           >
             <div className="forge-source-item-info">
               <span className="forge-source-item-name">{item.name}</span>

@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { AnimatePresence, motion } from "framer-motion";
 import ScrambleText from "../components/ScrambleText";
 import RuneTagEditor from "../components/RuneTagEditor";
+import { useContextMenu } from "../components/ContextMenu";
 import type { RuneTag } from "../types";
 
 function paramsSummary(p: RuneTag["params"]): string {
@@ -20,6 +21,7 @@ export default function RunesPage() {
   const [editing, setEditing] = useState<RuneTag | undefined>(undefined);
   const [creating, setCreating] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const { show } = useContextMenu();
 
   const loadTags = useCallback(async () => {
     try {
@@ -56,6 +58,27 @@ export default function RunesPage() {
     setDeleting(null);
   };
 
+  const handleCardContext = useCallback((e: React.MouseEvent, tag: RuneTag) => {
+    e.stopPropagation();
+    show(e, [
+      { label: "edit", rune: "ᛏ", action: () => setEditing(tag) },
+      { label: "duplicate", rune: "ᚷ", action: async () => {
+        const dup: RuneTag = { ...tag, id: crypto.randomUUID(), name: `${tag.name} (copy)` };
+        await invoke("save_rune_tag", { tag: dup });
+        await loadTags();
+      }},
+      { label: "", rune: "", action: () => {}, divider: true },
+      { label: "delete", rune: "ᚨ", action: () => handleDelete(tag.id) },
+    ]);
+  }, [show, loadTags]);
+
+  const handleEmptyContext = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    show(e, [
+      { label: "new preset", rune: "ᚨ", action: () => setCreating(true) },
+    ]);
+  }, [show]);
+
   return (
     <div className="page runes-page">
       <ScrambleText as="h1" className="page-heading" text="ᚠ rune tags" hover load />
@@ -66,6 +89,12 @@ export default function RunesPage() {
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           onClick={() => setCreating(true)}
+          onContextMenu={(e) => {
+            e.stopPropagation();
+            show(e, [
+              { label: "new preset", rune: "ᚨ", action: () => setCreating(true) },
+            ]);
+          }}
         >
           <span className="rune-card-rune new">+</span>
           <span className="rune-card-name">new preset</span>
@@ -81,6 +110,7 @@ export default function RunesPage() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95 }}
             whileHover={{ scale: 1.02 }}
+            onContextMenu={(e) => handleCardContext(e, tag)}
           >
             <div className="rune-card-main" onClick={() => setEditing(tag)}>
               <span className="rune-card-rune">{tag.rune}</span>
@@ -103,7 +133,7 @@ export default function RunesPage() {
       </div>
 
       {tags.length === 0 && !creating && (
-        <div className="rune-empty">
+        <div className="rune-empty" onContextMenu={handleEmptyContext}>
           <span className="rune-empty-icon">ᚱ</span>
           <span className="rune-empty-text">no rune tags yet. create one to get started.</span>
         </div>

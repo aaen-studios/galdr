@@ -7,6 +7,7 @@ import ScrambleText from "../components/ScrambleText";
 import { EXT_OPTIONS, FMT_OPTIONS } from "../options";
 import type { ScannedFile, BatchProgress } from "../types";
 import CommandPreview from "../components/CommandPreview";
+import { useContextMenu } from "../components/ContextMenu";
 
 function fmtSize(bytes: number): string {
   if (bytes < 1024) return `${bytes}B`;
@@ -63,6 +64,7 @@ export default function BatchConvertPage() {
   const fileListRef = useRef<HTMLDivElement>(null);
   const activeRowRef = useRef<HTMLDivElement>(null);
   const logPanelRef = useRef<HTMLDivElement>(null);
+  const { show } = useContextMenu();
 
   const extType = EXT_OPTIONS.find((e) => e.value === inputExt)?.type;
 
@@ -245,6 +247,62 @@ export default function BatchConvertPage() {
     return f.name.slice(dot + 1).toLowerCase() === inputExt;
   }).length;
 
+  const handleInputDirContext = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    show(e, [
+      { label: "browse", rune: "ᚨ", action: pickInput },
+      { label: "copy path", rune: "ᛏ", action: () => navigator.clipboard.writeText(inputDir) },
+      ...(inputDir ? [{ label: "clear", rune: "ᚷ", action: () => { setInputDir(""); setFiles([]); setProgress(null); } }] : []),
+    ]);
+  }, [show, inputDir, pickInput]);
+
+  const handleOutputDirContext = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    show(e, [
+      { label: "browse", rune: "ᚨ", action: pickOutput },
+      { label: "copy path", rune: "ᛏ", action: () => navigator.clipboard.writeText(outputDir) },
+      ...(outputDir ? [{ label: "clear", rune: "ᚷ", action: () => setOutputDir("") }] : []),
+    ]);
+  }, [show, outputDir, pickOutput]);
+
+  const handleFileRowContext = useCallback((e: React.MouseEvent, f: ScannedFile) => {
+    e.stopPropagation();
+    const dot = f.name.lastIndexOf(".");
+    const ext = dot >= 0 ? f.name.slice(dot + 1).toLowerCase() : "";
+    show(e, [
+      { label: `filter by .${ext}`, rune: "ᚷ", action: () => ext && setInputExt(ext) },
+      { label: "copy name", rune: "ᚨ", action: () => navigator.clipboard.writeText(f.name) },
+      { label: "copy path", rune: "ᛏ", action: () => navigator.clipboard.writeText(f.path) },
+    ]);
+  }, [show, setInputExt]);
+
+  const handleFileHeaderContext = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    show(e, [
+      { label: "copy all names", rune: "ᚷ", action: () => navigator.clipboard.writeText(files.map((f) => f.name).join("\n")) },
+      { label: "copy all paths", rune: "ᚨ", action: () => navigator.clipboard.writeText(files.map((f) => f.path).join("\n")) },
+    ]);
+  }, [show, files]);
+
+  const handleBatchLogContext = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (log.length === 0) return;
+    show(e, [
+      { label: "copy all", rune: "ᚷ", action: () => navigator.clipboard.writeText(log.join("\n")) },
+      { label: "clear", rune: "ᚨ", action: () => setLog([]) },
+    ]);
+  }, [show, log]);
+
+  const handleBatchCommandContext = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    show(e, [
+      { label: "copy command", rune: "ᚷ", action: () => {
+        const el = document.querySelector(".command-preview-code");
+        if (el) navigator.clipboard.writeText(el.textContent || "");
+      }},
+    ]);
+  }, [show]);
+
   return (
     <div
       className={`page batch-page${isDragOver ? " dragging" : ""}`}
@@ -255,7 +313,7 @@ export default function BatchConvertPage() {
       <div className="batch-layout">
         <div className="batch-left">
 
-      <div className="card">
+      <div className="card" onContextMenu={handleInputDirContext}>
         <label className="label">input folder</label>
         <div className="row">
           <input className="input" value={inputDir} placeholder="drag & drop folder, or browse" readOnly />
@@ -263,7 +321,7 @@ export default function BatchConvertPage() {
         </div>
       </div>
 
-      <div className="card">
+      <div className="card" onContextMenu={handleOutputDirContext}>
         <label className="label">output folder</label>
         <div className="row">
           <input className="input" value={outputDir} placeholder="drag & drop folder, or browse" readOnly />
@@ -361,7 +419,7 @@ export default function BatchConvertPage() {
           {files.length > 0 ? (
             <>
             <div className="batch-file-list" ref={fileListRef}>
-              <div className="batch-file-hdr">
+              <div className="batch-file-hdr" onContextMenu={handleFileHeaderContext}>
                 <span className="batch-file-count">{files.length} file{files.length !== 1 ? "s" : ""} ({matchingCount} matching .{inputExt})</span>
                 <span className="batch-file-total">{fmtSize(totalSize)}</span>
               </div>
@@ -378,6 +436,7 @@ export default function BatchConvertPage() {
                     onClick={() => {
                       if (dot >= 0) setInputExt(fileExt);
                     }}
+                    onContextMenu={(e) => handleFileRowContext(e, f)}
                     title={`filter by .${fileExt || "?"}`}
                   >
                     <span className="batch-file-name">{f.name}</span>
@@ -388,19 +447,21 @@ export default function BatchConvertPage() {
             </div>
 
             {log.length > 0 && (
-              <div className="log-panel" ref={logPanelRef}>
+              <div className="log-panel" ref={logPanelRef} onContextMenu={handleBatchLogContext}>
                 {log.map((l, i) => <div key={i} className="log-line">{l}</div>)}
               </div>
             )}
 
             {files.length > 0 && inputDir && outputDir && (
-              <CommandPreview
-                params={{
-                  input_path: files.find((f) => f.name.endsWith(`.${inputExt}`))?.path || files[0]?.path || "",
-                  output_dir: outputDir,
-                  output_format: outputFmt,
-                }}
-              />
+              <div onContextMenu={handleBatchCommandContext}>
+                <CommandPreview
+                  params={{
+                    input_path: files.find((f) => f.name.endsWith(`.${inputExt}`))?.path || files[0]?.path || "",
+                    output_dir: outputDir,
+                    output_format: outputFmt,
+                  }}
+                />
+              </div>
             )}
             </>
           ) : (

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow, ProgressBarStatus, UserAttentionType } from "@tauri-apps/api/window";
 import { getVersion } from "@tauri-apps/api/app";
@@ -14,11 +14,12 @@ import UpdateBanner from "./components/UpdateBanner";
 import PageTransition from "./transitions";
 import { useGaldrStore } from "./store";
 import { useForgeStore } from "./store/forgeStore";
+import { ContextMenuProvider, useContextMenu } from "./components/ContextMenu";
 import "./App.css";
 
 type Page = "home" | "convert" | "batch" | "compress" | "settings" | "runes" | "forge";
 
-function App() {
+function AppShell() {
   const [page, setPage] = useState<Page>("home");
   const [prevPage, setPrevPage] = useState<Page>("home");
   const [appVersion, setAppVersion] = useState("");
@@ -30,6 +31,7 @@ function App() {
   const showRuneInTitlebar = useGaldrStore((s) => s.showRuneInTitlebar);
   const win = getCurrentWindow();
   const prevFlash = useRef(false);
+  const { show } = useContextMenu();
 
   useEffect(() => {
     getVersion().then(setAppVersion).catch(() => setAppVersion("0.1.0"));
@@ -128,8 +130,21 @@ function App() {
 
   const pathSegs = [...rootSegs, ...pageSegs];
 
+  const handleGlobalContextMenu = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    show(e, [
+      { label: "quick convert", rune: "ᛏ", action: () => setPage("convert") },
+      { label: "batch convert", rune: "ᚨ", action: () => setPage("batch") },
+      { label: "compress", rune: "ᛉ", action: () => setPage("compress") },
+      { label: "forge editor", rune: "ᚲ", action: () => setPage("forge") },
+      { label: "", rune: "", action: () => {}, divider: true },
+      { label: "rune tags", rune: "ᚠ", action: () => setPage("runes") },
+      { label: "settings", rune: "ᚲ", action: () => setPage("settings") },
+    ]);
+  }, [show, setPage]);
+
   return (
-    <div className="app-shell">
+    <div className="app-shell" onContextMenu={handleGlobalContextMenu}>
       <header className="titlebar" data-tauri-drag-region>
         <div className="titlebar-left">
           {showRuneInTitlebar && (
@@ -188,4 +203,10 @@ function App() {
   );
 }
 
-export default App;
+export default function App() {
+  return (
+    <ContextMenuProvider>
+      <AppShell />
+    </ContextMenuProvider>
+  );
+}

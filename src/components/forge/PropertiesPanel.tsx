@@ -1,8 +1,11 @@
+import { useCallback } from "react";
 import { useForgeStore } from "../../store/forgeStore";
+import { useContextMenu } from "../ContextMenu";
 
 export default function PropertiesPanel() {
   const project = useForgeStore((s) => s.project);
   const updateClip = useForgeStore((s) => s.updateClip);
+  const { show } = useContextMenu();
 
   const selected =
     project.videoTrack.clips.find((c) => c.selected) ||
@@ -10,12 +13,21 @@ export default function PropertiesPanel() {
 
   const trackKey = project.videoTrack.clips.some((c) => c.selected) ? "video" as const : "audio" as const;
 
+  const handlePropertiesContext = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!selected) return;
+    show(e, [
+      { label: "reset speed to 1x", rune: "ᛏ", action: () => updateClip(selected.id, { speed: 1 }, trackKey) },
+      { label: "reset in/out", rune: "ᚷ", action: () => updateClip(selected.id, { sourceStart: 0, sourceEnd: selected.sourceEnd }, trackKey) },
+    ]);
+  }, [show, selected, trackKey, updateClip]);
+
   return (
     <div className="forge-properties">
       <div className="forge-panel-header">
         <span className="forge-panel-title">ᛏ properties</span>
       </div>
-      <div className="forge-properties-body">
+      <div className="forge-properties-body" onContextMenu={handlePropertiesContext}>
         <div className="forge-prop-row">
           <span className="forge-prop-label">name</span>
           <input

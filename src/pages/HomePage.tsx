@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import ScrambleText from "../components/ScrambleText";
 import { useGaldrStore } from "../store";
+import { useContextMenu } from "../components/ContextMenu";
 
 interface Props {
   onNavigate: (page: "convert" | "batch" | "compress" | "runes" | "forge") => void;
@@ -24,10 +25,18 @@ const TOOLS: ToolCard[] = [
 export default function HomePage({ onNavigate }: Props) {
   const [hoveredCard, setHoveredCard] = useState(-1);
   const showRuneInTitlebar = useGaldrStore((s) => s.showRuneInTitlebar);
+  const { show } = useContextMenu();
 
   const tools = showRuneInTitlebar
     ? TOOLS.filter((t) => t.target !== "runes")
     : TOOLS;
+
+  const handleCardContext = useCallback((e: React.MouseEvent, tool: ToolCard) => {
+    e.stopPropagation();
+    show(e, [
+      { label: `open ${tool.label}`, rune: "ᛏ", action: () => onNavigate(tool.target) },
+    ]);
+  }, [show, onNavigate]);
 
   return (
     <div className="page">
@@ -39,6 +48,7 @@ export default function HomePage({ onNavigate }: Props) {
               key={t.target}
               className="home-card"
               onClick={() => onNavigate(t.target)}
+              onContextMenu={(e) => handleCardContext(e, t)}
               onMouseEnter={() => setHoveredCard(i)}
               onMouseLeave={() => setHoveredCard(-1)}
             >

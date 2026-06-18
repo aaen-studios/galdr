@@ -11,6 +11,7 @@ import ScrambleText from "../components/ScrambleText";
 import MediaPreview from "../components/MediaPreview";
 import type { MediaInfo } from "../types";
 import CommandPreview from "../components/CommandPreview";
+import { useContextMenu } from "../components/ContextMenu";
 
 const FORMAT_OPTIONS = [
   { value: "mp4", label: "mp4 (video)", type: "video" as const },
@@ -71,6 +72,7 @@ export default function CompressPage() {
   const [log, setLog] = useState<string[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
   const [btnHover, setBtnHover] = useState(false);
+  const { show } = useContextMenu();
 
   useEffect(() => {
     invoke<boolean>("detect_ffmpeg").then(setFfmpegFound);
@@ -240,6 +242,73 @@ export default function CompressPage() {
   const sizeIncrease = estimate && estimate.estimated >= estimate.original;
   const btnDisabled = !inputPath || isConverting;
 
+  const handleCompressDropZoneContext = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (inputPath) {
+      show(e, [
+        { label: "browse (replace)", rune: "ᛏ", action: pickFile },
+        { label: "copy path", rune: "ᚷ", action: () => navigator.clipboard.writeText(inputPath) },
+        { label: "", rune: "", action: () => {}, divider: true },
+        { label: "clear", rune: "ᚨ", action: () => { setInputPath(""); setMediaInfo(null); setEstimate(null); setCompressedInfo(null); }},
+        { label: "reveal in folder", rune: "ᚠ", action: () => invoke("reveal_in_folder", { path: inputPath }).catch(() => {}) },
+      ]);
+    } else {
+      show(e, [
+        { label: "browse files", rune: "ᚨ", action: pickFile },
+        { label: "paste path", rune: "ᚷ", action: async () => {
+          const text = await navigator.clipboard.readText();
+          if (text) loadFile(text);
+        }},
+      ]);
+    }
+  }, [show, inputPath, pickFile, loadFile]);
+
+  const handleCompressMediaInfoContext = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!mediaInfo) return;
+    const streamInfo = mediaInfo.streams.map((s) => `[${s.kind}] ${s.codec}${s.width ? ` ${s.width}x${s.height}` : ""}`).join("\n");
+    show(e, [
+      { label: "copy stream info", rune: "ᚷ", action: () => navigator.clipboard.writeText(streamInfo) },
+      { label: "copy file info", rune: "ᚨ", action: () => navigator.clipboard.writeText(`${mediaInfo.container} | ${mediaInfo.size}B`) },
+    ]);
+  }, [show, mediaInfo]);
+
+  const handleEstimateContext = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!estimate) return;
+    show(e, [
+      { label: "copy sizes", rune: "ᚷ", action: () => navigator.clipboard.writeText(`${estimate.original} → ${estimate.estimated} bytes`) },
+    ]);
+  }, [show, estimate]);
+
+  const handleCompressCommandContext = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    show(e, [
+      { label: "copy command", rune: "ᚷ", action: () => {
+        const el = document.querySelector(".command-preview-code");
+        if (el) navigator.clipboard.writeText(el.textContent || "");
+      }},
+    ]);
+  }, [show]);
+
+  const handleCompressResultContext = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!lastOutputPath) return;
+    show(e, [
+      { label: "show in folder", rune: "ᛏ", action: () => revealItemInDir(lastOutputPath) },
+      { label: "copy path", rune: "ᚷ", action: () => navigator.clipboard.writeText(lastOutputPath) },
+    ]);
+  }, [show, lastOutputPath]);
+
+  const handleCompressLogContext = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (log.length === 0) return;
+    show(e, [
+      { label: "copy all", rune: "ᚷ", action: () => navigator.clipboard.writeText(log.join("\n")) },
+      { label: "clear", rune: "ᚨ", action: () => setLog([]) },
+    ]);
+  }, [show, log]);
+
   return (
     <div className="page">
       {!ffmpegFound && (
@@ -249,6 +318,7 @@ export default function CompressPage() {
       <div
         className={`drop-zone${isDragOver ? " drag-over" : ""}${inputPath ? " has-file" : ""}`}
         onClick={pickFile}
+        onContextMenu={handleCompressDropZoneContext}
       >
         {inputPath ? (
           <span className="drop-file">{inputPath}</span>
@@ -268,6 +338,7 @@ export default function CompressPage() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
+            onContextMenu={handleCompressMediaInfoContext}
           >
             <div className="primary">
               {mediaInfo.container} | {fmtSize(mediaInfo.size)}
@@ -296,7 +367,7 @@ export default function CompressPage() {
       />
 
       {estimate && (
-        <div className={`estimate-bar${sizeIncrease ? " estimate-warn" : ""}`}>
+        <div className={`estimate-bar${sizeIncrease ? " estimate-warn" : ""}`} onContextMenu={handleEstimateContext}>
           <span className="estimate-original">{fmtSize(estimate.original)}</span>
           <span className="estimate-arrow">→</span>
           <span className="estimate-result">{fmtSize(estimate.estimated)}</span>
@@ -356,13 +427,13 @@ export default function CompressPage() {
       )}
 
       {log.length > 0 && (
-        <div className="log-panel">
+        <div className="log-panel" onContextMenu={handleCompressLogContext}>
           {log.map((l, i) => <div key={i} className="log-line">{l}</div>)}
         </div>
       )}
 
       {lastOutputPath && (
-        <div className="result-bar">
+        <div className="result-bar" onContextMenu={handleCompressResultContext}>
           <span className="result-path">{lastOutputPath}</span>
           <button className="btn" onClick={() => revealItemInDir(lastOutputPath)}>
             show in folder
@@ -380,7 +451,9 @@ export default function CompressPage() {
       )}
 
       {inputPath && (
-        <CommandPreview params={{ input_path: inputPath, output_dir: outputDir || "", output_format: outputFormat, quality }} mediaType={mediaType} />
+        <div onContextMenu={handleCompressCommandContext}>
+          <CommandPreview params={{ input_path: inputPath, output_dir: outputDir || "", output_format: outputFormat, quality }} mediaType={mediaType} />
+        </div>
       )}
     </div>
   );
