@@ -56,7 +56,11 @@ pub async fn start_conversion(
         .unwrap_or("unknown")
         .to_string();
 
-    discord_rpc::set_converting(&file_name, 0.0, &params.output_format);
+    let source_format = std::path::Path::new(&params.input_path)
+        .extension()
+        .and_then(|s| s.to_str());
+
+    discord_rpc::set_converting(&file_name, 0.0, &params.output_format, source_format);
 
     let args = build_args(&params);
     let events = run_conversion(&args, duration)?;
@@ -64,7 +68,7 @@ pub async fn start_conversion(
     for event in &events {
         match event {
             crate::ffmpeg::FfmpegEvent::Progress(p) => {
-                discord_rpc::set_converting(&file_name, *p, &params.output_format);
+                discord_rpc::set_converting(&file_name, *p, &params.output_format, source_format);
                 let _ = app_handle.emit(
                     "conversion-progress",
                     ConversionProgressPayload {
@@ -82,6 +86,7 @@ pub async fn start_conversion(
                 );
             }
             crate::ffmpeg::FfmpegEvent::Done(path) => {
+                discord_rpc::track_conversion();
                 discord_rpc::set_idle();
                 return Ok(ConversionDonePayload {
                     job_id: "default".to_string(),
@@ -297,7 +302,10 @@ pub async fn start_batch_conversion(
         })();
 
         match result {
-            Ok(_) => done += 1,
+            Ok(_) => {
+                done += 1;
+                discord_rpc::track_conversion();
+            }
             Err(e) => {
                 failed += 1;
                 let _ = app_handle.emit(
@@ -331,11 +339,23 @@ pub async fn start_batch_conversion(
 }
 
 #[tauri::command]
-pub fn update_discord_presence(page: String) {
+pub fn update_discord_presence(page: String, forge_clips: Option<usize>, forge_duration: Option<f64>) {
     match page.as_str() {
         "home" => discord_rpc::set_idle(),
+        "forge" => {
+            if let (Some(clips), Some(dur)) = (forge_clips, forge_duration) {
+                discord_rpc::set_forge_editing(clips, dur);
+            } else {
+                discord_rpc::set_browsing("forge");
+            }
+        }
         _ => discord_rpc::set_browsing(&page),
     }
+}
+
+#[tauri::command]
+pub fn update_forge_presence(clips: usize, duration_secs: f64) {
+    discord_rpc::set_forge_editing(clips, duration_secs);
 }
 
 #[tauri::command]

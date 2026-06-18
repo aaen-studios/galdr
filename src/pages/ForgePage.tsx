@@ -42,6 +42,7 @@ export default function ForgePage() {
   const addToLibrary = useForgeStore((s) => s.addToLibrary);
   const addClipToVideo = useForgeStore((s) => s.addClipToVideo);
   const addClipToAudio = useForgeStore((s) => s.addClipToAudio);
+  const clipVersion = useForgeStore((s) => s.clipVersion);
   const isModified = useForgeStore((s) => s.isModified);
   const currentFilePath = useForgeStore((s) => s.currentFilePath);
   const recentFiles = useForgeStore((s) => s.recentFiles);
@@ -263,6 +264,15 @@ export default function ForgePage() {
       if (ghost) { ghost.remove(); }
     };
   }, [addClipToVideo, addClipToAudio]);
+
+  // Real-time Discord RPC updates when timeline changes
+  useEffect(() => {
+    const vclips = project.videoTrack.clips.length;
+    const aclips = project.audioTrack.clips.length;
+    const totalDur = [...project.videoTrack.clips, ...project.audioTrack.clips]
+      .reduce((s, c) => s + c.duration, 0);
+    invoke("update_forge_presence", { clips: vclips + aclips, durationSecs: totalDur }).catch(() => {});
+  }, [clipVersion, project.videoTrack.clips, project.audioTrack.clips]);
 
   const handleResizeStart = useCallback((e: React.PointerEvent) => {
     e.preventDefault();

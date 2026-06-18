@@ -13,6 +13,7 @@ import ScrambleText from "./components/ScrambleText";
 import UpdateBanner from "./components/UpdateBanner";
 import PageTransition from "./transitions";
 import { useGaldrStore } from "./store";
+import { useForgeStore } from "./store/forgeStore";
 import "./App.css";
 
 type Page = "home" | "convert" | "batch" | "compress" | "settings" | "runes" | "forge";
@@ -35,7 +36,16 @@ function App() {
   }, []);
 
   useEffect(() => {
-    invoke("update_discord_presence", { page }).catch(() => {});
+    if (page === "forge") {
+      const forgeState = useForgeStore.getState();
+      const vclips = forgeState.project.videoTrack.clips.length;
+      const aclips = forgeState.project.audioTrack.clips.length;
+      const totalDur = [...forgeState.project.videoTrack.clips, ...forgeState.project.audioTrack.clips]
+        .reduce((s, c) => s + c.duration, 0);
+      invoke("update_discord_presence", { page, forgeClips: vclips + aclips, forgeDuration: totalDur }).catch((e) => console.error("discord rpc:", e));
+    } else {
+      invoke("update_discord_presence", { page, forgeClips: null, forgeDuration: null }).catch((e) => console.error("discord rpc:", e));
+    }
   }, [page]);
 
   useEffect(() => {

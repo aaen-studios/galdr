@@ -36,6 +36,7 @@ pub fn run() {
             commands::delete_rune_tag,
             commands::apply_rune_tag,
             commands::update_discord_presence,
+            commands::update_forge_presence,
             commands::set_discord_enabled,
             commands::pre_render_timeline,
             commands::delete_temp_file,

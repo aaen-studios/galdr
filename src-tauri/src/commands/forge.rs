@@ -2,6 +2,7 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 use tauri::Emitter;
 
+use crate::discord_rpc;
 use crate::ffmpeg::runner::run_conversion;
 use serde::{Deserialize, Serialize};
 
@@ -87,6 +88,9 @@ pub async fn export_timeline(
 
     let total_steps = vclips.len() + aclips.len();
     let mut steps_done: f64 = 0.0;
+
+    let total_clips = vclips.len();
+    discord_rpc::set_forge_exporting(total_clips, 1, 0.0);
 
     fn update_progress(app_handle: &tauri::AppHandle, done: f64, total: f64) {
         let p = if total > 0.0 { (done / total).min(0.95) } else { 0.0 };
@@ -190,6 +194,8 @@ pub async fn export_timeline(
         cursor = clip.start_time + clip.duration;
         steps_done += 1.0;
         update_progress(&app_handle, steps_done, total_steps as f64);
+        let current_clip = ((steps_done) as usize).min(total_clips);
+        discord_rpc::set_forge_exporting(total_clips, current_clip, steps_done / total_steps as f64);
     }
 
     // Concat all video parts (clips + black gaps) into temp file
@@ -298,6 +304,9 @@ pub async fn export_timeline(
         .emit("forge-export-progress", serde_json::json!({ "progress": 1.0 }))
         .ok();
 
+    discord_rpc::track_conversion();
+    discord_rpc::set_idle();
+
     Ok(output_path.to_string_lossy().to_string())
 }
 
@@ -313,6 +322,9 @@ pub async fn pre_render_timeline(
     if clips.is_empty() {
         return Err("no clips on timeline".to_string());
     }
+
+    let total_clips = clips.len();
+    discord_rpc::set_forge_prerendering(total_clips, 1, 0.0);
 
     let output_path = temp_dir.join(format!(
         "preview_{}.mp4",
@@ -399,6 +411,7 @@ pub async fn pre_render_timeline(
         concat_parts.push(format!("file '{}'", inter_path.replace('\\', "\\\\")));
 
         let progress = (i + 1) as f64 / clips.len() as f64;
+        discord_rpc::set_forge_prerendering(clips.len(), i + 1, progress);
         app_handle
             .emit("forge-render-progress", serde_json::json!({ "progress": progress }))
             .ok();
@@ -426,6 +439,8 @@ pub async fn pre_render_timeline(
     app_handle
         .emit("forge-render-progress", serde_json::json!({ "progress": 1.0 }))
         .ok();
+
+    discord_rpc::set_idle();
 
     Ok(output_path.to_string_lossy().to_string())
 }
