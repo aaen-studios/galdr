@@ -142,8 +142,7 @@ export default function VideoPreview() {
         aud.src = src;
         aud.onloadedmetadata = () => {
           aud.currentTime = clamped;
-          if (playingRef.current || document.visibilityState === "visible")
-            aud.play().catch(() => {});
+          if (playingRef.current) aud.play().catch(() => {});
         };
       } else {
         aud.currentTime = clamped;

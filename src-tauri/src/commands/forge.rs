@@ -230,7 +230,7 @@ pub async fn export_timeline(
             let n = filter_parts.len();
             let adelay_chain = filter_parts.join(";");
             let mix_inputs: Vec<String> = (0..n).map(|i| format!("[a{}]", i)).collect();
-            let mix = format!("{};{}amix=inputs={}:duration=first[outa]",
+            let mix = format!("{};{}amix=inputs={}:duration=longest[outa]",
                 adelay_chain, mix_inputs.join(""), n);
 
             let atemp_path = temp_dir.join("audio_temp.wav");

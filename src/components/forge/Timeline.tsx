@@ -36,12 +36,13 @@ export default function Timeline() {
     ...project.videoTrack.clips.map((c) => c.startTime + c.duration),
     ...project.audioTrack.clips.map((c) => c.startTime + c.duration)
   );
-  const totalDur = Math.max(10, clipsEnd + TRAILING_SPACE / zoom);
+  const totalDur = Math.max(0, clipsEnd + TRAILING_SPACE / zoom);
 
   // Labels are now in a fixed column outside the scrollable area.
   // timeToX starts at 0 from the content edge (after the fixed label column + padding).
   const timeToX = (t: number) => t * zoom + PADDING;
   const xToTime = (x: number) => (x - PADDING) / zoom;
+  const innerWidth = timeToX(totalDur);
 
   const snapTime = useCallback(
     (t: number) => {
@@ -67,7 +68,7 @@ export default function Timeline() {
     (e: React.MouseEvent) => {
       const rect = rulerRef.current?.getBoundingClientRect();
       if (!rect) return;
-      const x = e.clientX - rect.left + (scrollRef.current?.scrollLeft || 0);
+      const x = e.clientX - rect.left;
       setPlayhead(Math.max(0, xToTime(x)));
       setDragging({ type: "playhead", startX: e.clientX, origVal: project.playheadTime });
     },
@@ -80,7 +81,7 @@ export default function Timeline() {
       if (dragging.type === "playhead") {
         const rect = rulerRef.current?.getBoundingClientRect();
         if (!rect) return;
-        const x = e.clientX - rect.left + (scrollRef.current?.scrollLeft || 0);
+        const x = e.clientX - rect.left;
         setPlayhead(Math.max(0, snapTime(xToTime(x))));
       } else {
         const dx = (e.clientX - dragging.startX!) / zoom;
@@ -285,7 +286,7 @@ export default function Timeline() {
         </div>
 
         <div className="forge-timeline-body" ref={scrollRef}>
-          <div className="forge-timeline-inner">
+          <div className="forge-timeline-inner" style={{ width: innerWidth }}>
             <div className="forge-ruler" ref={rulerRef} onMouseDown={handleRulerMouseDown}>
               {renderRuler()}
               {renderMarkers()}
