@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useState } from "react";
+import { useRef, useEffect, useCallback, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import VideoPreview from "../components/forge/VideoPreview";
@@ -32,6 +32,7 @@ export default function ForgePage() {
 
   const [previewHeight, setPreviewHeight] = useState(360);
   const [resizing, setResizing] = useState(false);
+  const previewRef = useRef<HTMLDivElement>(null);
 
   const selectedClip =
     project.videoTrack.clips.find((c) => c.selected) ||
@@ -66,6 +67,7 @@ export default function ForgePage() {
         }
       } else if (e.key === " " && !e.ctrlKey) {
         e.preventDefault();
+        window.dispatchEvent(new CustomEvent("forge-toggle-play"));
       } else if (e.key === "ArrowLeft") {
         const step = e.shiftKey ? project.fps : 1 / (project.fps || 30);
         setPlayhead(Math.max(0, project.playheadTime - step));
@@ -179,7 +181,6 @@ export default function ForgePage() {
       const rulerRect = ruler.getBoundingClientRect();
       const scrollLeft = scrollContainer?.scrollLeft || 0;
       const zoom = useForgeStore.getState().project.zoomLevel;
-      // PADDING only (labels are in a separate fixed column, not in the scrollable area)
       const px = e.clientX - rulerRect.left + scrollLeft - 16;
       const time = Math.max(0, px / zoom);
 
@@ -207,7 +208,7 @@ export default function ForgePage() {
     };
   }, [addClipToVideo, addClipToAudio]);
 
-  // Preview resize handlers
+  // Preview resize: height relative to the preview element itself, not the page
   const handleResizeStart = useCallback((e: React.PointerEvent) => {
     e.preventDefault();
     setResizing(true);
@@ -215,12 +216,12 @@ export default function ForgePage() {
 
   useEffect(() => {
     if (!resizing) return;
-    const pageEl = document.querySelector(".forge-page");
-    if (!pageEl) return;
-    const pageRect = pageEl.getBoundingClientRect();
+    const el = previewRef.current;
+    if (!el) return;
+    const previewTop = el.getBoundingClientRect().top;
 
     const onMove = (e: PointerEvent) => {
-      const h = Math.max(140, Math.min(600, e.clientY - pageRect.top));
+      const h = Math.max(140, Math.min(600, e.clientY - previewTop));
       setPreviewHeight(h);
     };
     const onUp = () => setResizing(false);
@@ -266,10 +267,10 @@ export default function ForgePage() {
 
   return (
     <div className="forge-page">
-      <div className="forge-top" style={{ flex: "none" }}>
+      <div className="forge-top">
         <SourceBrowser />
         <div className="forge-center">
-          <div className="forge-preview" style={{ height: previewHeight }}>
+          <div className="forge-preview" ref={previewRef} style={{ height: previewHeight }}>
             <VideoPreview />
           </div>
           <PropertiesPanel />
