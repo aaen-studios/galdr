@@ -17,6 +17,18 @@ import { useForgeStore } from "./store/forgeStore";
 import { ContextMenuProvider, useContextMenu } from "./components/ContextMenu";
 import "./App.css";
 
+interface AppSettings {
+  outputDir: string;
+  transitionStyle: string;
+  crtEnabled: boolean;
+  showRuneInTitlebar: boolean;
+  discordEnabled: boolean;
+}
+
+const PERSIST_FIELDS: (keyof AppSettings)[] = [
+  "outputDir", "transitionStyle", "crtEnabled", "showRuneInTitlebar", "discordEnabled",
+];
+
 type Page = "home" | "convert" | "batch" | "compress" | "settings" | "runes" | "forge";
 
 function AppShell() {
@@ -35,6 +47,76 @@ function AppShell() {
 
   useEffect(() => {
     getVersion().then(setAppVersion).catch(() => setAppVersion("0.1.0"));
+  }, []);
+
+  // Load persisted settings on mount
+  useEffect(() => {
+    const store = useGaldrStore.getState();
+    invoke<AppSettings>("load_settings").then((s) => {
+      store.setOutputDir(s.outputDir);
+      store.setTransitionStyle(s.transitionStyle as any);
+      store.setCrtEnabled(s.crtEnabled);
+      store.setShowRuneInTitlebar(s.showRuneInTitlebar);
+      store.setDiscordEnabled(s.discordEnabled);
+    }).catch(() => {});
+  }, []);
+
+  // Check for forge recovery on mount
+  useEffect(() => {
+    invoke<string | null>("load_forge_recovery").then((raw) => {
+      if (!raw) return;
+      try {
+        const recovery = JSON.parse(raw);
+        const forgeStore = useForgeStore.getState();
+        forgeStore.restoreFromRecovery(recovery.project, recovery.mediaLibrary, recovery.filePath);
+      } catch {}
+    }).catch(() => {});
+  }, []);
+
+  // Auto-save settings when they change (debounced)
+  useEffect(() => {
+    const unsub = useGaldrStore.subscribe((state, prev) => {
+      const changed = PERSIST_FIELDS.some((f) => (state as any)[f] !== (prev as any)[f]);
+      if (!changed) return;
+      clearTimeout((window as any)._settingsSaveTimer);
+      (window as any)._settingsSaveTimer = setTimeout(() => {
+        const s = useGaldrStore.getState();
+        invoke("save_settings", {
+          settings: {
+            outputDir: s.outputDir,
+            transitionStyle: s.transitionStyle,
+            crtEnabled: s.crtEnabled,
+            showRuneInTitlebar: s.showRuneInTitlebar,
+            discordEnabled: s.discordEnabled,
+          },
+        }).catch(() => {});
+      }, 300);
+    });
+    return () => {
+      unsub();
+      clearTimeout((window as any)._settingsSaveTimer);
+    };
+  }, []);
+
+  // Auto-save forge recovery debounced on any forge store change
+  useEffect(() => {
+    const unsub = useForgeStore.subscribe(() => {
+      clearTimeout((window as any)._forgeRecoveryTimer);
+      (window as any)._forgeRecoveryTimer = setTimeout(() => {
+        const f = useForgeStore.getState();
+        if (!f.isModified) return;
+        const data = JSON.stringify({
+          project: f.project,
+          mediaLibrary: f.mediaLibrary,
+          filePath: f.currentFilePath,
+        });
+        invoke("save_forge_recovery", { data }).catch(() => {});
+      }, 2000);
+    });
+    return () => {
+      unsub();
+      clearTimeout((window as any)._forgeRecoveryTimer);
+    };
   }, []);
 
   useEffect(() => {

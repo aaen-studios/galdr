@@ -3,6 +3,9 @@ mod discord_rpc;
 mod ffmpeg;
 mod models;
 
+use models::settings::WindowState;
+use tauri::{Manager, WindowEvent};
+
 const DISCORD_CLIENT_ID: &str = "1516792047095382087";
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -14,6 +17,17 @@ pub fn run() {
             ffmpeg::init_paths(&app.handle());
             discord_rpc::connect(DISCORD_CLIENT_ID);
             discord_rpc::set_idle();
+
+            // Apply saved window state after window is created
+            let window = app.get_webview_window("main").unwrap();
+            if let Some(state) = commands::load_window_state() {
+                let _ = window.set_position(tauri::PhysicalPosition::new(state.x, state.y));
+                let _ = window.set_size(tauri::PhysicalSize::new(state.width, state.height));
+                if state.maximized {
+                    let _ = window.maximize();
+                }
+            }
+
             Ok(())
         })
         .plugin(tauri_plugin_opener::init())
@@ -45,7 +59,32 @@ pub fn run() {
             commands::save_project_file,
             commands::load_project_file,
             commands::read_file_bytes,
+            commands::load_settings,
+            commands::save_settings,
+            commands::load_window_state,
+            commands::save_window_state,
+            commands::save_forge_recovery,
+            commands::load_forge_recovery,
+            commands::clear_forge_recovery,
         ])
+        .on_window_event(|window, event| {
+            if let WindowEvent::CloseRequested { .. } = event {
+                // Save window state on close
+                if let Ok(position) = window.outer_position() {
+                    if let Ok(size) = window.outer_size() {
+                        let maximized = window.is_maximized().unwrap_or(false);
+                        let state = WindowState {
+                            x: position.x,
+                            y: position.y,
+                            width: size.width,
+                            height: size.height,
+                            maximized,
+                        };
+                        let _ = commands::save_window_state(state);
+                    }
+                }
+            }
+        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

@@ -150,6 +150,7 @@ interface ForgeState {
   loadProjectFromPath: (path: string) => Promise<void>;
   addRecentFile: (path: string) => void;
   loadRecentFiles: () => void;
+  restoreFromRecovery: (project: ForgeProjectData, mediaLibrary: MediaLibraryItem[], filePath: string | null) => void;
   showConfirmDialog: (message: string, title: string) => Promise<boolean>;
   closeConfirmDialog: (result: boolean) => void;
   resetProject: () => Promise<void>;
@@ -499,6 +500,7 @@ export const useForgeStore = create<ForgeState>((set, get) => ({
       await invoke("save_project_file", { path: dest, content });
       set({ currentFilePath: dest, isModified: false });
       get().addRecentFile(dest);
+      invoke("clear_forge_recovery").catch(() => {});
     } catch {}
   },
 
@@ -536,6 +538,7 @@ export const useForgeStore = create<ForgeState>((set, get) => ({
         clipVersion: get().clipVersion + 1,
       });
       get().addRecentFile(path);
+      invoke("clear_forge_recovery").catch(() => {});
     } catch {}
   },
 
@@ -553,6 +556,18 @@ export const useForgeStore = create<ForgeState>((set, get) => ({
       const raw = localStorage.getItem("forge-recent-files");
       if (raw) set({ recentFiles: JSON.parse(raw) });
     } catch {}
+  },
+
+  restoreFromRecovery: (project, mediaLibrary, filePath) => {
+    set({
+      project: deepClone(project),
+      mediaLibrary: deepClone(mediaLibrary),
+      currentFilePath: filePath,
+      isModified: true,
+      undoStack: [],
+      redoStack: [],
+      clipVersion: get().clipVersion + 1,
+    });
   },
 
   showConfirmDialog: (message: string, title: string) => {
@@ -588,6 +603,7 @@ export const useForgeStore = create<ForgeState>((set, get) => ({
       isModified: false,
       clipVersion: get().clipVersion + 1,
     });
+    invoke("clear_forge_recovery").catch(() => {});
   },
 
   setExporting: (v) => set({ isExporting: v }),
