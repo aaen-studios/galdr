@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { invoke } from "@tauri-apps/api/core";
 import type { MediaInfo, ConversionParams, RuneTag } from "../types";
 import type { TransitionStyle } from "../transitions";
 import { DEFAULT_TRANSITION } from "../transitions";
@@ -58,6 +59,8 @@ interface GaldrState {
   setUpdateDismissed: (v: boolean) => void;
   setUpdateError: (v: string | null) => void;
   setRuneTags: (tags: RuneTag[]) => void;
+  loadRuneTags: () => Promise<void>;
+  refreshRuneTags: () => Promise<void>;
   setShowRuneInTitlebar: (v: boolean) => void;
   setDiscordEnabled: (v: boolean) => void;
   setAutostartEnabled: (v: boolean) => void;
@@ -156,6 +159,22 @@ export const useGaldrStore = create<GaldrState>((set) => ({
   setUpdateDismissed: (v) => set({ updateDismissed: v }),
   setUpdateError: (v) => set({ updateError: v }),
   setRuneTags: (tags) => set({ runeTags: tags }),
+  loadRuneTags: async () => {
+    try {
+      const tags = await invoke<RuneTag[]>("list_rune_tags");
+      set({ runeTags: tags });
+    } catch {
+      // persistence unavailable — leave store as-is
+    }
+  },
+  refreshRuneTags: async () => {
+    try {
+      const tags = await invoke<RuneTag[]>("list_rune_tags");
+      set({ runeTags: tags });
+    } catch {
+      // persistence unavailable — leave store as-is
+    }
+  },
   setShowRuneInTitlebar: (v) => set({ showRuneInTitlebar: v }),
   setDiscordEnabled: (v) => set({ discordEnabled: v }),
   setAutostartEnabled: (v) => set({ autostartEnabled: v }),

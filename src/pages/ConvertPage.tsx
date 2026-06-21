@@ -12,7 +12,10 @@ import ExtractFramesPanel from "../components/ExtractFramesPanel";
 import { FORMAT_OPTIONS } from "../options";
 import type { FormatOption } from "../options";
 import CommandPreview from "../components/CommandPreview";
+import PresetPicker from "../components/PresetPicker";
 import { useContextMenu } from "../components/ContextMenu";
+import { applyRuneToConversion } from "../utils/runeMerge";
+import type { PresetParams } from "../types";
 
 const IMAGE_CODECS = ["png", "jpeg", "gif", "bmp", "tiff", "webp"];
 
@@ -41,7 +44,9 @@ function fmtSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
 }
 
-export default function ConvertPage() {
+type NavigateFn = (page: "runes") => void;
+
+export default function ConvertPage({ onNavigate }: { onNavigate?: NavigateFn }) {
   const {
     mediaInfo, conversionParams, isConverting,
     conversionProgress, lastOutputPath, error, ffmpegFound, outputDir,
@@ -303,6 +308,10 @@ export default function ConvertPage() {
     ]);
   }, [show, isConverting, conversionProgress]);
 
+  const handleApplyRune = useCallback((preset: PresetParams) => {
+    setConversionParams(applyRuneToConversion(conversionParams, preset));
+  }, [conversionParams, setConversionParams]);
+
   return (
     <div className="page">
       {!ffmpegFound && (
@@ -361,6 +370,8 @@ export default function ConvertPage() {
       )}
 
       <ScrambleText as="div" className="rune-divider" text="ᛟ ᛟ ᛟ ᛟ ᛟ" hover ticks={4} />
+
+      <PresetPicker currentParams={conversionParams} onApply={handleApplyRune} onManage={onNavigate ? () => onNavigate("runes") : undefined} />
 
       <div className="card" onContextMenu={handleFormatCardContext}>
         <label className="label">output format</label>

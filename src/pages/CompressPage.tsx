@@ -9,9 +9,10 @@ import CustomSelect from "../components/CustomSelect";
 import QualitySlider from "../components/QualitySlider";
 import ScrambleText from "../components/ScrambleText";
 import MediaPreview from "../components/MediaPreview";
-import type { MediaInfo } from "../types";
 import CommandPreview from "../components/CommandPreview";
+import PresetPicker from "../components/PresetPicker";
 import { useContextMenu } from "../components/ContextMenu";
+import type { MediaInfo, PresetParams, ConversionParams } from "../types";
 
 const FORMAT_OPTIONS = [
   { value: "mp4", label: "mp4 (video)", type: "video" as const },
@@ -53,7 +54,9 @@ function defaultFormat(mt: MediaType): string {
   return "mp4";
 }
 
-export default function CompressPage() {
+type NavigateFn = (page: "runes") => void;
+
+export default function CompressPage({ onNavigate }: { onNavigate?: NavigateFn }) {
   const {
     outputDir, ffmpegFound, isConverting, conversionProgress,
     lastOutputPath, error,
@@ -360,6 +363,21 @@ export default function CompressPage() {
     ]);
   }, [show, isConverting, conversionProgress]);
 
+  // Compress only exposes quality + output format; the rune carries the full
+  // preset but we map just the fields this page owns. `currentParams` here is
+  // only used to prefill the "save as rune" editor.
+  const compressParams: ConversionParams = {
+    input_path: inputPath,
+    output_dir: outputDir,
+    output_format: outputFormat,
+    quality,
+  };
+
+  const handleApplyRune = useCallback((preset: PresetParams) => {
+    if (preset.output_format) setOutputFormat(preset.output_format);
+    if (preset.quality !== undefined) setQuality(preset.quality);
+  }, [setOutputFormat, setQuality]);
+
   return (
     <div className="page">
       {!ffmpegFound && (
@@ -410,6 +428,8 @@ export default function CompressPage() {
       </AnimatePresence>
 
       <ScrambleText as="div" className="rune-divider" text="ᛟ ᛟ ᛟ ᛟ ᛟ" hover ticks={4} />
+
+      <PresetPicker currentParams={compressParams} onApply={handleApplyRune} onManage={onNavigate ? () => onNavigate("runes") : undefined} />
 
       <div onContextMenu={handleQualitySliderContext}>
         <QualitySlider

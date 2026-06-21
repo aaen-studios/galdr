@@ -33,6 +33,8 @@ function emptyFolder(): WatchFolderConfig {
     action: "autoConvert",
     params: defaultParams(),
     deleteSource: false,
+    recursive: false,
+    preservePath: false,
   };
 }
 
@@ -120,6 +122,8 @@ export default function WatchFoldersPage() {
                 {f.action === "autoConvert" ? "auto-convert" : "queue"} ·{" "}
                 {f.params.output_format}
                 {f.deleteSource ? " · delete source" : ""}
+                {f.recursive ? " · subfolders" : ""}
+                {f.recursive && f.preservePath ? " · preserve paths" : ""}
               </div>
             </div>
             <div className="ops-row">
@@ -227,6 +231,40 @@ export default function WatchFoldersPage() {
               />
               <span className="ops-sub">delete source after successful auto-convert</span>
             </label>
+
+            <label className="ops-row watch-check-row" style={{ gap: 8 }}>
+              <input
+                type="checkbox"
+                className="watch-check"
+                checked={editing.recursive}
+                onChange={(e) =>
+                  setEditing({
+                    ...editing,
+                    recursive: e.target.checked,
+                    // Smart default: when enabling subfolders, auto-enable path preservation
+                    preservePath: e.target.checked ? true : false,
+                  })
+                }
+              />
+              <span className="ops-sub">include subfolders</span>
+            </label>
+
+            {editing.recursive && (
+              <label
+                className="ops-row watch-check-row"
+                style={{ gap: 8, marginLeft: 28 }}
+              >
+                <input
+                  type="checkbox"
+                  className="watch-check"
+                  checked={editing.preservePath}
+                  onChange={(e) =>
+                    setEditing({ ...editing, preservePath: e.target.checked })
+                  }
+                />
+                <span className="ops-sub">preserve subfolder structure in output</span>
+              </label>
+            )}
 
             <div className="convert-actions" style={{ marginTop: 8 }}>
               <button className="btn btn-primary" onClick={save} disabled={!editing.path || !editing.outputDir}>

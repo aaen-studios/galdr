@@ -100,6 +100,11 @@ function AppShell() {
     }).catch(() => {});
   }, []);
 
+  // Hydrate rune tags once so every page can offer preset pick / save-as-rune.
+  useEffect(() => {
+    useGaldrStore.getState().loadRuneTags();
+  }, []);
+
   // Read OS autostart state on mount (autostart is OS-managed, not in settings.json)
   useEffect(() => {
     isAutostartEnabled()
@@ -339,9 +344,9 @@ function AppShell() {
         <UpdateBanner />
         <PageTransition style={transitionStyle} pageKey={page}>
           {page === "home" && <HomePage onNavigate={setPage} />}
-          {page === "convert" && <ConvertPage />}
-          {page === "batch" && <BatchConvertPage />}
-          {page === "compress" && <CompressPage />}
+          {page === "convert" && <ConvertPage onNavigate={setPage} />}
+          {page === "batch" && <BatchConvertPage onNavigate={setPage} />}
+          {page === "compress" && <CompressPage onNavigate={setPage} />}
           {page === "settings" && <SettingsPage onNavigate={setPage} />}
           {page === "runes" && <RunesPage />}
           {page === "forge" && <ForgePage />}

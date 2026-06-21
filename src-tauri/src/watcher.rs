@@ -128,6 +128,7 @@ fn spawn_folder_watcher<R: Runtime>(
 ) -> notify::Result<RecommendedWatcher> {
     let folder_id = folder.id.clone();
     let folder_path = folder.path.clone();
+    let recursive = folder.recursive;
     let mut watcher = notify::recommended_watcher(move |res: notify::Result<notify::Event>| {
         let event = match res {
             Ok(e) => e,
@@ -161,7 +162,10 @@ fn spawn_folder_watcher<R: Runtime>(
         }
     })?;
 
-    watcher.watch(Path::new(&folder_path), RecursiveMode::NonRecursive)?;
+    watcher.watch(
+        Path::new(&folder_path),
+        if recursive { RecursiveMode::Recursive } else { RecursiveMode::NonRecursive },
+    )?;
     let _ = folder_id; // already moved into closure
     Ok(watcher)
 }
@@ -256,7 +260,20 @@ fn run_auto_convert<R: Runtime>(app: AppHandle<R>, folder: WatchFolderConfig, pa
     // Build params from the preset: clone it, overwrite input + output.
     let mut params = folder.params.clone();
     params.input_path = std::path::PathBuf::from(&path);
-    params.output_dir = std::path::PathBuf::from(&folder.output_dir);
+
+    // When watching recursively with path preservation, mirror the relative
+    // subfolder structure under the output directory.
+    let mut output_dir = std::path::PathBuf::from(&folder.output_dir);
+    if folder.recursive && folder.preserve_path {
+        if let Ok(relative) = std::path::Path::new(&path).strip_prefix(&folder.path) {
+            if let Some(parent) = relative.parent() {
+                if !parent.as_os_str().is_empty() {
+                    output_dir = output_dir.join(parent);
+                }
+            }
+        }
+    }
+    params.output_dir = output_dir;
 
     let _ = app.emit(
         "watch://convert-started",

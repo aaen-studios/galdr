@@ -462,6 +462,41 @@ body {
   line-height: 1.5;
 }
 
+.settings-hint.flush {
+  margin: 0;
+  flex: 1;
+}
+
+/* Collapsible disclosure for the auto-created subfolders list */
+.settings-disclosure {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin-top: 14px;
+  padding-top: 12px;
+  border: none;
+  border-top: 1px solid var(--fg-faint);
+  background: transparent;
+  color: var(--fg-dim);
+  font-family: inherit;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.settings-disclosure:hover {
+  color: var(--fg);
+}
+
+.settings-disclosure-count {
+  margin-left: auto;
+  font-size: 10px;
+  letter-spacing: 0;
+  color: var(--fg-faint);
+}
+
 .settings-link {
   color: var(--fg);
   text-decoration: underline;
@@ -579,6 +614,16 @@ body {
   display: flex;
   gap: 8px;
   align-items: center;
+}
+
+/* Row variant: toggle sits below a hint inside a card */
+.row.settings-toggle-row {
+  margin-top: 12px;
+}
+
+/* Row child that should expand to fill available width (e.g. wrapping a Dropdown) */
+.row-grow {
+  flex: 1;
 }
 
 .input {
@@ -1691,12 +1736,66 @@ body {
 .runes-page {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 24px;
+}
+
+.runes-header {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-bottom: 4px;
+}
+
+.page-heading {
+  font-size: 22px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--fg);
+}
+
+.runes-subtitle {
+  font-size: 12px;
+  color: var(--fg-dim);
+  line-height: 1.5;
+  max-width: 560px;
+}
+
+.runes-count {
+  color: var(--fg);
+  margin-left: 6px;
+}
+
+.rune-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.rune-section-title {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--fg-dim);
+  margin: 0;
+}
+
+.rune-section-hint {
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  text-transform: none;
+  color: var(--fg-faint);
+}
+
+.rune-grid-actions {
+  display: flex;
 }
 
 .rune-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 12px;
 }
 
@@ -1708,26 +1807,50 @@ body {
   cursor: pointer;
   position: relative;
   overflow: hidden;
+  transition: border-color 0.15s;
+}
+
+.rune-card:hover {
+  border-color: var(--fg-dim);
 }
 
 .rune-card-main {
   display: flex;
   flex-direction: column;
   padding: 16px;
-  gap: 6px;
+  gap: 5px;
   flex: 1;
 }
 
+.rune-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
 .rune-card-rune {
-  font-size: 32px;
+  font-size: 30px;
   line-height: 1;
   color: var(--fg);
-  margin-bottom: 4px;
 }
 
 .rune-card-rune.new {
-  font-size: 28px;
+  font-size: 26px;
   color: var(--fg-dim);
+}
+
+.rune-card-badge {
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fg-dim);
+  border: 1px solid var(--fg-faint);
+  padding: 2px 6px;
+  white-space: nowrap;
+  align-self: flex-start;
+  margin-top: 4px;
 }
 
 .rune-card-name {
@@ -1740,13 +1863,17 @@ body {
 .rune-card-desc {
   font-size: 11px;
   color: var(--fg-dim);
+  line-height: 1.4;
 }
 
 .rune-card-params {
   font-size: 10px;
   color: var(--fg-faint);
-  margin-top: 4px;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--fg-faint);
   word-break: break-all;
+  line-height: 1.4;
 }
 
 .rune-card-delete {
@@ -1760,6 +1887,12 @@ body {
   font-size: 12px;
   padding: 2px 6px;
   font-family: inherit;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s;
+}
+
+.rune-card:hover .rune-card-delete {
+  opacity: 1;
 }
 
 .rune-card-delete:hover {
@@ -1771,13 +1904,15 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 24px 16px;
+  padding: 22px 16px;
   gap: 8px;
   background: none;
   border: 1px dashed var(--fg-faint);
   cursor: pointer;
   font-family: inherit;
   color: var(--fg-dim);
+  max-width: 280px;
+  transition: border-color 0.15s, color 0.15s;
 }
 
 .rune-card-new:hover {
@@ -1906,6 +2041,115 @@ body {
   border-top: 1px solid var(--fg-faint);
 }
 
+/* Rune editor: collapsible advanced section */
+.rune-editor-advanced-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: none;
+  border: none;
+  color: var(--fg-dim);
+  font-family: inherit;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  padding: 8px 0;
+  text-align: left;
+}
+
+.rune-editor-advanced-toggle:hover {
+  color: var(--fg);
+}
+
+.rune-editor-advanced-arrow {
+  font-size: 9px;
+  width: 12px;
+}
+
+.rune-editor-advanced {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Preset Picker (shared row on Convert/Compress/Batch) */
+.preset-picker {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 16px;
+  background: var(--bg-dim);
+  border: 1px solid var(--fg-faint);
+  margin-bottom: 16px;
+}
+
+.preset-picker-glyph {
+  font-size: 22px;
+  line-height: 1;
+  color: var(--fg);
+  flex-shrink: 0;
+}
+
+.preset-picker-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.preset-picker-label {
+  font-size: 10px;
+  color: var(--fg-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+}
+
+.preset-picker-fields .cselect {
+  min-width: 0;
+}
+
+.preset-picker-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.preset-picker-current {
+  font-size: 10px;
+  color: var(--fg-faint);
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.preset-save-btn {
+  white-space: nowrap;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+@media (max-width: 560px) {
+  .preset-picker {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .preset-picker-glyph {
+    display: none;
+  }
+  .preset-picker-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .preset-picker-current {
+    max-width: 50%;
+  }
+}
+
 /* Rune Picker */
 .rune-picker {
   display: flex;
@@ -1972,6 +2216,7 @@ body {
   font-size: 12px;
   color: var(--fg-dim);
   cursor: pointer;
+  flex: 1;
 }
 
 /* Rune Tag Chips (preset selector in ConvertPage) */

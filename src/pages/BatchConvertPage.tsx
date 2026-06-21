@@ -7,7 +7,9 @@ import ScrambleText from "../components/ScrambleText";
 import { EXT_OPTIONS, FMT_OPTIONS } from "../options";
 import type { ScannedFile, BatchProgress } from "../types";
 import CommandPreview from "../components/CommandPreview";
+import PresetPicker from "../components/PresetPicker";
 import { useContextMenu } from "../components/ContextMenu";
+import type { ConversionParams, PresetParams } from "../types";
 
 function fmtSize(bytes: number): string {
   if (bytes < 1024) return `${bytes}B`;
@@ -44,7 +46,9 @@ function mostCommonExtension(
   return best;
 }
 
-export default function BatchConvertPage() {
+type NavigateFn = (page: "runes") => void;
+
+export default function BatchConvertPage({ onNavigate }: { onNavigate?: NavigateFn }) {
   const [inputDir, setInputDir] = useState("");
   const [outputDir, setOutputDir] = useState("");
   const [inputExt, setInputExt] = useState("mp4");
@@ -349,6 +353,18 @@ export default function BatchConvertPage() {
     ]);
   }, [show, error]);
 
+  // Batch only carries output format + input extension, so rune integration is
+  // intentionally partial: applying a rune sets just the output format.
+  const batchParams: ConversionParams = {
+    input_path: inputDir,
+    output_dir: outputDir,
+    output_format: outputFmt,
+  };
+
+  const handleApplyRune = useCallback((preset: PresetParams) => {
+    if (preset.output_format) setOutputFmt(preset.output_format);
+  }, [setOutputFmt]);
+
   return (
     <div
       className={`page batch-page${isDragOver ? " dragging" : ""}`}
@@ -374,6 +390,8 @@ export default function BatchConvertPage() {
           <button className="btn" onClick={pickOutput}>browse</button>
         </div>
       </div>
+
+      <PresetPicker currentParams={batchParams} onApply={handleApplyRune} onManage={onNavigate ? () => onNavigate("runes") : undefined} />
 
       <div className="batch-format-row">
         <div className="card batch-card" onContextMenu={handleBatchExtCardContext}>

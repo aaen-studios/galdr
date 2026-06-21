@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { getVersion } from "@tauri-apps/api/app";
@@ -11,7 +12,7 @@ import { useContextMenu } from "../components/ContextMenu";
 const SUBFOLDERS = ["video", "audio", "image"];
 
 interface Props {
-  onNavigate: (page: "batch" | "watch") => void;
+  onNavigate: (page: "watch") => void;
 }
 
 export default function SettingsPage({ onNavigate }: Props) {
@@ -20,11 +21,11 @@ export default function SettingsPage({ onNavigate }: Props) {
     transitionStyle, setTransitionStyle,
     triggerTransitionTest,
     setUpdateDismissed,
-    showRuneInTitlebar, setShowRuneInTitlebar,
     discordEnabled, setDiscordEnabled,
     autostartEnabled, setAutostartEnabled,
   } = useGaldrStore();
   const [version, setVersion] = useState("");
+  const [subsOpen, setSubsOpen] = useState(false);
   const { show } = useContextMenu();
 
   useEffect(() => {
@@ -34,7 +35,7 @@ export default function SettingsPage({ onNavigate }: Props) {
   const toggleDiscord = useCallback(() => {
     const next = !discordEnabled;
     setDiscordEnabled(next);
-    invoke("set_discord_enabled", { enabled: next }).catch(() => {});
+    invoke("set_discord_enabled", { enabled: next }).catch(() => { });
   }, [discordEnabled, setDiscordEnabled]);
 
   const toggleAutostart = useCallback(() => {
@@ -44,112 +45,82 @@ export default function SettingsPage({ onNavigate }: Props) {
     else disable().catch(() => setAutostartEnabled(true));
   }, [autostartEnabled, setAutostartEnabled]);
 
-  const pickFolder = async () => {
+  const pickFolder = useCallback(async () => {
     const sel = await open({ directory: true, multiple: false });
     if (sel) setOutputDir(sel as string);
-  };
+  }, [setOutputDir]);
 
-  const handleOutputDirContext = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    show(e, [
-      { label: "browse", rune: "ᚨ", action: pickFolder },
-      { label: "copy path", rune: "ᚷ", action: () => navigator.clipboard.writeText(outputDir) },
-      ...(outputDir ? [{ label: "clear", rune: "ᛏ", action: () => setOutputDir("") }] : []),
-    ]);
-  }, [show, outputDir, pickFolder, setOutputDir]);
+  const copyToClipboard = useCallback((text: string) => {
+    navigator.clipboard.writeText(text).catch(() => { });
+  }, []);
 
-  const handleUpdateContext = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    show(e, [
-      { label: "check for updates", rune: "ᚠ", action: () => setUpdateDismissed(false) },
-    ]);
-  }, [show, setUpdateDismissed]);
-
-  const handleTransitionContext = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    show(e, [
-      { label: "test transition", rune: "ᛟ", action: triggerTransitionTest },
-      { label: "reset to default", rune: "ᛏ", action: () => setTransitionStyle("none") },
-    ]);
-  }, [show, triggerTransitionTest, setTransitionStyle]);
-
-  const handleDiscordContext = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    show(e, [
-      { label: discordEnabled ? "turn off" : "turn on", rune: "ᚷ", action: toggleDiscord },
-    ]);
-  }, [show, discordEnabled, toggleDiscord]);
-
-  const handleSubfolderContext = useCallback((e: React.MouseEvent, sub: string) => {
-    e.stopPropagation();
-    const path = `${outputDir}/${sub}/`;
-    show(e, [
-      { label: "copy path", rune: "ᚷ", action: () => navigator.clipboard.writeText(path) },
-      { label: "open in explorer", rune: "ᛏ", action: () => invoke("reveal_in_folder", { path }).catch(() => {}) },
-    ]);
-  }, [show, outputDir]);
-
-  const handleBatchSectionContext = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    show(e, [
-      { label: "navigate to batch", rune: "ᛏ", action: () => onNavigate("batch") },
-    ]);
-  }, [show, onNavigate]);
+  const subPath = useCallback((sub: string) => `${outputDir}/${sub}/`, [outputDir]);
 
   return (
     <div className="page">
       <h2>ᚲ settings</h2>
 
-      <div className="card" onContextMenu={handleOutputDirContext}>
+      <div className="card" onContextMenu={(e) => show(e, [
+        { label: "browse", rune: "ᚨ", action: pickFolder },
+        { label: "copy path", rune: "ᚷ", action: () => copyToClipboard(outputDir) },
+        ...(outputDir ? [{ label: "clear", rune: "ᛏ", action: () => setOutputDir("") }] : []),
+      ])}>
         <label className="label">base output folder</label>
         <div className="row">
           <input className="input" value={outputDir} placeholder="not set — will prompt on convert" readOnly />
           <button className="btn" onClick={pickFolder}>browse</button>
         </div>
         {outputDir && (
-          <p className="settings-hint">
-            single-file conversions are organized into subfolders by media type
-          </p>
+          <>
+            <button
+              className="settings-disclosure"
+              onClick={() => setSubsOpen((o) => !o)}
+              aria-expanded={subsOpen}
+            >
+              <span>{subsOpen ? "▾" : "▸"}</span>
+              <span>auto-created subfolders</span>
+              <span className="settings-disclosure-count">{SUBFOLDERS.length}</span>
+            </button>
+            <AnimatePresence initial={false}>
+              {subsOpen && (
+                <motion.div
+                  className="settings-subs"
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.18 }}
+                >
+                  {SUBFOLDERS.map((sf) => (
+                    <div
+                      key={sf}
+                      className="settings-sub"
+                      onContextMenu={(e) => show(e, [
+                        { label: "copy path", rune: "ᚷ", action: () => copyToClipboard(subPath(sf)) },
+                        { label: "open in explorer", rune: "ᛏ", action: () => invoke("reveal_in_folder", { path: subPath(sf) }).catch(() => { }) },
+                      ])}
+                    >
+                      <span className="settings-sub-name">{sf}/</span>
+                      <span className="settings-sub-path">{subPath(sf)}</span>
+                    </div>
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </>
         )}
-      </div>
-
-      {outputDir && (
-        <div className="card">
-          <label className="label">auto-created subfolders</label>
-          <div className="settings-subs">
-            {SUBFOLDERS.map((sf) => (
-              <div key={sf} className="settings-sub" onContextMenu={(e) => handleSubfolderContext(e, sf)}>
-                <span className="settings-sub-name">{sf}/</span>
-                <span className="settings-sub-path">{outputDir}/{sf}/</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <div className="card" onContextMenu={handleBatchSectionContext}>
-        <label className="label">batch conversion</label>
-        <p className="settings-hint">
-          batch mode uses its own input and output folders independent of this setting.
-          navigate to{" "}
-          <span className="nav-path-link" onClick={() => onNavigate("batch")}>
-            ~/galdr/convert/batch
-          </span>{" "}
-          to use it.
-        </p>
       </div>
 
       <div className="card">
         <label className="label">background &amp; watch folders</label>
-        <p className="settings-hint" style={{ margin: 0 }}>
+        <p className="settings-hint flush">
           watch folders convert incoming files automatically, even when the window is
           closed to the tray. configure them in{" "}
           <span className="nav-path-link" onClick={() => onNavigate("watch")}>
             ~/galdr/watch
           </span>.
         </p>
-        <div className="row" style={{ marginTop: 12 }}>
-          <label className="toggle-label" style={{ flex: 1 }}>launch at login</label>
+        <div className="row settings-toggle-row">
+          <label className="toggle-label">launch at login</label>
           <button
             className={`btn toggle-btn${autostartEnabled ? " active" : ""}`}
             onClick={toggleAutostart}
@@ -159,10 +130,12 @@ export default function SettingsPage({ onNavigate }: Props) {
         </div>
       </div>
 
-      <div className="card" onContextMenu={handleUpdateContext}>
+      <div className="card" onContextMenu={(e) => show(e, [
+        { label: "check for updates", rune: "ᚠ", action: () => setUpdateDismissed(false) },
+      ])}>
         <label className="label">updates</label>
         <div className="row">
-          <p className="settings-hint" style={{ flex: 1, margin: 0 }}>
+          <p className="settings-hint flush">
             v{version || "..."} &mdash; checks GitHub on startup
           </p>
           <button className="btn" onClick={() => setUpdateDismissed(false)}>
@@ -171,10 +144,13 @@ export default function SettingsPage({ onNavigate }: Props) {
         </div>
       </div>
 
-      <div className="card" onContextMenu={handleTransitionContext}>
+      <div className="card" onContextMenu={(e) => show(e, [
+        { label: "test transition", rune: "ᛟ", action: triggerTransitionTest },
+        { label: "reset to default", rune: "ᛏ", action: () => setTransitionStyle("none") },
+      ])}>
         <label className="label">page transition</label>
         <div className="row">
-          <div style={{ flex: 1 }}>
+          <div className="row-grow">
             <Dropdown
               options={TRANSITION_OPTIONS}
               value={transitionStyle}
@@ -191,27 +167,12 @@ export default function SettingsPage({ onNavigate }: Props) {
         </div>
       </div>
 
-
-      {import.meta.env.DEV_MODE && (
-        <div className="card">
-          <label className="label">dev options</label>
-          <div className="row">
-            <label className="toggle-label" style={{ flex: 1 }}>
-              rune tags nav: titlebar vs home card
-            </label>
-            <button
-              className={`btn toggle-btn${showRuneInTitlebar ? " active" : ""}`}
-              onClick={() => setShowRuneInTitlebar(!showRuneInTitlebar)}
-            >
-              {showRuneInTitlebar ? "titlebar" : "home"}
-            </button>
-          </div>
-        </div>
-      )}
-      <div className="card" onContextMenu={handleDiscordContext}>
+      <div className="card" onContextMenu={(e) => show(e, [
+        { label: discordEnabled ? "turn off" : "turn on", rune: "ᚷ", action: toggleDiscord },
+      ])}>
         <label className="label">Discord Rich Presence</label>
         <div className="row">
-          <p className="settings-hint" style={{ flex: 1, margin: 0 }}>
+          <p className="settings-hint flush">
             show what you&rsquo;re doing on your Discord profile
           </p>
           <button

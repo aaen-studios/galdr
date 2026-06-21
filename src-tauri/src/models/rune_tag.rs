@@ -1,18 +1,16 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PresetParams {
-    pub output_format: String,
-    pub video_codec: Option<String>,
-    pub audio_codec: Option<String>,
-    pub video_bitrate: Option<String>,
-    pub audio_bitrate: Option<String>,
-    pub resolution: Option<(u32, u32)>,
-    pub framerate: Option<f64>,
-    pub crf: Option<u8>,
-    pub preset: Option<String>,
-    pub quality: Option<f64>,
-}
+use crate::models::ConversionParams;
+
+/// A rune tag captures a conversion preset.
+///
+/// `PresetParams` is intentionally an alias of `ConversionParams` so that
+/// every conversion parameter (current and future) is automatically saveable,
+/// persistable, and applyable as a rune — there is only ever one source of
+/// truth for "what a conversion looks like". The two job-specific path fields
+/// (`input_path`, `output_dir`) are zeroed before a rune is persisted, since
+/// they describe a particular file, not a reusable preset.
+pub type PresetParams = ConversionParams;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RuneTag {

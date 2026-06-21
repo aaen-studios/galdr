@@ -16,6 +16,7 @@ interface Props {
   onCancel: () => void;
 }
 
+/** A blank preset spanning the full conversion surface (paths excluded). */
 const emptyParams: PresetParams = {
   output_format: "mp4",
   video_codec: undefined,
@@ -27,13 +28,49 @@ const emptyParams: PresetParams = {
   crf: undefined,
   preset: undefined,
   quality: undefined,
+  trim_start: undefined,
+  trim_end: undefined,
+  crop_w: undefined,
+  crop_h: undefined,
+  crop_x: undefined,
+  crop_y: undefined,
+  crop_ratio: undefined,
+  speed_video: undefined,
+  speed_audio: undefined,
+  rotate: undefined,
+  flip: undefined,
+  sample_rate: undefined,
+  channels: undefined,
+  audio_normalize: undefined,
+  fade_in: undefined,
+  fade_out: undefined,
 };
+
+const NORMALIZE_OPTIONS = [
+  { value: "", label: "none" },
+  { value: "loudnorm", label: "loudnorm (EBU R128)" },
+  { value: "dynaudnorm", label: "dynaudnorm (peak)" },
+];
+
+const FLIP_OPTIONS = [
+  { value: "", label: "none" },
+  { value: "h", label: "horizontal" },
+  { value: "v", label: "vertical" },
+];
+
+const ROTATE_OPTIONS = [
+  { value: "", label: "none" },
+  { value: "90", label: "90°" },
+  { value: "180", label: "180°" },
+  { value: "270", label: "270°" },
+];
 
 export default function RuneTagEditor({ tag, onSave, onCancel }: Props) {
   const [name, setName] = useState(tag?.name ?? "");
   const [rune, setRune] = useState(tag?.rune ?? "ᚠ");
   const [description, setDescription] = useState(tag?.description ?? "");
   const [params, setParams] = useState<PresetParams>(tag?.params ?? { ...emptyParams });
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   const fmtOptions = useMemo(
     () => FMT_OPTIONS.map((o) => ({ value: o.value, label: o.label })),
@@ -54,6 +91,8 @@ export default function RuneTagEditor({ tag, onSave, onCancel }: Props) {
     });
   };
 
+  // Generic numeric/text input bound to a preset field. Empty = undefined so
+  // unset fields never clobber a conversion when the rune is applied.
   const paramInput = (
     label: string,
     key: keyof PresetParams,
@@ -66,13 +105,13 @@ export default function RuneTagEditor({ tag, onSave, onCancel }: Props) {
         type={type}
         className="input"
         placeholder={placeholder}
-        value={(params[key] as string | number) ?? ""}
+        value={(params[key] as string | number | undefined) ?? ""}
         onChange={(e) => {
           const val = e.target.value;
           if (type === "number") {
-            setParam(key, val ? (key === "crf" || key === "quality" ? Number(val) : type === "number" ? Number(val) : val) : undefined);
+            setParam(key, val ? Number(val) : undefined);
           } else {
-            setParam(key, val || undefined);
+            setParam(key, (val || undefined) as PresetParams[typeof key]);
           }
         }}
       />
@@ -148,7 +187,7 @@ export default function RuneTagEditor({ tag, onSave, onCancel }: Props) {
           </label>
 
           <div className="rune-editor-divider">
-            <span className="rune-editor-divider-label">conversion params</span>
+            <span className="rune-editor-divider-label">core params</span>
           </div>
 
           <label className="rune-editor-field">
@@ -199,6 +238,111 @@ export default function RuneTagEditor({ tag, onSave, onCancel }: Props) {
           {paramInput("CRF", "crf", "0-51 (lower = better)", "number")}
           {paramInput("preset", "preset", "e.g. medium, fast, slow")}
           {paramInput("quality", "quality", "0-100 (higher = better)", "number")}
+
+          <button
+            type="button"
+            className="rune-editor-advanced-toggle"
+            onClick={() => setShowAdvanced((s) => !s)}
+          >
+            <span className="rune-editor-advanced-arrow">{showAdvanced ? "▼" : "▶"}</span>
+            <span>{showAdvanced ? "hide" : "show"} advanced (trim · crop · speed · audio)</span>
+          </button>
+
+          {showAdvanced && (
+            <div className="rune-editor-advanced">
+              <div className="rune-editor-divider">
+                <span className="rune-editor-divider-label">trim</span>
+              </div>
+              {paramInput("trim start (s)", "trim_start", "e.g. 0", "number")}
+              {paramInput("trim end (s)", "trim_end", "e.g. 12.5", "number")}
+
+              <div className="rune-editor-divider">
+                <span className="rune-editor-divider-label">crop</span>
+              </div>
+              <label className="rune-editor-field">
+                <span className="rune-editor-label">crop size (WxH)</span>
+                <div className="rune-editor-row">
+                  <input
+                    type="number"
+                    className="input"
+                    placeholder="width"
+                    value={params.crop_w ?? ""}
+                    onChange={(e) => setParam("crop_w", e.target.value ? Number(e.target.value) : undefined)}
+                  />
+                  <span className="rune-editor-sep">x</span>
+                  <input
+                    type="number"
+                    className="input"
+                    placeholder="height"
+                    value={params.crop_h ?? ""}
+                    onChange={(e) => setParam("crop_h", e.target.value ? Number(e.target.value) : undefined)}
+                  />
+                </div>
+              </label>
+              <label className="rune-editor-field">
+                <span className="rune-editor-label">crop offset (X,Y)</span>
+                <div className="rune-editor-row">
+                  <input
+                    type="number"
+                    className="input"
+                    placeholder="x"
+                    value={params.crop_x ?? ""}
+                    onChange={(e) => setParam("crop_x", e.target.value ? Number(e.target.value) : undefined)}
+                  />
+                  <span className="rune-editor-sep">x</span>
+                  <input
+                    type="number"
+                    className="input"
+                    placeholder="y"
+                    value={params.crop_y ?? ""}
+                    onChange={(e) => setParam("crop_y", e.target.value ? Number(e.target.value) : undefined)}
+                  />
+                </div>
+              </label>
+              {paramInput("crop ratio lock", "crop_ratio", "e.g. 16:9")}
+
+              <div className="rune-editor-divider">
+                <span className="rune-editor-divider-label">speed & orientation</span>
+              </div>
+              {paramInput("video speed", "speed_video", "0.25 - 4.0", "number")}
+              {paramInput("audio speed", "speed_audio", "0.25 - 4.0", "number")}
+              <label className="rune-editor-field">
+                <span className="rune-editor-label">rotate</span>
+                <Dropdown
+                  options={ROTATE_OPTIONS}
+                  value={params.rotate !== undefined ? String(params.rotate) : ""}
+                  onChange={(v) => setParam("rotate", v ? Number(v) : undefined)}
+                  placeholder="none"
+                />
+              </label>
+              <label className="rune-editor-field">
+                <span className="rune-editor-label">flip</span>
+                <Dropdown
+                  options={FLIP_OPTIONS}
+                  value={params.flip ?? ""}
+                  onChange={(v) => setParam("flip", (v || undefined) as PresetParams["flip"])}
+                  placeholder="none"
+                />
+              </label>
+
+              <div className="rune-editor-divider">
+                <span className="rune-editor-divider-label">audio</span>
+              </div>
+              {paramInput("sample rate", "sample_rate", "e.g. 44100", "number")}
+              {paramInput("channels", "channels", "1 / 2 / 6", "number")}
+              <label className="rune-editor-field">
+                <span className="rune-editor-label">normalize</span>
+                <Dropdown
+                  options={NORMALIZE_OPTIONS}
+                  value={params.audio_normalize ?? ""}
+                  onChange={(v) => setParam("audio_normalize", (v || undefined) as PresetParams["audio_normalize"])}
+                  placeholder="none"
+                />
+              </label>
+              {paramInput("fade in (s)", "fade_in", "e.g. 1.5", "number")}
+              {paramInput("fade out (s)", "fade_out", "e.g. 2.0", "number")}
+            </div>
+          )}
         </div>
 
         <div className="rune-editor-footer">

@@ -32,18 +32,15 @@ export interface ConversionParams {
   fade_out?: number;
 }
 
-export interface PresetParams {
-  output_format: string;
-  video_codec?: string;
-  audio_codec?: string;
-  video_bitrate?: string;
-  audio_bitrate?: string;
-  resolution?: [number, number];
-  framerate?: number;
-  crf?: number;
-  preset?: string;
-  quality?: number;
-}
+/**
+ * A rune tag captures a conversion preset.
+ *
+ * `PresetParams` is intentionally an alias of `ConversionParams` minus the two
+ * job-specific path fields, so every conversion parameter (current and future)
+ * is automatically saveable, persistable, and applyable as a rune. The paths
+ * describe a particular file and never belong in a reusable preset.
+ */
+export type PresetParams = Omit<ConversionParams, "input_path" | "output_dir">;
 
 export interface RuneTag {
   id: string;
@@ -186,6 +183,8 @@ export interface WatchFolderConfig {
   /** Conversion preset applied on auto-convert (inputPath/outputDir overwritten). */
   params: Partial<ConversionParams>;
   deleteSource: boolean;
+  recursive: boolean;
+  preservePath: boolean;
 }
 
 /** A file waiting in the manual-review queue (Queue-action folders). */

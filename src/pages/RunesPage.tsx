@@ -4,42 +4,32 @@ import { AnimatePresence, motion } from "framer-motion";
 import ScrambleText from "../components/ScrambleText";
 import RuneTagEditor from "../components/RuneTagEditor";
 import { useContextMenu } from "../components/ContextMenu";
+import { useGaldrStore } from "../store";
+import { summarizePreset, presetType, presetTypeLabel } from "../utils/runeMerge";
 import type { RuneTag } from "../types";
 
-function paramsSummary(p: RuneTag["params"]): string {
-  const parts: string[] = [p.output_format.toUpperCase()];
-  if (p.video_codec) parts.push(p.video_codec);
-  if (p.crf !== undefined) parts.push(`CRF ${p.crf}`);
-  if (p.audio_codec) parts.push(p.audio_codec);
-  if (p.audio_bitrate) parts.push(p.audio_bitrate);
-  if (p.resolution) parts.push(`${p.resolution[0]}x${p.resolution[1]}`);
-  return parts.join(" · ");
+/** Seeded starter runes use ids like "starter-1"; user runes use UUIDs. */
+function isStarter(tag: RuneTag): boolean {
+  return tag.id.startsWith("starter-");
 }
 
 export default function RunesPage() {
-  const [tags, setTags] = useState<RuneTag[]>([]);
+  const tags = useGaldrStore((s) => s.runeTags);
+  const refreshRuneTags = useGaldrStore((s) => s.refreshRuneTags);
   const [editing, setEditing] = useState<RuneTag | undefined>(undefined);
   const [creating, setCreating] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
   const { show } = useContextMenu();
 
-  const loadTags = useCallback(async () => {
-    try {
-      const result = await invoke<RuneTag[]>("list_rune_tags");
-      setTags(result);
-    } catch {
-      console.error("Failed to load rune tags");
-    }
-  }, []);
-
+  // Keep in sync with the shared store: refresh whenever the page mounts.
   useEffect(() => {
-    loadTags();
-  }, [loadTags]);
+    refreshRuneTags();
+  }, [refreshRuneTags]);
 
   const handleSave = async (tag: RuneTag) => {
     try {
       await invoke<RuneTag>("save_rune_tag", { tag });
-      await loadTags();
+      await refreshRuneTags();
       setEditing(undefined);
       setCreating(false);
     } catch (e) {
@@ -51,7 +41,7 @@ export default function RunesPage() {
     setDeleting(id);
     try {
       await invoke("delete_rune_tag", { id });
-      await loadTags();
+      await refreshRuneTags();
     } catch (e) {
       console.error("Failed to delete rune tag", e);
     }
@@ -65,12 +55,12 @@ export default function RunesPage() {
       { label: "duplicate", rune: "ᚷ", action: async () => {
         const dup: RuneTag = { ...tag, id: crypto.randomUUID(), name: `${tag.name} (copy)` };
         await invoke("save_rune_tag", { tag: dup });
-        await loadTags();
+        await refreshRuneTags();
       }},
       { label: "", rune: "", action: () => {}, divider: true },
       { label: "delete", rune: "ᚨ", action: () => handleDelete(tag.id) },
     ]);
-  }, [show, loadTags]);
+  }, [show, refreshRuneTags]);
 
   const handleEmptyContext = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -79,11 +69,66 @@ export default function RunesPage() {
     ]);
   }, [show]);
 
+  const handleHeaderContext = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    show(e, [
+      { label: "new preset", rune: "ᚨ", action: () => setCreating(true) },
+    ]);
+  }, [show]);
+
+  const starters = tags.filter(isStarter);
+  const userRunes = tags.filter((t) => !isStarter(t));
+
+  const renderCard = (tag: RuneTag) => {
+    const type = presetType(tag.params);
+    return (
+      <motion.div
+        key={tag.id}
+        className="rune-card"
+        layout
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        whileHover={{ scale: 1.02 }}
+        onContextMenu={(e) => handleCardContext(e, tag)}
+      >
+        <div className="rune-card-main" onClick={() => setEditing(tag)}>
+          <div className="rune-card-top">
+            <span className="rune-card-rune">{tag.rune}</span>
+            <span className={`rune-card-badge badge-${type}`}>{presetTypeLabel(type)}</span>
+          </div>
+          <span className="rune-card-name">{tag.name}</span>
+          <span className="rune-card-desc">{tag.description}</span>
+          <span className="rune-card-params">{summarizePreset(tag.params)}</span>
+        </div>
+        <button
+          className="rune-card-delete"
+          onClick={(e) => {
+            e.stopPropagation();
+            handleDelete(tag.id);
+          }}
+          disabled={deleting === tag.id}
+          title="delete"
+        >
+          {deleting === tag.id ? "..." : "x"}
+        </button>
+      </motion.div>
+    );
+  };
+
   return (
     <div className="page runes-page">
-      <ScrambleText as="h1" className="page-heading" text="ᚠ rune tags" hover load />
+      <header className="runes-header" onContextMenu={handleHeaderContext}>
+        <ScrambleText as="h1" className="page-heading" text="ᚠ rune tags" hover load />
+        <p className="runes-subtitle">
+          save conversion settings as named runes, then apply them anywhere with one click —
+          convert, compress, and batch. {tags.length > 0 && (
+            <span className="runes-count">{tags.length} saved</span>
+          )}
+        </p>
+      </header>
 
-      <div className="rune-grid">
+      <div className="rune-grid-actions">
         <motion.button
           className="rune-card rune-card-new"
           whileHover={{ scale: 1.02 }}
@@ -91,46 +136,39 @@ export default function RunesPage() {
           onClick={() => setCreating(true)}
           onContextMenu={(e) => {
             e.stopPropagation();
-            show(e, [
-              { label: "new preset", rune: "ᚨ", action: () => setCreating(true) },
-            ]);
+            show(e, [{ label: "new preset", rune: "ᚨ", action: () => setCreating(true) }]);
           }}
         >
           <span className="rune-card-rune new">+</span>
           <span className="rune-card-name">new preset</span>
-          <span className="rune-card-desc">create a saved conversion preset</span>
+          <span className="rune-card-desc">capture current settings as a reusable rune</span>
         </motion.button>
-
-        {tags.map((tag) => (
-          <motion.div
-            key={tag.id}
-            className="rune-card"
-            layout
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            whileHover={{ scale: 1.02 }}
-            onContextMenu={(e) => handleCardContext(e, tag)}
-          >
-            <div className="rune-card-main" onClick={() => setEditing(tag)}>
-              <span className="rune-card-rune">{tag.rune}</span>
-              <span className="rune-card-name">{tag.name}</span>
-              <span className="rune-card-desc">{tag.description}</span>
-              <span className="rune-card-params">{paramsSummary(tag.params)}</span>
-            </div>
-            <button
-              className="rune-card-delete"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleDelete(tag.id);
-              }}
-              disabled={deleting === tag.id}
-            >
-              {deleting === tag.id ? "..." : "x"}
-            </button>
-          </motion.div>
-        ))}
       </div>
+
+      {userRunes.length > 0 && (
+        <section className="rune-section">
+          <h2 className="rune-section-title">your runes</h2>
+          <div className="rune-grid">
+            <AnimatePresence>
+              {userRunes.map(renderCard)}
+            </AnimatePresence>
+          </div>
+        </section>
+      )}
+
+      {starters.length > 0 && (
+        <section className="rune-section">
+          <h2 className="rune-section-title">
+            starter runes
+            <span className="rune-section-hint">examples — edit, duplicate, or delete any of them</span>
+          </h2>
+          <div className="rune-grid">
+            <AnimatePresence>
+              {starters.map(renderCard)}
+            </AnimatePresence>
+          </div>
+        </section>
+      )}
 
       {tags.length === 0 && !creating && (
         <div className="rune-empty" onContextMenu={handleEmptyContext}>

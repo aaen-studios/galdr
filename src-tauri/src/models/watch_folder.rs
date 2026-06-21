@@ -44,6 +44,13 @@ pub struct WatchFolderConfig {
     /// Remove the source file after a successful AutoConvert.
     #[serde(default)]
     pub delete_source: bool,
+    /// Whether to watch subdirectories recursively.
+    #[serde(default)]
+    pub recursive: bool,
+    /// When true (and recursive is true), output mirrors the relative
+    /// subfolder path under the output directory instead of flattening.
+    #[serde(default)]
+    pub preserve_path: bool,
 }
 
 impl Default for WatchFolderConfig {
@@ -57,6 +64,8 @@ impl Default for WatchFolderConfig {
             action: WatchAction::default(),
             params: ConversionParams::default_value(),
             delete_source: false,
+            recursive: false,
+            preserve_path: false,
         }
     }
 }
