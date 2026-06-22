@@ -76,6 +76,18 @@ jobs:
               ;;
           esac
 
+      - name: Download whisper-cli
+        shell: bash
+        run: |
+          mkdir -p src-tauri/binaries
+          curl -fsSL https://github.com/ggml-org/whisper.cpp/releases/latest/download/whisper-bin-x64.zip -o whisper.zip
+          unzip -o whisper.zip -d whisper-extract
+          # The zip may contain a subdirectory — copy all relevant files up
+          find whisper-extract -type f \( -name "whisper-cli*" -o -name "whisper.dll" -o -name "whisper.lib" -o -name "whisper.dylib" -o -name "whisper.so*" -o -name "ggml*" \) \
+            -exec cp {} src-tauri/binaries/ \;
+          chmod +x src-tauri/binaries/whisper-cli 2>/dev/null || true
+          rm -rf whisper.zip whisper-extract
+
       - name: Build Tauri
         run: bun tauri build
         env:

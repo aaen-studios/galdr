@@ -1,5 +1,5 @@
 ﻿# Builds the Tauri app and generates the updater signature.
-# Run after `build-ffmpeg.ps1` (downloads FFmpeg binaries).
+# Run after `build-binaries.ps1` (downloads FFmpeg + whisper-cli binaries).
 
 param(
     [string]$Version = ""

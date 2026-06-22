@@ -138,6 +138,24 @@ else
   echo "✓ FFmpeg binaries present"
 fi
 
+# ── Download whisper-cli if missing ──────────────────────────
+WHISPER_URL="https://github.com/ggml-org/whisper.cpp/releases/latest/download/whisper-bin-x64.zip"
+
+if [ ! -f "$BIN_DIR/whisper-cli${BIN_EXT}" ]; then
+  echo "⟳ Downloading whisper-cli for $PLATFORM ..."
+  TMPDIR="$(mktemp -d)"
+  curl -fsSL "$WHISPER_URL" -o "$TMPDIR/whisper.zip"
+  unzip -o "$TMPDIR/whisper.zip" -d "$TMPDIR/whisper-extract"
+  # The zip may contain a subdirectory — copy all files up to BIN_DIR
+  find "$TMPDIR/whisper-extract" -type f \( -name "whisper-cli*" -o -name "whisper.dll" -o -name "whisper.lib" -o -name "ggml*" \) \
+    -exec cp {} "$BIN_DIR/" \;
+  [ "$PLATFORM" != "windows" ] && chmod +x "$BIN_DIR/whisper-cli" 2>/dev/null || true
+  rm -rf "$TMPDIR"
+  echo "   → $BIN_DIR/whisper-cli${BIN_EXT}"
+else
+  echo "✓ whisper-cli present"
+fi
+
 # ── Generate installer skin assets ──────────────────────────
 echo "⟳ Generating nsNiuniuSkin installer assets ..."
 if command -v python3 &>/dev/null; then
