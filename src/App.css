@@ -119,6 +119,24 @@ body {
   color: var(--fg-dim);
 }
 
+/* Thin progress strip at the bottom edge of the title bar showing the
+   overall background-queue progress. Hidden (zero width) when idle. */
+.titlebar-queue-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  background: var(--fg);
+  transition: width 0.3s ease, opacity 0.3s ease;
+  z-index: 5;
+  pointer-events: none;
+}
+
+.titlebar-queue-bar.idle {
+  opacity: 0;
+  width: 0 !important;
+}
+
 /* Layout */
 .app-shell {
   display: flex;
@@ -4384,5 +4402,255 @@ body {
   font-size: 11px;
   color: var(--fg-dim);
   letter-spacing: 0.05em;
+}
+
+/* ── Background Queue Dropdown ── */
+
+.queue-dropdown {
+  position: relative;
+  display: flex;
+}
+
+.queue-trigger {
+  position: relative;
+  border-right: 1px solid var(--fg-faint);
+}
+
+.queue-trigger.is-active .ts-rune {
+  color: var(--fg);
+  animation: queue-pulse 1.2s ease-in-out infinite;
+}
+
+.queue-trigger.is-failed .ts-rune {
+  color: #d08080;
+}
+
+@keyframes queue-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+.queue-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 4px;
+  background: var(--fg);
+  color: var(--bg);
+  border-radius: 7px;
+  font-size: 9px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.queue-panel {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 320px;
+  max-width: 380px;
+  max-height: 420px;
+  overflow-y: auto;
+  background: var(--bg);
+  border: 1px solid var(--fg-faint);
+  z-index: 100;
+  padding: 6px 0;
+}
+
+.queue-empty {
+  padding: 18px 14px;
+  text-align: center;
+  font-size: 11px;
+  color: var(--fg-dim);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.queue-section + .queue-section {
+  border-top: 1px solid var(--fg-faint);
+  margin-top: 4px;
+  padding-top: 4px;
+}
+
+.queue-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 12px;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fg-dim);
+}
+
+.queue-count {
+  color: var(--fg);
+  font-weight: bold;
+}
+
+.queue-job-row {
+  padding: 6px 12px;
+  border-top: 1px solid var(--fg-faint);
+  cursor: default;
+}
+
+.queue-job-row:first-child {
+  border-top: none;
+}
+
+.queue-job-row:hover {
+  background: var(--bg-dim);
+}
+
+.queue-job-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.queue-job-glyph {
+  font-size: 12px;
+  color: var(--fg-dim);
+  width: 14px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.qstatus-running .queue-job-glyph,
+.qstatus-queued .queue-job-glyph {
+  color: var(--fg);
+}
+
+.qstatus-completed .queue-job-glyph {
+  color: var(--fg);
+}
+
+.qstatus-failed .queue-job-glyph {
+  color: #b04040;
+}
+
+.queue-job-label {
+  font-size: 12px;
+  color: var(--fg);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.qstatus-failed .queue-job-label {
+  color: #d08080;
+}
+
+.qstatus-cancelled .queue-job-label,
+.qstatus-cancelled .queue-job-glyph {
+  color: var(--fg-dim);
+  text-decoration: line-through;
+}
+
+.queue-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0 4px 22px;
+}
+
+.queue-progress .progress-bar-container {
+  flex: 1;
+  margin-top: 0;
+  height: 4px;
+}
+
+.queue-progress-pct {
+  font-size: 10px;
+  color: var(--fg-dim);
+  min-width: 32px;
+  text-align: right;
+}
+
+.queue-job-error {
+  margin: 4px 0 0 22px;
+  font-size: 11px;
+  color: #d08080;
+  font-family: "Courier New", monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.queue-job-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 4px;
+  padding-left: 22px;
+}
+
+.queue-job-path {
+  font-size: 11px;
+  color: var(--fg-dim);
+  font-family: "Courier New", monospace;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.queue-job-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.queue-job-btn {
+  background: transparent;
+  border: 1px solid var(--fg-faint);
+  color: var(--fg-dim);
+  font-family: inherit;
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.queue-job-btn:hover {
+  border-color: var(--fg);
+  color: var(--fg);
+  background: var(--bg-dim);
+}
+
+.queue-cancel:hover {
+  border-color: #b04040;
+  color: #d08080;
+}
+
+.queue-clear-btn {
+  display: block;
+  width: calc(100% - 24px);
+  margin: 8px 12px 4px;
+  padding: 6px 8px;
+  background: transparent;
+  border: 1px solid var(--fg-faint);
+  color: var(--fg-dim);
+  font-family: inherit;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.queue-clear-btn:hover {
+  border-color: var(--fg);
+  color: var(--fg);
+  background: var(--bg-dim);
 }
 

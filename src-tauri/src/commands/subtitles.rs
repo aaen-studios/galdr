@@ -309,6 +309,17 @@ pub async fn transcribe_audio(
     let model_path = require_installed_model(&model_id)?;
     let wav_path = prepare_wav(input)?;
 
+    let job_id = crate::queue::register(
+        &app_handle,
+        crate::models::JobType::Transcription,
+        crate::queue::make_label(
+            &crate::models::JobType::Transcription,
+            &input_path,
+        ),
+        input_path.clone(),
+        None,
+    );
+
     // Probe source duration for progress mapping.
     let duration = crate::ffmpeg::probe_file(input)
         .map(|info| info.duration)
@@ -419,6 +430,7 @@ pub async fn transcribe_audio(
     let file_name_for_emit = file_name.clone();
     let model_id_for_emit = model_id.clone();
     let lang_for_emit = lang.clone();
+    let q_jid = job_id.clone();
     let emit = move |ev: &WhisperEvent| match ev {
         WhisperEvent::Progress(p) => {
             crate::discord_rpc::set_transcribing(&file_name_for_emit, *p, &model_id_for_emit, &lang_for_emit);
@@ -426,6 +438,7 @@ pub async fn transcribe_audio(
                 "transcribe-progress",
                 TranscribeProgressPayload { progress: *p },
             );
+            crate::queue::update_progress(&app_for_emit, &q_jid, *p);
         }
         WhisperEvent::Segment(s) => {
             let _ = app_for_emit.emit(
@@ -455,6 +468,7 @@ pub async fn transcribe_audio(
     if CANCELLED_TRANSCRIPTION.load(Ordering::SeqCst) {
         let _ = std::fs::remove_file(&wav_path);
         crate::discord_rpc::set_idle();
+        crate::queue::fail(&app_handle, &job_id, "transcription cancelled".to_string());
         return Err("transcription cancelled".to_string());
     }
 
@@ -463,6 +477,7 @@ pub async fn transcribe_audio(
     if let Err(err) = run_result {
         let _ = std::fs::remove_file(&wav_path);
         crate::discord_rpc::set_idle();
+        crate::queue::fail(&app_handle, &job_id, err.clone());
         return Err(err);
     }
 
@@ -582,6 +597,17 @@ pub async fn transcribe_audio(
 
     crate::discord_rpc::set_idle();
 
+    // Collect output paths for the queue result
+    let outputs: Vec<String> = [&result.srt_path, &result.vtt_path, &result.json_path]
+        .iter()
+        .filter_map(|p| p.as_ref().cloned())
+        .collect();
+    let result_data = serde_json::json!({
+        "outputs": outputs,
+        "outputDir": output_dir,
+    });
+    crate::queue::complete(&app_handle, &job_id, outputs.first().cloned(), Some(result_data));
+
     Ok(result)
 }
 
@@ -647,6 +673,14 @@ pub async fn embed_subtitle(
     let input = Path::new(&input_path);
     let out = PathBuf::from(&output_path);
 
+    let job_id = crate::queue::register(
+        &app_handle,
+        crate::models::JobType::SubtitleEmbed,
+        crate::queue::make_label(&crate::models::JobType::SubtitleEmbed, &input_path),
+        input_path.clone(),
+        None,
+    );
+
     if let Some(parent) = out.parent() {
         std::fs::create_dir_all(parent)
             .map_err(|e| format!("failed to create output dir: {}", e))?;
@@ -701,21 +735,30 @@ pub async fn embed_subtitle(
 
     args.push(output_path.clone());
 
-    let events = run_conversion_with_log(&app_handle, &args, duration, "embed", &file_name)?;
-    let done = events
-        .iter()
-        .find_map(|ev| match ev {
-            crate::ffmpeg::FfmpegEvent::Done(p) => Some(p.clone()),
-            _ => None,
-        })
-        .unwrap_or(output_path);
+    let result = (|| -> Result<SubtitleOpResult, String> {
+        let events = run_conversion_with_log(&app_handle, &args, duration, "embed", &file_name)?;
+        let done = events
+            .iter()
+            .find_map(|ev| match ev {
+                crate::ffmpeg::FfmpegEvent::Done(p) => Some(p.clone()),
+                _ => None,
+            })
+            .unwrap_or(output_path);
 
-    crate::discord_rpc::track_conversion();
-    crate::discord_rpc::set_idle();
-    Ok(SubtitleOpResult {
-        job_id: "embed".to_string(),
-        output_path: done,
-    })
+        crate::discord_rpc::track_conversion();
+        crate::discord_rpc::set_idle();
+        Ok(SubtitleOpResult {
+            job_id: "embed".to_string(),
+            output_path: done,
+        })
+    })();
+
+    match &result {
+        Ok(op) => crate::queue::complete(&app_handle, &job_id, Some(op.output_path.clone()), None),
+        Err(e) => crate::queue::fail(&app_handle, &job_id, e.clone()),
+    }
+
+    result
 }
 
 #[tauri::command]
@@ -728,6 +771,14 @@ pub async fn extract_subtitle(
 ) -> Result<SubtitleOpResult, String> {
     let input = Path::new(&input_path);
     let out = PathBuf::from(&output_path);
+
+    let job_id = crate::queue::register(
+        &app_handle,
+        crate::models::JobType::SubtitleExtract,
+        crate::queue::make_label(&crate::models::JobType::SubtitleExtract, &input_path),
+        input_path.clone(),
+        None,
+    );
 
     if let Some(parent) = out.parent() {
         std::fs::create_dir_all(parent)
@@ -771,31 +822,49 @@ pub async fn extract_subtitle(
 
     args.push(output_path.clone());
 
-    let events = run_conversion_with_log(&app_handle, &args, duration, "extract", &file_name)?;
-    let done = events
-        .iter()
-        .find_map(|ev| match ev {
-            crate::ffmpeg::FfmpegEvent::Done(p) => Some(p.clone()),
-            _ => None,
-        })
-        .unwrap_or(output_path);
+    let result = (|| -> Result<SubtitleOpResult, String> {
+        let events = run_conversion_with_log(&app_handle, &args, duration, "extract", &file_name)?;
+        let done = events
+            .iter()
+            .find_map(|ev| match ev {
+                crate::ffmpeg::FfmpegEvent::Done(p) => Some(p.clone()),
+                _ => None,
+            })
+            .unwrap_or(output_path);
 
-    crate::discord_rpc::track_conversion();
-    crate::discord_rpc::set_idle();
-    Ok(SubtitleOpResult {
-        job_id: "extract".to_string(),
-        output_path: done,
-    })
+        crate::discord_rpc::track_conversion();
+        crate::discord_rpc::set_idle();
+        Ok(SubtitleOpResult {
+            job_id: "extract".to_string(),
+            output_path: done,
+        })
+    })();
+
+    match &result {
+        Ok(op) => crate::queue::complete(&app_handle, &job_id, Some(op.output_path.clone()), None),
+        Err(e) => crate::queue::fail(&app_handle, &job_id, e.clone()),
+    }
+
+    result
 }
 
 #[tauri::command]
 pub async fn convert_subtitle_format(
+    app_handle: tauri::AppHandle,
     input_path: String,
     output_path: String,
     output_format: String,
 ) -> Result<SubtitleOpResult, String> {
     let in_path = Path::new(&input_path);
     let out = PathBuf::from(&output_path);
+
+    let job_id = crate::queue::register(
+        &app_handle,
+        crate::models::JobType::SubtitleExtract,
+        format!("Converting subtitle format: {}", in_path.file_name().and_then(|s| s.to_str()).unwrap_or("unknown")),
+        input_path.clone(),
+        None,
+    );
 
     if let Some(parent) = out.parent() {
         std::fs::create_dir_all(parent)
@@ -809,32 +878,41 @@ pub async fn convert_subtitle_format(
         _ => "subrip",
     };
 
-    let ffmpeg = crate::ffmpeg::ffmpeg_path();
-    let mut cmd = Command::new(ffmpeg);
-    cmd.args(["-y", "-i"])
-        .arg(in_path)
-        .arg("-c:s")
-        .arg(sub_codec);
-    cmd.arg(&out)
-        .stdout(Stdio::null())
-        .stderr(Stdio::piped());
-    #[cfg(windows)]
-    {
-        use std::os::windows::process::CommandExt;
-        cmd.creation_flags(0x08000000);
-    }
-    let output = cmd
-        .output()
-        .map_err(|e| format!("failed to run ffmpeg: {}", e))?;
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("subtitle conversion failed: {}", stderr.trim()));
+    let result = (|| -> Result<SubtitleOpResult, String> {
+        let ffmpeg = crate::ffmpeg::ffmpeg_path();
+        let mut cmd = Command::new(ffmpeg);
+        cmd.args(["-y", "-i"])
+            .arg(in_path)
+            .arg("-c:s")
+            .arg(sub_codec);
+        cmd.arg(&out)
+            .stdout(Stdio::null())
+            .stderr(Stdio::piped());
+        #[cfg(windows)]
+        {
+            use std::os::windows::process::CommandExt;
+            cmd.creation_flags(0x08000000);
+        }
+        let output = cmd
+            .output()
+            .map_err(|e| format!("failed to run ffmpeg: {}", e))?;
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(format!("subtitle conversion failed: {}", stderr.trim()));
+        }
+
+        Ok(SubtitleOpResult {
+            job_id: "convert-sub".to_string(),
+            output_path: output_path,
+        })
+    })();
+
+    match &result {
+        Ok(op) => crate::queue::complete(&app_handle, &job_id, Some(op.output_path.clone()), None),
+        Err(e) => crate::queue::fail(&app_handle, &job_id, e.clone()),
     }
 
-    Ok(SubtitleOpResult {
-        job_id: "convert-sub".to_string(),
-        output_path: output_path,
-    })
+    result
 }
 
 /// Shared runner wrapper for embed/extract that reuses `run_conversion` and
@@ -868,7 +946,7 @@ fn run_conversion_with_log<R: tauri::Runtime>(
             }
             _ => {}
         }
-    })?;
+    }, job_id)?;
 
     // Surface the first error as Err.
     for ev in &events {

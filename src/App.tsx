@@ -15,9 +15,11 @@ import WatchFoldersPage from "./pages/WatchFoldersPage";
 import SubtitlesPage from "./pages/SubtitlesPage";
 import ScrambleText from "./components/ScrambleText";
 import UpdateBanner from "./components/UpdateBanner";
+import QueueDropdown from "./components/QueueDropdown";
 import PageTransition from "./transitions";
 import { useGaldrStore } from "./store";
 import { useForgeStore } from "./store/forgeStore";
+import { bindQueueEvents, useQueueStore, selectOverallProgress } from "./store/queueStore";
 import { ContextMenuProvider, useContextMenu } from "./components/ContextMenu";
 import type { GaldrProjectFile } from "./types";
 import "./App.css";
@@ -46,6 +48,8 @@ function AppShell() {
   const taskbarFlash = useGaldrStore((s) => s.taskbarFlash);
   const setTaskbarFlash = useGaldrStore((s) => s.setTaskbarFlash);
   const showRuneInTitlebar = useGaldrStore((s) => s.showRuneInTitlebar);
+  const queueJobs = useQueueStore((s) => s.jobs);
+  const queueProgress = selectOverallProgress(queueJobs);
   const win = getCurrentWindow();
   const prevFlash = useRef(false);
   const { show } = useContextMenu();
@@ -114,6 +118,11 @@ function AppShell() {
   // Hydrate rune tags once so every page can offer preset pick / save-as-rune.
   useEffect(() => {
     useGaldrStore.getState().loadRuneTags();
+  }, []);
+
+  // Bind the background queue event listener on mount.
+  useEffect(() => {
+    bindQueueEvents();
   }, []);
 
   // Read OS autostart state on mount (autostart is OS-managed, not in settings.json)
@@ -307,12 +316,17 @@ function AppShell() {
   return (
     <div className="app-shell" onContextMenu={handleGlobalContextMenu}>
       <header className="titlebar" data-tauri-drag-region>
+        <div
+          className={`titlebar-queue-bar${queueProgress === null ? " idle" : ""}`}
+          style={{ width: queueProgress === null ? "0%" : `${Math.round(queueProgress * 100)}%` }}
+        />
         <div className="titlebar-left">
           {showRuneInTitlebar && (
             <button className="titlebar-btn titlebar-rune-btn" onClick={handleRunes}>
               <span className="ts-rune">ᚠ</span>
             </button>
           )}
+          <QueueDropdown />
           <button className="titlebar-btn titlebar-settings" onClick={handleSettings}>
             <span className="ts-rune">ᚲ</span>
             <span className="ts-label">settings</span>

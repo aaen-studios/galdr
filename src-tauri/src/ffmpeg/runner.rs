@@ -16,6 +16,7 @@ pub fn run_conversion<F>(
     args: &[String],
     duration: f64,
     on_event: F,
+    job_id: &str,
 ) -> std::result::Result<Vec<FfmpegEvent>, String>
 where
     F: FnMut(&FfmpegEvent) + Send + 'static,
@@ -33,6 +34,10 @@ where
     let mut child = cmd
         .spawn()
         .map_err(|e| format!("Failed to spawn ffmpeg: {}", e))?;
+
+    // Register the child's pid so `cancel_job(<job_id>)` can kill exactly
+    // this process (not every ffmpeg.exe on the machine).
+    crate::queue::pids::register_pid(job_id, child.id());
 
     let stderr = child.stderr.take().unwrap();
     let reader = BufReader::new(stderr);
@@ -87,6 +92,14 @@ where
     let mut last_known_progress = 0.0;
 
     loop {
+        // Cheap cancellation: if this job's per-job token was flipped by
+        // `cancel_job`, the process has already been killed (pid-scoped) by
+        // the command handler — just bail out of the drain loop now instead
+        // of waiting for the stderr pipe to close on its own.
+        if crate::queue::pids::is_cancelled(job_id) {
+            events.push(FfmpegEvent::Error("cancelled".to_string()));
+            break;
+        }
         match rx.recv_timeout(Duration::from_millis(200)) {
             Ok(event) => {
                 if let FfmpegEvent::Progress(p) = &event {
@@ -109,6 +122,10 @@ where
             Err(mpsc::RecvTimeoutError::Disconnected) => break,
         }
     }
+
+    // The job is no longer running — drop its pid / token so the registry
+    // doesn't grow without bound and cancel_job can't target a dead process.
+    crate::queue::pids::unregister(job_id);
 
     // ffmpeg is done (stderr pipe closed → reader thread exited → channel closed)
     let status = match wait_thread.join() {

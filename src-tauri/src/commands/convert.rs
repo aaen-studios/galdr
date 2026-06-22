@@ -43,7 +43,34 @@ pub async fn start_conversion(
     app_handle: tauri::AppHandle,
     params: ConversionParams,
 ) -> Result<ConversionDonePayload, String> {
-    run_single_conversion(&app_handle, params, "default")
+    let job_id = crate::queue::register(
+        &app_handle,
+        crate::models::JobType::Conversion,
+        crate::queue::make_label(
+            &crate::models::JobType::Conversion,
+            &params.input_path.to_string_lossy(),
+        ),
+        params.input_path.to_string_lossy().to_string(),
+        None,
+    );
+
+    let result = run_single_conversion(&app_handle, params, &job_id);
+
+    match &result {
+        Ok(done) => {
+            crate::queue::complete(
+                &app_handle,
+                &job_id,
+                Some(done.output_path.clone()),
+                None,
+            );
+        }
+        Err(e) => {
+            crate::queue::fail(&app_handle, &job_id, e.clone());
+        }
+    }
+
+    result
 }
 
 /// Shared conversion core. Runs one file through the ffmpeg pipeline and
@@ -98,7 +125,7 @@ pub fn run_single_conversion<R: tauri::Runtime>(
                     message: "pass 1/2 analysis".to_string(),
                 },
             );
-            let pass1_events = run_conversion(&pass1, effective_duration, |_| {})?;
+            let pass1_events = run_conversion(&pass1, effective_duration, |_| {}, job_id)?;
             for ev in &pass1_events {
                 match ev {
                     crate::ffmpeg::FfmpegEvent::Error(msg) => {
@@ -137,6 +164,7 @@ pub fn run_single_conversion<R: tauri::Runtime>(
                             progress: *p,
                         },
                     );
+                    crate::queue::update_progress(&pass2_app, &pass2_jid, *p);
                 }
                 crate::ffmpeg::FfmpegEvent::Log(msg) => {
                     let _ = pass2_app.emit(
@@ -148,7 +176,7 @@ pub fn run_single_conversion<R: tauri::Runtime>(
                 }
                 _ => {}
             }
-        })?;
+        }, job_id)?;
 
         // Clean up pass log files
         let _ = std::fs::remove_file("ffmpeg2pass-0.log");
@@ -193,6 +221,7 @@ pub fn run_single_conversion<R: tauri::Runtime>(
                             progress: *p,
                         },
                     );
+                    crate::queue::update_progress(&norm_app, &norm_jid, *p);
                 }
                 crate::ffmpeg::FfmpegEvent::Log(msg) => {
                     let _ = norm_app.emit(
@@ -204,7 +233,7 @@ pub fn run_single_conversion<R: tauri::Runtime>(
                 }
                 _ => {}
             }
-        })?;
+        }, job_id)?;
         let output = events.iter().find_map(|ev| {
             if let crate::ffmpeg::FfmpegEvent::Done(path) = ev {
                 Some(path.clone())
@@ -257,6 +286,14 @@ pub async fn concat_videos(
         return Err("Need at least two clips to concatenate".to_string());
     }
 
+    let job_id = crate::queue::register(
+        &app_handle,
+        crate::models::JobType::Concatenation,
+        format!("Concatenating {} clips", inputs.len()),
+        inputs.first().cloned().unwrap_or_default(),
+        None,
+    );
+
     std::fs::create_dir_all(
         std::path::Path::new(&output_path).parent().unwrap_or(std::path::Path::new(".")),
     )
@@ -303,6 +340,7 @@ pub async fn concat_videos(
 
     let concat_app = app_handle.clone();
     let concat_fname = file_name.clone();
+    let concat_jid = job_id.clone();
     let events = run_conversion(&args, total_duration, move |ev| {
         match ev {
             crate::ffmpeg::FfmpegEvent::Progress(p) => {
@@ -314,6 +352,7 @@ pub async fn concat_videos(
                         progress: *p,
                     },
                 );
+                crate::queue::update_progress(&concat_app, &concat_jid, *p);
             }
             crate::ffmpeg::FfmpegEvent::Log(msg) => {
                 let _ = concat_app.emit(
@@ -323,7 +362,7 @@ pub async fn concat_videos(
             }
             _ => {}
         }
-    });
+    }, &job_id);
     let _ = std::fs::remove_file(&list_path);
     let events = events?;
 
@@ -332,6 +371,7 @@ pub async fn concat_videos(
             crate::ffmpeg::FfmpegEvent::Done(path) => {
                 discord_rpc::track_conversion();
                 discord_rpc::set_idle();
+                crate::queue::complete(&app_handle, &job_id, Some(path.clone()), None);
                 return Ok(ConversionDonePayload {
                     job_id: "concat".to_string(),
                     output_path: path.clone(),
@@ -339,6 +379,7 @@ pub async fn concat_videos(
             }
             crate::ffmpeg::FfmpegEvent::Error(msg) => {
                 discord_rpc::set_idle();
+                crate::queue::fail(&app_handle, &job_id, msg.clone());
                 return Err(msg.clone());
             }
             _ => {}
@@ -346,7 +387,9 @@ pub async fn concat_videos(
     }
 
     discord_rpc::set_idle();
-    Err("Concatenation produced no output".to_string())
+    let err = "Concatenation produced no output".to_string();
+    crate::queue::fail(&app_handle, &job_id, err.clone());
+    Err(err)
 }
 
 /// Extract the audio track from a media file into a standalone audio file.
@@ -358,6 +401,17 @@ pub async fn extract_audio(
     audio_format: String,
     bitrate: Option<String>,
 ) -> Result<ConversionDonePayload, String> {
+    let job_id = crate::queue::register(
+        &app_handle,
+        crate::models::JobType::AudioExtraction,
+        crate::queue::make_label(
+            &crate::models::JobType::AudioExtraction,
+            &input_path,
+        ),
+        input_path.clone(),
+        None,
+    );
+
     std::fs::create_dir_all(
         std::path::Path::new(&output_path).parent().unwrap_or(std::path::Path::new(".")),
     )
@@ -399,6 +453,7 @@ pub async fn extract_audio(
     let audio_app = app_handle.clone();
     let audio_fname = file_name.clone();
     let audio_fmt = audio_format.clone();
+    let audio_jid = job_id.clone();
     let events = run_conversion(&args, duration, move |ev| {
         match ev {
             crate::ffmpeg::FfmpegEvent::Progress(p) => {
@@ -410,6 +465,7 @@ pub async fn extract_audio(
                         progress: *p,
                     },
                 );
+                crate::queue::update_progress(&audio_app, &audio_jid, *p);
             }
             crate::ffmpeg::FfmpegEvent::Log(msg) => {
                 let _ = audio_app.emit(
@@ -419,13 +475,14 @@ pub async fn extract_audio(
             }
             _ => {}
         }
-    })?;
+    }, &job_id)?;
 
     for event in &events {
         match event {
             crate::ffmpeg::FfmpegEvent::Done(path) => {
                 discord_rpc::track_conversion();
                 discord_rpc::set_idle();
+                crate::queue::complete(&app_handle, &job_id, Some(path.clone()), None);
                 return Ok(ConversionDonePayload {
                     job_id: "extract-audio".to_string(),
                     output_path: path.clone(),
@@ -433,6 +490,7 @@ pub async fn extract_audio(
             }
             crate::ffmpeg::FfmpegEvent::Error(msg) => {
                 discord_rpc::set_idle();
+                crate::queue::fail(&app_handle, &job_id, msg.clone());
                 return Err(msg.clone());
             }
             _ => {}
@@ -440,7 +498,9 @@ pub async fn extract_audio(
     }
 
     discord_rpc::set_idle();
-    Err("Audio extraction produced no output".to_string())
+    let err = "Audio extraction produced no output".to_string();
+    crate::queue::fail(&app_handle, &job_id, err.clone());
+    Err(err)
 }
 
 /// Cheap unique suffix for the temp concat list filename.
@@ -551,6 +611,14 @@ pub async fn start_batch_conversion(
     std::fs::create_dir_all(&params.output_dir)
         .map_err(|e| format!("Failed to create output dir: {}", e))?;
 
+    let job_id = crate::queue::register(
+        &app_handle,
+        crate::models::JobType::BatchConversion,
+        format!("Batch: {} files (extension: {})", entries.len() - params.skip, extension),
+        params.input_dir.to_string_lossy().to_string(),
+        None,
+    );
+
     let mut done = 0usize;
     let mut failed = 0usize;
     let done_offset = params.skip;
@@ -566,6 +634,10 @@ pub async fn start_batch_conversion(
             .and_then(|s| s.to_str())
             .unwrap_or("unknown")
             .to_string();
+
+        // Update queue progress for the batch job
+        let batch_progress = (done + failed) as f64 / total as f64;
+        crate::queue::update_progress(&app_handle, &job_id, batch_progress);
 
         let _ = app_handle.emit(
             "batch-progress",
@@ -611,7 +683,7 @@ pub async fn start_batch_conversion(
                     },
                 );
                 let pass1_result: Result<(), String> = (|| {
-                    let evts = run_conversion(&pass1, eff_dur, |_| {})?;
+                    let evts = run_conversion(&pass1, eff_dur, |_| {}, &job_id)?;
                     for e in &evts {
                         if let crate::ffmpeg::FfmpegEvent::Error(msg) = e {
                             return Err(msg.clone());
@@ -643,7 +715,7 @@ pub async fn start_batch_conversion(
                             },
                         );
                     }
-                })?;
+                }, &job_id)?;
                 let out = evts.iter().find_map(|e| {
                     if let crate::ffmpeg::FfmpegEvent::Done(p) = e {
                         Some(p.clone())
@@ -678,7 +750,7 @@ pub async fn start_batch_conversion(
                             },
                         );
                     }
-                })?;
+                }, &job_id)?;
                 let out = evts.iter().find_map(|e| {
                     if let crate::ffmpeg::FfmpegEvent::Done(p) = e {
                         Some(p.clone())
@@ -736,6 +808,23 @@ pub async fn start_batch_conversion(
         },
     );
 
+    // Complete the batch job with result summary
+    if failed > 0 && done == 0 {
+        crate::queue::fail(
+            &app_handle,
+            &job_id,
+            format!("All {} files failed", failed),
+        );
+    } else {
+        let summary = serde_json::json!({
+            "total": total,
+            "done": done,
+            "failed": failed,
+            "skipped": done_offset,
+        });
+        crate::queue::complete(&app_handle, &job_id, None, Some(summary));
+    }
+
     Ok(())
 }
 
@@ -770,7 +859,7 @@ pub fn cancel_conversion() -> Result<(), String> {
     kill_ffmpeg()
 }
 
-fn kill_ffmpeg() -> Result<(), String> {
+pub fn kill_ffmpeg() -> Result<(), String> {
     #[cfg(windows)]
     {
         std::process::Command::new("taskkill")

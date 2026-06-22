@@ -2,6 +2,7 @@ mod commands;
 mod discord_rpc;
 mod ffmpeg;
 mod models;
+mod queue;
 mod tray;
 mod watcher;
 mod whisper;
@@ -153,6 +154,9 @@ pub fn run() {
             commands::recovery_save_subtitle_editor,
             commands::recovery_load_subtitle_editor,
             commands::recovery_clear_subtitle_editor,
+            commands::get_queue,
+            commands::cancel_job,
+            commands::clear_completed_jobs,
         ])
         .on_window_event(|window, event| {
             if let WindowEvent::CloseRequested { api, .. } = event {

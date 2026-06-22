@@ -322,4 +322,43 @@ export interface SubtitleOpResult {
   outputPath: string;
 }
 
+// ── Background Queue ──
+
+export type JobType =
+  | "conversion"
+  | "batch_conversion"
+  | "transcription"
+  | "subtitle_embed"
+  | "subtitle_extract"
+  | "subtitle_burn"
+  | "concatenation"
+  | "audio_extraction"
+  | "forge_export";
+
+export type JobStatus = "queued" | "running" | "completed" | "failed" | "cancelled";
+
+/** A single entry in the background job queue. Mirrors the Rust `JobEntry`. */
+export interface QueueJob {
+  id: string;
+  jobType: JobType;
+  status: JobStatus;
+  /** 0.0 – 1.0 */
+  progress: number;
+  /** Human-readable label (e.g. "Converting video.mp4") */
+  label: string;
+  inputPath: string;
+  outputPath?: string;
+  error?: string;
+  /** ISO 8601 */
+  createdAt: string;
+  completedAt?: string;
+  /** Flexible result payload (batch summary, list of output paths, etc.) */
+  resultData?: Record<string, unknown>;
+}
+
+/** Payload of the `queue-update` event. */
+export interface QueueUpdatePayload {
+  jobs: QueueJob[];
+}
+
 

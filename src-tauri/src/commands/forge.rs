@@ -72,6 +72,14 @@ pub async fn export_timeline(
 
     let aclips = &project.audio_track.clips;
 
+    let job_id = crate::queue::register(
+        &app_handle,
+        crate::models::JobType::ForgeExport,
+        "Exporting Forge timeline".to_string(),
+        String::new(),
+        None,
+    );
+
     // Map quality to preset + crf
     let (preset, crf) = match options.quality.as_str() {
         "high" => ("slow", "18"),
@@ -150,7 +158,7 @@ pub async fn export_timeline(
                 "-pix_fmt".to_string(), "yuv420p".to_string(),
                 bpath.clone(),
             ];
-            run_conversion(&black_args, gap_dur, |_| {})?;
+            run_conversion(&black_args, gap_dur, |_| {}, &job_id)?;
             vid_concat.push(format!("file '{}'", bpath.replace('\\', "\\\\")));
         }
 
@@ -188,12 +196,13 @@ pub async fn export_timeline(
             inter_path.clone(),
         ]);
 
-        run_conversion(&args, dur, |_| {})?;
+        run_conversion(&args, dur, |_| {}, &job_id)?;
 
         vid_concat.push(format!("file '{}'", inter_path.replace('\\', "\\\\")));
         cursor = clip.start_time + clip.duration;
         steps_done += 1.0;
         update_progress(&app_handle, steps_done, total_steps as f64);
+        crate::queue::update_progress(&app_handle, &job_id, (steps_done / total_steps as f64).min(0.95));
         let current_clip = ((steps_done) as usize).min(total_clips);
         discord_rpc::set_forge_exporting(total_clips, current_clip, steps_done / total_steps as f64);
     }
@@ -211,7 +220,7 @@ pub async fn export_timeline(
         "-c".to_string(), "copy".to_string(),
         vtemp.to_string_lossy().to_string(),
     ];
-    run_conversion(&merge_args, vclips.len() as f64, |_| {})?;
+    run_conversion(&merge_args, vclips.len() as f64, |_| {}, &job_id)?;
 
     // ── 2. Render audio clips from audio track (no video) ──
 
@@ -250,7 +259,7 @@ pub async fn export_timeline(
                 seg_path.to_string_lossy().to_string(),
             ]);
 
-            run_conversion(&args, dur, |_| {})?;
+            run_conversion(&args, dur, |_| {}, &job_id)?;
 
             let delay_ms = (clip.start_time * 1000.0) as u64;
             audio_inputs.push("-i".to_string());
@@ -259,6 +268,7 @@ pub async fn export_timeline(
 
             steps_done += 1.0;
             update_progress(&app_handle, steps_done, total_steps as f64);
+            crate::queue::update_progress(&app_handle, &job_id, (steps_done / total_steps as f64).min(0.95));
         }
 
         if !filter_parts.is_empty() {
@@ -277,7 +287,7 @@ pub async fn export_timeline(
                 atemp_path.to_string_lossy().to_string(),
             ]);
 
-            run_conversion(&mix_cmd, 1.0, |_| {})?;
+            run_conversion(&mix_cmd, 1.0, |_| {}, &job_id)?;
             atemp = Some(atemp_path);
         }
     }
@@ -295,7 +305,7 @@ pub async fn export_timeline(
             "-shortest".to_string(),
             output_path.to_string_lossy().to_string(),
         ];
-        run_conversion(&final_args, 1.0, |_| {})?;
+        run_conversion(&final_args, 1.0, |_| {}, &job_id)?;
     } else {
         std::fs::copy(&vtemp, &output_path).map_err(|e| e.to_string())?;
     }
@@ -307,7 +317,9 @@ pub async fn export_timeline(
     discord_rpc::track_conversion();
     discord_rpc::set_idle();
 
-    Ok(output_path.to_string_lossy().to_string())
+    let out = output_path.to_string_lossy().to_string();
+    crate::queue::complete(&app_handle, &job_id, Some(out.clone()), None);
+    Ok(out)
 }
 
 #[tauri::command]
@@ -401,7 +413,7 @@ pub async fn pre_render_timeline(
             inter_path.clone(),
         ]);
 
-        let events = run_conversion(&args, dur, |_| {})?;
+        let events = run_conversion(&args, dur, |_| {}, "forge-prerender")?;
         for event in &events {
             if let crate::ffmpeg::runner::FfmpegEvent::Error(e) = event {
                 return Err(format!("clip {} error: {}", i, e));
@@ -434,7 +446,7 @@ pub async fn pre_render_timeline(
         output_path.to_string_lossy().to_string(),
     ];
 
-    run_conversion(&merge_args, clips.len() as f64, |_| {})?;
+    run_conversion(&merge_args, clips.len() as f64, |_| {}, "forge-prerender")?;
 
     app_handle
         .emit("forge-render-progress", serde_json::json!({ "progress": 1.0 }))
