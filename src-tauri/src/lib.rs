@@ -63,9 +63,13 @@ pub fn run() {
                 }
             }
 
-            // Apply saved window state after window is created
+            // Apply saved window state after window is created, with
+            // safeguards against off-screen positions and minimum sizes.
             let window = app.get_webview_window("main").unwrap();
             if let Some(state) = commands::load_window_state() {
+                let monitors = window.available_monitors().unwrap_or_default();
+                let primary = window.primary_monitor().ok().flatten();
+                let state = state.sanitize(&monitors, primary.as_ref());
                 let _ = window.set_position(tauri::PhysicalPosition::new(state.x, state.y));
                 let _ = window.set_size(tauri::PhysicalSize::new(state.width, state.height));
                 if state.maximized {

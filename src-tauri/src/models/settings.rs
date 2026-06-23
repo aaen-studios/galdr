@@ -41,3 +41,88 @@ pub struct WindowState {
     pub height: u32,
     pub maximized: bool,
 }
+
+impl WindowState {
+    pub const DEFAULT_WIDTH: u32 = 1100;
+    pub const DEFAULT_HEIGHT: u32 = 750;
+    pub const MIN_WIDTH: u32 = 900;
+    pub const MIN_HEIGHT: u32 = 600;
+
+    /// Validate and fix the saved window state against available monitors.
+    ///
+    /// * If width or height is below the minimum (or zero/corrupted), the entire
+    ///   state is reset to defaults (size + centered on primary monitor).
+    /// * If the position is off-screen (no overlap with any monitor), the window
+    ///   is centered on the primary monitor while preserving the validated size.
+    /// * `primary` — the primary monitor, if known; used as the centering anchor.
+    pub fn sanitize(
+        self,
+        monitors: &[tauri::Monitor],
+        primary: Option<&tauri::Monitor>,
+    ) -> Self {
+        // ——— Size validation ———
+        let size_bad = self.width < Self::MIN_WIDTH
+            || self.height < Self::MIN_HEIGHT
+            || self.width == 0
+            || self.height == 0;
+
+        if size_bad {
+            // Corrupted / too-small state: reset everything to defaults.
+            return center_on_monitor(primary.or_else(|| monitors.first()), Self::DEFAULT_WIDTH, Self::DEFAULT_HEIGHT);
+        }
+
+        // ——— Position validation ———
+        let x = self.x;
+        let y = self.y;
+        let w = self.width as i32;
+        let h = self.height as i32;
+
+        let on_screen = monitors.iter().any(|m| {
+            let p = m.position();
+            let s = m.size();
+            let mx1 = p.x;
+            let my1 = p.y;
+            let mx2 = mx1.saturating_add(s.width as i32);
+            let my2 = my1.saturating_add(s.height as i32);
+
+            // Standard AABB overlap: window rect vs monitor rect.
+            x < mx2 && x.saturating_add(w) > mx1 && y < my2 && y.saturating_add(h) > my1
+        });
+
+        if on_screen {
+            self
+        } else {
+            center_on_monitor(primary.or_else(|| monitors.first()), self.width, self.height)
+        }
+    }
+}
+
+/// Return a `WindowState` centered on the given monitor (or at (0,0)
+/// if no monitor is available).
+fn center_on_monitor(
+    monitor: Option<&tauri::Monitor>,
+    width: u32,
+    height: u32,
+) -> WindowState {
+    if let Some(m) = monitor {
+        let p = m.position();
+        let s = m.size();
+        let cx = p.x + (s.width as i32) / 2;
+        let cy = p.y + (s.height as i32) / 2;
+        WindowState {
+            x: cx - (width as i32) / 2,
+            y: cy - (height as i32) / 2,
+            width,
+            height,
+            maximized: false,
+        }
+    } else {
+        WindowState {
+            x: 0,
+            y: 0,
+            width,
+            height,
+            maximized: false,
+        }
+    }
+}
