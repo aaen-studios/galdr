@@ -5,6 +5,7 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { useGaldrStore } from "../store";
+import { resolvePreferredEncoder } from "../utils/ffmpegBuilder";
 import CustomSelect from "../components/CustomSelect";
 import Dropdown from "../components/Dropdown";
 import ScrambleText from "../components/ScrambleText";
@@ -372,6 +373,11 @@ export default function CompressPage({ onNavigate }: { onNavigate?: NavigateFn }
       output_format: outputFormat,
       quality: compressionMode === "quality" ? quality : undefined,
       target_size_bytes: targetSizeBytes,
+      preferred_video_encoder: resolvePreferredEncoder(
+        useGaldrStore.getState().preferredVideoEncoder,
+        outputFormat,
+        useGaldrStore.getState().availableEncoders,
+      ),
     };
 
     setIsConverting(true);
@@ -962,7 +968,7 @@ export default function CompressPage({ onNavigate }: { onNavigate?: NavigateFn }
 
           {inputPath && (
             <div onContextMenu={handleCompressCommandContext}>
-              <CommandPreview params={{ input_path: inputPath, output_dir: outputDir || "", output_format: outputFormat, quality }} mediaType={mediaType} duration={mediaInfo?.duration} />
+              <CommandPreview params={{ input_path: inputPath, output_dir: outputDir || "", output_format: outputFormat, quality }} mediaType={mediaType} duration={mediaInfo?.duration} availableEncoders={useGaldrStore.getState().availableEncoders} />
             </div>
           )}
         </>
@@ -1139,6 +1145,7 @@ export default function CompressPage({ onNavigate }: { onNavigate?: NavigateFn }
                           quality: compressionMode === "quality" ? quality : undefined,
                           target_size_bytes: targetSizeBytes,
                         }}
+                        availableEncoders={useGaldrStore.getState().availableEncoders}
                       />
                     </div>
                   )}

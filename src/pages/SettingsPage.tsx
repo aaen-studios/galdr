@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
@@ -8,8 +8,20 @@ import { useGaldrStore } from "../store";
 import Dropdown from "../components/Dropdown";
 import { TRANSITION_OPTIONS } from "../transitions";
 import { useContextMenu } from "../components/ContextMenu";
+import { resolvePreferredEncoder } from "../utils/ffmpegBuilder";
+import type { HardwareEncoderInfo } from "../types";
+import { getEncoderTier, TIER_RANK } from "../utils/encoderTiers";
 
 const SUBFOLDERS = ["video", "audio", "image"];
+
+/** Human-readable vendor label. */
+const VENDOR_LABEL: Record<string, string> = {
+  nvidia: "NVIDIA",
+  amd: "AMD",
+  intel: "Intel",
+  apple: "Apple",
+  vaapi: "VAAPI",
+};
 
 interface Props {
   onNavigate: (page: "watch") => void;
@@ -23,6 +35,9 @@ export default function SettingsPage({ onNavigate }: Props) {
     setUpdateDismissed,
     discordEnabled, setDiscordEnabled,
     autostartEnabled, setAutostartEnabled,
+    availableEncoders, setAvailableEncoders,
+    preferredVideoEncoder, setPreferredVideoEncoder,
+    autoFallbackHw, setAutoFallbackHw,
   } = useGaldrStore();
   const [version, setVersion] = useState("");
   const [subsOpen, setSubsOpen] = useState(false);
@@ -31,6 +46,52 @@ export default function SettingsPage({ onNavigate }: Props) {
   useEffect(() => {
     getVersion().then(setVersion).catch(() => setVersion("0.1.0"));
   }, []);
+
+  // Detect hardware encoders on mount
+  useEffect(() => {
+    invoke<HardwareEncoderInfo[]>("detect_hardware_encoders")
+      .then(setAvailableEncoders)
+      .catch(() => { /* ffmpeg not available */ });
+  }, [setAvailableEncoders]);
+
+  // Build categorized dropdown options from detected encoders.
+  // The "auto" option's label dynamically shows which encoder it resolves to.
+  const encoderDropdownOptions = useMemo(() => {
+    const base: { value: string; label: string; category?: string }[] = [];
+
+    // Resolve what "auto" would pick, so we can show it in the trigger label
+    const autoName = resolvePreferredEncoder("auto", "mp4", availableEncoders);
+    const autoEnc = autoName
+      ? availableEncoders.find((e) => e.name === autoName)
+      : undefined;
+    base.push({
+      value: "auto",
+      label: autoEnc
+        ? `Auto → ${autoEnc.name} (${autoEnc.description})`
+        : "Auto (prefer hardware, fallback to software)",
+    });
+    base.push({
+      value: "software",
+      label: "Software encoding only",
+    });
+
+    if (availableEncoders.length > 0) {
+      const sorted = [...availableEncoders].sort((a, b) => {
+        const aRank = TIER_RANK[getEncoderTier(a.vendor).tier] ?? 0;
+        const bRank = TIER_RANK[getEncoderTier(b.vendor).tier] ?? 0;
+        return bRank - aRank;
+      });
+      sorted.forEach((enc) => {
+        const vendor = VENDOR_LABEL[enc.vendor] ?? enc.vendor;
+        base.push({
+          value: enc.name,
+          category: vendor,
+          label: `${enc.name}  ${enc.description}`,
+        });
+      });
+    }
+    return base;
+  }, [availableEncoders]);
 
   const toggleDiscord = useCallback(() => {
     const next = !discordEnabled;
@@ -182,6 +243,42 @@ export default function SettingsPage({ onNavigate }: Props) {
             {discordEnabled ? "on" : "off"}
           </button>
         </div>
+      </div>
+
+      {/* ── Encoding / hardware acceleration ── */}
+      <div className="card">
+        <label className="label">ᚲ encoding</label>
+
+        <div className="row" style={{ marginBottom: 8 }}>
+          <div className="row-grow">
+            <Dropdown
+              options={encoderDropdownOptions}
+              value={preferredVideoEncoder}
+              showCategories={availableEncoders.length > 0}
+              onChange={(v) => setPreferredVideoEncoder(v as string)}
+            />
+          </div>
+        </div>
+
+        {availableEncoders.length === 0 && (
+          <p className="settings-hint" style={{ marginTop: 8 }}>
+            no hardware encoders detected — encoding will use software codecs
+          </p>
+        )}
+
+        <div className="row settings-toggle-row" style={{ marginTop: 8 }}>
+          <label className="toggle-label">auto-fallback to software</label>
+          <button
+            className={`btn toggle-btn${autoFallbackHw ? " active" : ""}`}
+            onClick={() => setAutoFallbackHw(!autoFallbackHw)}
+          >
+            {autoFallbackHw ? "on" : "off"}
+          </button>
+        </div>
+        <p className="settings-hint">
+          when the selected hardware encoder is unavailable, use the default
+          software encoder instead of failing
+        </p>
       </div>
     </div>
   );

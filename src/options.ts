@@ -99,3 +99,9 @@ export const FMT_OPTIONS: FormatOption[] = [
   { value: "tiff", label: "tiff", type: "image", category: "image" },
   { value: "avif", label: "avif", type: "image", category: "image" },
 ];
+
+/** Pre-defined encoder selection options for the Settings → Encoding dropdown. */
+export const ENCODER_OPTIONS: { value: string; label: string }[] = [
+  { value: "auto", label: "Auto (prefer hardware, fallback to software)" },
+  { value: "software", label: "Software encoding only" },
+];

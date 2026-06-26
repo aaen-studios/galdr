@@ -5,6 +5,7 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { useGaldrStore } from "../store";
+import { resolvePreferredEncoder } from "../utils/ffmpegBuilder";
 import Dropdown from "../components/Dropdown";
 import ScrambleText from "../components/ScrambleText";
 import ConvertOperations from "../components/ConvertOperations";
@@ -311,7 +312,15 @@ export default function ConvertPage({ onNavigate }: { onNavigate?: NavigateFn })
     }
 
     const typeDir = mediaType ? `${dir}/${mediaType}` : dir;
-    const params = { ...conversionParams, output_dir: typeDir };
+    const params = {
+      ...conversionParams,
+      output_dir: typeDir,
+      preferred_video_encoder: resolvePreferredEncoder(
+        useGaldrStore.getState().preferredVideoEncoder,
+        conversionParams.output_format,
+        useGaldrStore.getState().availableEncoders,
+      ),
+    };
 
     setIsConverting(true);
     setError(null);
@@ -810,7 +819,7 @@ export default function ConvertPage({ onNavigate }: { onNavigate?: NavigateFn })
 
           {conversionParams.input_path && (
             <div onContextMenu={handleCommandContext}>
-              <CommandPreview params={conversionParams} outputDir={outputDir} mediaType={mediaType} />
+              <CommandPreview params={conversionParams} outputDir={outputDir} mediaType={mediaType} availableEncoders={useGaldrStore.getState().availableEncoders} />
             </div>
           )}
         </>

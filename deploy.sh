@@ -32,16 +32,30 @@ if [ ! -f "$KEY_PATH" ]; then
 fi
 
 # ── Version ──────────────────────────────────────────────────────────
-CURRENT_VERSION="$(grep '"version"' src-tauri/tauri.conf.json | head -1 | sed 's/.*: *"\(.*\)".*/\1/')"
-VERSION="${1:-$CURRENT_VERSION}"
+# Read the current version from each source-of-truth file independently.
+PKG_VERSION="$(grep '"version"' package.json | head -1 | sed 's/.*: *"\(.*\)".*/\1/')"
+CONF_VERSION="$(grep '"version"' src-tauri/tauri.conf.json | head -1 | sed 's/.*: *"\(.*\)".*/\1/')"
+CARGO_VERSION="$(grep '^version' src-tauri/Cargo.toml | head -1 | sed 's/^version = "\(.*\)"/\1/')"
 
-if [ "$VERSION" != "$CURRENT_VERSION" ]; then
-  echo "⟳ Bumping version $CURRENT_VERSION → $VERSION"
-  sed -i.bak "s/\"version\": \"$CURRENT_VERSION\"/\"version\": \"$VERSION\"/" package.json
-  sed -i.bak "s/\"version\": \"$CURRENT_VERSION\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
-  sed -i.bak "s/^version = \"$CURRENT_VERSION\"/version = \"$VERSION\"/" src-tauri/Cargo.toml
+if [ -n "${1:-}" ]; then
+  # Explicit version argument wins — bump all three files to it.
+  VERSION="$1"
+  echo "⟳ Bumping version → $VERSION"
+  sed -i.bak "s/\"version\": \"$PKG_VERSION\"/\"version\": \"$VERSION\"/" package.json
+  sed -i.bak "s/\"version\": \"$CONF_VERSION\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
+  sed -i.bak "s/^version = \"$CARGO_VERSION\"/version = \"$VERSION\"/" src-tauri/Cargo.toml
   rm -f package.json.bak src-tauri/tauri.conf.json.bak src-tauri/Cargo.toml.bak
 else
+  # No argument: all three files must agree, else refuse to proceed.
+  if [ "$PKG_VERSION" != "$CONF_VERSION" ] || [ "$CONF_VERSION" != "$CARGO_VERSION" ]; then
+    echo "! Version mismatch detected:" >&2
+    echo "    package.json:      $PKG_VERSION" >&2
+    echo "    tauri.conf.json:   $CONF_VERSION" >&2
+    echo "    Cargo.toml:        $CARGO_VERSION" >&2
+    echo "  Pass an explicit version to resync, e.g. ./deploy.sh 0.3.2" >&2
+    exit 1
+  fi
+  VERSION="$CONF_VERSION"
   echo "✓ Version: $VERSION"
 fi
 

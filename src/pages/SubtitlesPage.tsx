@@ -11,6 +11,8 @@ import ModelManager from "../components/whisper/ModelManager";
 import SubtitleStylePanel from "../components/SubtitleStylePanel";
 import TranscriptEditor from "../components/TranscriptEditor";
 import { useSubtitleStore, bindSubtitleEvents } from "../store/subtitleStore";
+import { useGaldrStore } from "../store";
+import { resolvePreferredEncoder } from "../utils/ffmpegBuilder";
 import { LANGUAGE_OPTIONS, LANGUAGE_LABEL } from "../options/languages";
 import { useContextMenu } from "../components/ContextMenu";
 import { parseSrt, parseVtt, serializeSrt, serializeVtt } from "../utils/srt";
@@ -477,6 +479,11 @@ export default function SubtitlesPage() {
         subtitle_path: subtitlePath,
         subtitle_mode: "burn" as const,
         subtitle_style: Object.keys(subtitleStyle).length > 0 ? subtitleStyle : undefined,
+        preferred_video_encoder: resolvePreferredEncoder(
+          useGaldrStore.getState().preferredVideoEncoder,
+          burnOutputFormat,
+          useGaldrStore.getState().availableEncoders,
+        ),
       };
       const r = await invoke<{ job_id: string; output_path: string }>(
         "start_conversion", { params },

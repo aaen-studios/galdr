@@ -30,10 +30,13 @@ interface AppSettings {
   crtEnabled: boolean;
   showRuneInTitlebar: boolean;
   discordEnabled: boolean;
+  preferredVideoEncoder: string | null;
+  autoFallbackHw: boolean;
 }
 
 const PERSIST_FIELDS: (keyof AppSettings)[] = [
   "outputDir", "transitionStyle", "crtEnabled", "showRuneInTitlebar", "discordEnabled",
+  "preferredVideoEncoder", "autoFallbackHw",
 ];
 
 type Page = "home" | "convert" | "compress" | "settings" | "runes" | "forge" | "watch" | "subtitles";
@@ -112,6 +115,10 @@ function AppShell() {
       store.setCrtEnabled(s.crtEnabled);
       store.setShowRuneInTitlebar(s.showRuneInTitlebar);
       store.setDiscordEnabled(s.discordEnabled);
+      if (s.preferredVideoEncoder != null) {
+        store.setPreferredVideoEncoder(s.preferredVideoEncoder);
+      }
+      store.setAutoFallbackHw(s.autoFallbackHw);
     }).catch(() => {});
   }, []);
 
@@ -130,6 +137,11 @@ function AppShell() {
     isAutostartEnabled()
       .then((enabled) => useGaldrStore.getState().setAutostartEnabled(enabled))
       .catch(() => {});
+  }, []);
+
+  // Detect hardware encoders on startup
+  useEffect(() => {
+    useGaldrStore.getState().loadHardwareEncoders();
   }, []);
 
   // Check for forge recovery on mount
@@ -158,6 +170,8 @@ function AppShell() {
           crtEnabled: s.crtEnabled,
           showRuneInTitlebar: s.showRuneInTitlebar,
           discordEnabled: s.discordEnabled,
+          preferredVideoEncoder: s.preferredVideoEncoder === "software" ? null : s.preferredVideoEncoder,
+          autoFallbackHw: s.autoFallbackHw,
         }).catch(() => {});
       }, 300);
     });

@@ -1,5 +1,5 @@
 import { useMemo, useState, useRef, useCallback } from "react";
-import type { ConversionParams } from "../types";
+import type { ConversionParams, HardwareEncoderInfo } from "../types";
 import { buildFFmpegCommand } from "../utils/ffmpegBuilder";
 import { getFlagDef, type FlagDef } from "../utils/ffmpegSyntax";
 
@@ -9,6 +9,8 @@ interface CommandPreviewProps {
   mediaType?: "video" | "audio" | "image" | null;
   /** Source media duration in seconds — used for accurate bitrate preview in target-size mode. */
   duration?: number;
+  /** Available hardware encoders (for resolving "auto" in the preview). */
+  availableEncoders?: HardwareEncoderInfo[];
 }
 
 type TokenType = "binary" | "flag" | "value" | "path" | "text";
@@ -59,14 +61,14 @@ function tokenize(cmd: string): Token[] {
   return tokens;
 }
 
-export default function CommandPreview({ params, outputDir, duration }: CommandPreviewProps) {
+export default function CommandPreview({ params, outputDir, duration, availableEncoders }: CommandPreviewProps) {
   const cmd = useMemo(() => {
     const merged: ConversionParams = {
       ...params,
       output_dir: outputDir || params.output_dir,
     };
-    return buildFFmpegCommand(merged, duration);
-  }, [params, outputDir, duration]);
+    return buildFFmpegCommand(merged, duration, availableEncoders);
+  }, [params, outputDir, duration, availableEncoders]);
 
   const tokens = useMemo(() => tokenize(cmd), [cmd]);
 

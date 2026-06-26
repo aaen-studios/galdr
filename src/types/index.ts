@@ -42,6 +42,9 @@ export interface ConversionParams {
   subtitle_style?: SubtitleStyle;
   /** ISO language tag for embedded subtitles */
   subtitle_lang?: string;
+  /** Preferred video encoder (e.g. "h264_nvenc"), resolved from user settings.
+   *  "auto" / "software" or undefined means use the default software encoder. */
+  preferred_video_encoder?: string;
 }
 
 /**
@@ -294,6 +297,15 @@ export interface TranscriptEditorRecovery {
   filePath?: string;
   videoPath?: string;
   savedAt: number;
+}
+
+/** Hardware encoder detected in the system's ffmpeg installation. */
+export interface HardwareEncoderInfo {
+  name: string;
+  codec: string;
+  vendor: string;
+  available: boolean;
+  description: string;
 }
 
 /** ASS subtitle styling parameters for burn-in via `force_style`. */

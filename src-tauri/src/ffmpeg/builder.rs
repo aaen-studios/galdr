@@ -317,14 +317,56 @@ pub fn build_args(params: &ConversionParams) -> Vec<String> {
         }
     }
 
+    // ── Preferred video encoder ──
+    // If the user did not explicitly set a video codec but has a preferred
+    // encoder (set via Settings → Encoding), use it when the output format
+    // is compatible.  "Auto" resolution is handled on the frontend so by
+    // the time we get here `preferred_video_encoder` is either a concrete
+    // encoder name (e.g. "h264_nvenc") or None.
+    if params.video_codec.is_none() {
+        if let Some(preferred) = &params.preferred_video_encoder {
+            let fmt = params.output_format.to_lowercase();
+            // Determine if the preferred encoder is format-compatible
+            let is_h264_fmt = matches!(
+                fmt.as_str(),
+                "mp4" | "m4v" | "mov" | "avi" | "flv" | "ts" | "3gp"
+            );
+            let is_hevc_fmt = matches!(fmt.as_str(), "mkv");
+            let compatible = (preferred.contains("h264") && is_h264_fmt)
+                || (preferred.contains("hevc") && is_hevc_fmt);
+            if compatible {
+                // Silently fall back to software if the encoder is not
+                // available in this ffmpeg build (auto-fallback).
+                if crate::ffmpeg::encoders::has_encoder(preferred) {
+                    args.push("-c:v".to_string());
+                    args.push(preferred.clone());
+                }
+            }
+        }
+    }
+
     // Apply pixel format for compatible video output (not for GIF or audio-only)
     let is_audio_fmt = matches!(
         params.output_format.to_lowercase().as_str(),
         "mp3" | "aac" | "m4a" | "ogg" | "opus" | "wav" | "aiff" | "flac" | "wma" | "ac3"
     );
     let is_gif = params.output_format.to_lowercase() == "gif";
-    if !is_audio_fmt && !is_gif && params.video_codec.as_deref().unwrap_or("") != "png" {
-        if params.video_codec.is_none() || params.video_codec.as_deref().unwrap_or("") == "libx264" {
+    // Determine the effective video codec — explicit or preferred — to decide
+    // whether to force yuv420p.  Software H.264 encoders and all known hardware
+    // encoders benefit from an explicit pixel format.
+    let effective_vcodec = params
+        .video_codec
+        .as_deref()
+        .or(params.preferred_video_encoder.as_deref());
+    let is_hw_encoder = effective_vcodec.map_or(false, |c| {
+        c.contains("nvenc") || c.contains("amf") || c.contains("qsv")
+            || c.contains("videotoolbox") || c.contains("vaapi")
+    });
+    if !is_audio_fmt && !is_gif && effective_vcodec.unwrap_or("") != "png" {
+        if effective_vcodec.is_none()
+            || effective_vcodec == Some("libx264")
+            || is_hw_encoder
+        {
             args.push("-pix_fmt".to_string());
             args.push("yuv420p".to_string());
         }
@@ -667,11 +709,26 @@ pub fn build_two_pass_args(
     let video_br = format_bitrate(video_bps);
     let audio_br = format_bitrate(audio_bps);
 
-    // Resolve video codec (user explicit → format default)
+    // Resolve video codec (user explicit → preferred → format default)
     let vcodec = params
         .video_codec
         .clone()
-        .or_else(|| default_video_codec(&fmt));
+        .or_else(|| {
+            // If a preferred encoder is set and compatible, use it
+            if let Some(preferred) = &params.preferred_video_encoder {
+                let is_h264_fmt = matches!(
+                    fmt.as_str(),
+                    "mp4" | "m4v" | "mov" | "avi" | "flv" | "ts" | "3gp"
+                );
+                let is_hevc_fmt = matches!(fmt.as_str(), "mkv");
+                let compatible = (preferred.contains("h264") && is_h264_fmt)
+                    || (preferred.contains("hevc") && is_hevc_fmt);
+                if compatible && crate::ffmpeg::encoders::has_encoder(preferred) {
+                    return Some(preferred.clone());
+                }
+            }
+            default_video_codec(&fmt)
+        });
 
     let null_device = if cfg!(windows) {
         "NUL".to_string()

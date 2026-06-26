@@ -1,8 +1,11 @@
 import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
-import type { MediaInfo, ConversionParams, RuneTag } from "../types";
+import type { MediaInfo, ConversionParams, RuneTag, HardwareEncoderInfo } from "../types";
 import type { TransitionStyle } from "../transitions";
 import { DEFAULT_TRANSITION } from "../transitions";
+
+/** Convenience: get the concrete encoder that "auto" would pick for a format. */
+import { resolvePreferredEncoder } from "../utils/ffmpegBuilder";
 
 export type UpdateStatus = "idle" | "checking" | "available" | "downloading" | "downloaded" | "installing" | "error";
 
@@ -34,8 +37,15 @@ interface GaldrState {
   showRuneInTitlebar: boolean;
   discordEnabled: boolean;
   autostartEnabled: boolean;
-  /** Runes loaded from an externally-opened .galdr file, awaiting user review. */
-  pendingRunesImport: { runes: RuneTag[]; sourceName: string } | null;
+	  /** Runes loaded from an externally-opened .galdr file, awaiting user review. */
+	  pendingRunesImport: { runes: RuneTag[]; sourceName: string } | null;
+
+	  /** Hardware encoders detected in the system's ffmpeg. */
+	  availableEncoders: HardwareEncoderInfo[];
+	  /** User's preferred video encoder setting: "auto" | "software" | encoder name */
+	  preferredVideoEncoder: string;
+	  /** Auto-fallback to software when the preferred HW encoder is unavailable. */
+	  autoFallbackHw: boolean;
 
   setMediaInfo: (info: MediaInfo | null) => void;
   setConversionParams: (params: Partial<ConversionParams>) => void;
@@ -66,8 +76,14 @@ interface GaldrState {
   setShowRuneInTitlebar: (v: boolean) => void;
   setDiscordEnabled: (v: boolean) => void;
   setAutostartEnabled: (v: boolean) => void;
-  setPendingRunesImport: (data: { runes: RuneTag[]; sourceName: string } | null) => void;
-}
+	  setPendingRunesImport: (data: { runes: RuneTag[]; sourceName: string } | null) => void;
+	  setAvailableEncoders: (encoders: HardwareEncoderInfo[]) => void;
+	  setPreferredVideoEncoder: (v: string) => void;
+	  setAutoFallbackHw: (v: boolean) => void;
+	  loadHardwareEncoders: () => Promise<void>;
+	  /** Return the HardwareEncoderInfo that "auto" would resolve to for a given output format, or undefined. */
+		  getAutoSelectedEncoder: (outputFormat?: string) => HardwareEncoderInfo | undefined;
+		}
 
 const defaultParams: ConversionParams = {
   input_path: "",
@@ -95,12 +111,13 @@ const defaultParams: ConversionParams = {
   flip: undefined,
   sample_rate: undefined,
   channels: undefined,
-  audio_normalize: undefined,
-  fade_in: undefined,
-  fade_out: undefined,
-};
+	  audio_normalize: undefined,
+	  fade_in: undefined,
+	  fade_out: undefined,
+	  preferred_video_encoder: undefined,
+	};
 
-export const useGaldrStore = create<GaldrState>((set) => ({
+export const useGaldrStore = create<GaldrState>((set, get) => ({
   mediaInfo: null,
   conversionParams: { ...defaultParams },
   isConverting: false,
@@ -125,9 +142,12 @@ export const useGaldrStore = create<GaldrState>((set) => ({
   updateError: null,
   runeTags: [],
   showRuneInTitlebar: true,
-  discordEnabled: true,
-  autostartEnabled: false,
-  pendingRunesImport: null,
+	  discordEnabled: true,
+	  autostartEnabled: false,
+	  pendingRunesImport: null,
+	  availableEncoders: [],
+	  preferredVideoEncoder: "auto",
+	  autoFallbackHw: true,
 
   setMediaInfo: (info) => set({ mediaInfo: info }),
   setConversionParams: (params) =>
@@ -181,6 +201,27 @@ export const useGaldrStore = create<GaldrState>((set) => ({
   },
   setShowRuneInTitlebar: (v) => set({ showRuneInTitlebar: v }),
   setDiscordEnabled: (v) => set({ discordEnabled: v }),
-  setAutostartEnabled: (v) => set({ autostartEnabled: v }),
-  setPendingRunesImport: (data) => set({ pendingRunesImport: data }),
+	  setAutostartEnabled: (v) => set({ autostartEnabled: v }),
+	  setPendingRunesImport: (data) => set({ pendingRunesImport: data }),
+	  setAvailableEncoders: (encoders) => set({ availableEncoders: encoders }),
+	  setPreferredVideoEncoder: (v) => set({ preferredVideoEncoder: v }),
+	  setAutoFallbackHw: (v) => set({ autoFallbackHw: v }),
+	  loadHardwareEncoders: async () => {
+	    try {
+	      const encoders = await invoke<HardwareEncoderInfo[]>("detect_hardware_encoders");
+	      set({ availableEncoders: encoders });
+	    } catch {
+	      // ffmpeg not available — leave empty
+	    }
+	  },
+	  getAutoSelectedEncoder: (outputFormat = "mp4") => {
+	    const { preferredVideoEncoder, availableEncoders } = get();
+	    const resolved = resolvePreferredEncoder(
+	      preferredVideoEncoder,
+	      outputFormat,
+	      availableEncoders,
+	    );
+	    if (!resolved) return undefined;
+	    return availableEncoders.find((e) => e.name === resolved);
+	  },
 }));

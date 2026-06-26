@@ -63,6 +63,11 @@ pub struct ConversionParams {
     /// Only used by the embed command, not burn-in.
     #[serde(default)]
     pub subtitle_lang: Option<String>,
+    /// Preferred video encoder to use for this conversion.
+    /// When set, overrides the default codec selection (e.g. "h264_nvenc").
+    /// The frontend populates this from the user's settings preference.
+    #[serde(default)]
+    pub preferred_video_encoder: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -120,6 +125,7 @@ impl Default for ConversionParams {
             subtitle_mode: None,
             subtitle_style: None,
             subtitle_lang: None,
+            preferred_video_encoder: None,
         }
     }
 }

@@ -67,6 +67,7 @@ pub fn run() {
             // safeguards against off-screen positions and minimum sizes.
             let window = app.get_webview_window("main").unwrap();
             if let Some(state) = commands::load_window_state() {
+                let start_hidden = state.start_hidden;
                 let monitors = window.available_monitors().unwrap_or_default();
                 let primary = window.primary_monitor().ok().flatten();
                 let state = state.sanitize(&monitors, primary.as_ref());
@@ -74,6 +75,11 @@ pub fn run() {
                 let _ = window.set_size(tauri::PhysicalSize::new(state.width, state.height));
                 if state.maximized {
                     let _ = window.maximize();
+                }
+                // If the window was hidden (close-to-tray) at last shutdown,
+                // boot straight to the tray instead of showing the window.
+                if start_hidden {
+                    let _ = window.hide();
                 }
             }
 
@@ -126,6 +132,7 @@ pub fn run() {
             commands::load_settings,
             commands::save_app_preferences,
             commands::save_settings,
+            commands::detect_hardware_encoders,
             commands::load_window_state,
             commands::save_window_state,
             commands::save_forge_recovery,
@@ -165,6 +172,8 @@ pub fn run() {
         .on_window_event(|window, event| {
             if let WindowEvent::CloseRequested { api, .. } = event {
                 // Save window state first (so the next launch restores geometry).
+                // start_hidden=true records that the window was hidden at
+                // shutdown, so the next launch boots straight to the tray.
                 if let Ok(position) = window.outer_position() {
                     if let Ok(size) = window.outer_size() {
                         let maximized = window.is_maximized().unwrap_or(false);
@@ -174,6 +183,7 @@ pub fn run() {
                             width: size.width,
                             height: size.height,
                             maximized,
+                            start_hidden: true,
                         };
                         let _ = commands::save_window_state(state);
                     }

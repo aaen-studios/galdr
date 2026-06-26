@@ -51,12 +51,15 @@ pub fn save_settings(settings: AppSettings) -> Result<(), String> {
 /// backend-only fields such as `watch_folders` and `notify_on_watch_complete`
 /// are never accidentally wiped.
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 pub fn save_app_preferences(
     output_dir: String,
     transition_style: String,
     crt_enabled: bool,
     show_rune_in_titlebar: bool,
     discord_enabled: bool,
+    preferred_video_encoder: Option<String>,
+    auto_fallback_hw: bool,
 ) -> Result<(), String> {
     let path = store_dir().join("settings.json");
     let mut existing = load_settings();
@@ -65,8 +68,16 @@ pub fn save_app_preferences(
     existing.crt_enabled = crt_enabled;
     existing.show_rune_in_titlebar = show_rune_in_titlebar;
     existing.discord_enabled = discord_enabled;
+    existing.preferred_video_encoder = preferred_video_encoder;
+    existing.auto_fallback_hw = auto_fallback_hw;
     let json = serde_json::to_string_pretty(&existing).map_err(|e| e.to_string())?;
     fs::write(&path, json).map_err(|e| e.to_string())
+}
+
+/// Detect hardware encoders available in the system's ffmpeg installation.
+#[tauri::command]
+pub fn detect_hardware_encoders() -> Vec<crate::ffmpeg::encoders::HardwareEncoderInfo> {
+    crate::ffmpeg::encoders::detect_hardware_encoders()
 }
 
 #[tauri::command]

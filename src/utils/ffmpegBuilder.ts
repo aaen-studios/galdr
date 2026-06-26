@@ -22,6 +22,11 @@ function maybeMono(quality: number): string | null {
   return null;
 }
 
+/** Check if a codec name is a known hardware encoder. */
+function isHwEncoder(codec: string): boolean {
+  return /nvenc|amf|qsv|videotoolbox|vaapi/i.test(codec);
+}
+
 /** Parse a bitrate string like "128k" to bps. */
 function parseBitrate(s: string): number {
   const v = s.trim().toLowerCase();
@@ -35,7 +40,7 @@ function fmtBitrate(bps: number): string {
   return `${Math.round(Math.max(bps / 1000, 1))}k`;
 }
 
-export function buildFFmpegCommand(params: ConversionParams, duration?: number): string {
+export function buildFFmpegCommand(params: ConversionParams, duration?: number, availableEncoders?: HardwareEncoderInfo[]): string {
   const parts: string[] = ["ffmpeg"];
 
   const fmt = params.output_format.toLowerCase();
@@ -59,7 +64,7 @@ export function buildFFmpegCommand(params: ConversionParams, duration?: number):
 
     if (isImage) {
       // Images: fall back to quality mode
-      return buildFFmpegCommand({ ...params, target_size_bytes: undefined }, duration);
+      return buildFFmpegCommand({ ...params, target_size_bytes: undefined }, duration, availableEncoders);
     }
 
     if (isAudio || fmt === "gif") {
@@ -69,7 +74,7 @@ export function buildFFmpegCommand(params: ConversionParams, duration?: number):
         ...params,
         target_size_bytes: undefined,
         audio_bitrate: fmtBitrate(audioTarget),
-      }, duration);
+      }, duration, availableEncoders);
     }
 
     // Video: two-pass encoding
@@ -82,7 +87,7 @@ export function buildFFmpegCommand(params: ConversionParams, duration?: number):
       target_size_bytes: undefined,
       video_bitrate: videoBr,
       audio_bitrate: audioBr,
-    }, duration) + "\n# two-pass encode (1st pass: analysis only)";
+    }, duration, availableEncoders) + "\n# two-pass encode (1st pass: analysis only)";
   }
 
   // ── Normal quality mode ──
@@ -97,6 +102,15 @@ export function buildFFmpegCommand(params: ConversionParams, duration?: number):
 
   if (params.video_codec) {
     parts.push("-c:v", params.video_codec);
+  } else if (params.preferred_video_encoder) {
+    const resolved = resolvePreferredEncoder(
+      params.preferred_video_encoder,
+      params.output_format,
+      availableEncoders ?? [],
+    );
+    if (resolved) {
+      parts.push("-c:v", resolved);
+    }
   }
 
   if (params.audio_codec) {
@@ -337,7 +351,12 @@ export function buildFFmpegCommand(params: ConversionParams, duration?: number):
     "mp3", "aac", "m4a", "ogg", "opus", "wav", "aiff", "flac", "wma", "ac3",
   ]);
   if (!audioFormats.has(fmt) && fmt !== "gif" && params.video_codec !== "png") {
-    if (!params.video_codec || params.video_codec === "libx264") {
+    const effectiveCodec = params.video_codec || resolvePreferredEncoder(
+      params.preferred_video_encoder ?? "",
+      params.output_format,
+      availableEncoders ?? [],
+    );
+    if (!effectiveCodec || effectiveCodec === "libx264" || isHwEncoder(effectiveCodec)) {
       parts.push("-pix_fmt", "yuv420p");
     }
   }
@@ -403,4 +422,40 @@ export function buildFFmpegCommand(params: ConversionParams, duration?: number):
   parts.push(quotePath(outputPath));
 
   return parts.join(" ");
+}
+
+import type { HardwareEncoderInfo } from "../types";
+
+/**
+ * Resolve the user's preferred video encoder to a concrete encoder name.
+ *
+ * - "software" or undefined → returns undefined (use default software codec)
+ * - concrete encoder name (e.g. "h264_nvenc") → returns it as-is
+ * - "auto" → picks the best available hardware encoder for the format
+ *
+ * Priority order: NVIDIA > AMD > Intel > Apple > VAAPI.
+ */
+export function resolvePreferredEncoder(
+  preferred: string | undefined,
+  outputFormat: string,
+  availableEncoders: HardwareEncoderInfo[],
+): string | undefined {
+  if (!preferred || preferred === "software") return undefined;
+  if (preferred !== "auto") return preferred;
+
+  const fmt = outputFormat.toLowerCase();
+  const isH264 = ["mp4", "m4v", "mov", "avi", "flv", "ts", "3gp"].includes(fmt);
+  const isHEVC = ["mkv"].includes(fmt);
+  if (!isH264 && !isHEVC) return undefined;
+
+  const targetCodec = isH264 ? "h264" : "hevc";
+  const vendorOrder = ["nvidia", "amd", "intel", "apple", "vaapi"];
+
+  for (const vendor of vendorOrder) {
+    const enc = availableEncoders.find(
+      (e) => e.codec === targetCodec && e.vendor === vendor,
+    );
+    if (enc) return enc.name;
+  }
+  return undefined;
 }

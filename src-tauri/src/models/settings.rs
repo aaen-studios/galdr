@@ -16,6 +16,20 @@ pub struct AppSettings {
     /// Fire an OS toast when a watched-file conversion finishes.
     #[serde(default)]
     pub notify_on_watch_complete: bool,
+    /// Preferred video encoder to use when none is explicitly chosen.
+    /// "auto" = prefer hardware, fall back to software.
+    /// "software" = always use software encoding.
+    /// Any other value is treated as an encoder name (e.g. "h264_nvenc").
+    #[serde(default)]
+    pub preferred_video_encoder: Option<String>,
+    /// When the preferred hardware encoder is unavailable, fall back to
+    /// the default software encoder instead of failing.
+    #[serde(default = "default_true")]
+    pub auto_fallback_hw: bool,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 impl Default for AppSettings {
@@ -28,6 +42,8 @@ impl Default for AppSettings {
             discord_enabled: true,
             watch_folders: Vec::new(),
             notify_on_watch_complete: true,
+            preferred_video_encoder: None,
+            auto_fallback_hw: true,
         }
     }
 }
@@ -40,6 +56,11 @@ pub struct WindowState {
     pub width: u32,
     pub height: u32,
     pub maximized: bool,
+    /// True when the window was hidden (close-to-tray) at shutdown. The next
+    /// launch boots straight to the tray instead of showing the window.
+    /// Cleared to false on an explicit Quit from the tray menu.
+    #[serde(default)]
+    pub start_hidden: bool,
 }
 
 impl WindowState {
