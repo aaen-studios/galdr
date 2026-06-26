@@ -16,6 +16,8 @@ import SubtitlesPage from "./pages/SubtitlesPage";
 import ImportPage from "./pages/ImportPage";
 import ScrambleText from "./components/ScrambleText";
 import UpdateBanner from "./components/UpdateBanner";
+import HelpOverlay from "./components/HelpOverlay";
+import CommandPalette from "./components/CommandPalette";
 import QueueDropdown from "./components/QueueDropdown";
 import PageTransition from "./transitions";
 import { useGaldrStore } from "./store";
@@ -51,6 +53,8 @@ function AppShell() {
   const [page, setPage] = useState<Page>("home");
   const [prevPage, setPrevPage] = useState<Page>("home");
   const [appVersion, setAppVersion] = useState("");
+  const [helpOverlayOpen, setHelpOverlayOpen] = useState(false);
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const transitionStyle = useGaldrStore((s) => s.transitionStyle);
   const taskbarAction = useGaldrStore((s) => s.taskbarAction);
   const taskbarProgress = useGaldrStore((s) => s.taskbarProgress);
@@ -274,6 +278,49 @@ function AppShell() {
     }
   };
 
+  // ── Global keyboard shortcuts ──
+  // Single window-level listener dispatches navigation, palette, and help.
+  // Input-focus guard prevents firing while typing in inputs/textareas.
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+
+      // Ctrl+K — command palette
+      if (e.ctrlKey && e.key === "k") {
+        e.preventDefault();
+        setCommandPaletteOpen((o) => !o);
+        return;
+      }
+
+      // Ctrl+, — settings
+      if (e.ctrlKey && e.key === ",") {
+        e.preventDefault();
+        handleSettings();
+        return;
+      }
+
+      // ? — help overlay
+      if (e.key === "?" && !e.ctrlKey && !e.altKey) {
+        e.preventDefault();
+        setHelpOverlayOpen((o) => !o);
+        return;
+      }
+
+      // Ctrl+1..Ctrl+7 — page navigation
+      if (e.ctrlKey && /^[1-7]$/.test(e.key) && !e.shiftKey && !e.altKey) {
+        e.preventDefault();
+        const targets: Page[] = ["home", "convert", "compress", "forge", "subtitles", "watch", "runes"];
+        const idx = parseInt(e.key, 10) - 1;
+        if (idx < targets.length) setPage(targets[idx]);
+        return;
+      }
+    };
+
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [handleSettings]);
+
   const rootSegs: { label: string; target: Page }[] = [
     { label: "~", target: "home" },
     { label: "galdr", target: "home" },
@@ -358,6 +405,13 @@ function AppShell() {
             </button>
           )}
           <QueueDropdown />
+          <button
+            className="titlebar-btn titlebar-help"
+            onClick={() => setHelpOverlayOpen(true)}
+            title="Keyboard shortcuts (?)"
+          >
+            ?
+          </button>
           <button className="titlebar-btn titlebar-settings" onClick={handleSettings}>
             <span className="ts-rune">ᚲ</span>
             <span className="ts-label">settings</span>
@@ -396,6 +450,8 @@ function AppShell() {
 
       <main className="main-content">
         <UpdateBanner />
+        <HelpOverlay open={helpOverlayOpen} onClose={() => setHelpOverlayOpen(false)} />
+        <CommandPalette open={commandPaletteOpen} onClose={() => setCommandPaletteOpen(false)} onNavigate={setPage} onShowHelp={() => setHelpOverlayOpen(true)} />
         <PageTransition style={transitionStyle} pageKey={page}>
           {page === "home" && <HomePage onNavigate={setPage} />}
           {page === "convert" && <ConvertPage onNavigate={setPage} />}

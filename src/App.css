@@ -2893,6 +2893,213 @@ body {
   margin: 4px 8px;
 }
 
+/* ── Help Overlay ── */
+.help-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.help-panel {
+  background: var(--bg);
+  border: 1px solid var(--fg-faint);
+  width: 560px;
+  max-width: 90vw;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  outline: none;
+}
+
+.help-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  border-bottom: 1px solid var(--fg-faint);
+}
+
+.help-rune {
+  font-size: 24px;
+  line-height: 1;
+  color: var(--fg);
+}
+
+.help-title {
+  flex: 1;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--fg);
+}
+
+.help-close {
+  background: transparent;
+  border: none;
+  color: var(--fg-dim);
+  font-size: 18px;
+  width: 28px;
+  height: 28px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.help-close:hover {
+  background: var(--bg-dim);
+  color: var(--fg);
+}
+
+.help-body {
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.help-section {
+  margin-bottom: 18px;
+}
+
+.help-section:last-child {
+  margin-bottom: 0;
+}
+
+.help-section-title {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--fg-dim);
+  margin-bottom: 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--fg-faint);
+}
+
+.help-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 0;
+}
+
+.help-key {
+  font-family: inherit;
+  font-size: 11px;
+  background: var(--bg-dim);
+  border: 1px solid var(--fg-faint);
+  padding: 3px 8px;
+  min-width: 70px;
+  text-align: center;
+  color: var(--fg);
+}
+
+.help-desc {
+  font-size: 12px;
+  color: var(--fg-dim);
+  letter-spacing: 0.03em;
+}
+
+/* ── Command Palette ── */
+.cmd-palette-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 22vh;
+}
+
+.cmd-palette {
+  background: var(--bg);
+  border: 1px solid var(--fg);
+  width: 520px;
+  max-width: 90vw;
+  max-height: 60vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.cmd-palette-input {
+  background: var(--bg-dim);
+  border: none;
+  border-bottom: 1px solid var(--fg-faint);
+  color: var(--fg);
+  font-family: inherit;
+  font-size: 13px;
+  padding: 12px 16px;
+  outline: none;
+}
+
+.cmd-palette-input::placeholder {
+  color: var(--fg-faint);
+}
+
+.cmd-palette-results {
+  overflow-y: auto;
+  max-height: calc(60vh - 45px);
+  padding: 4px 0;
+}
+
+.cmd-palette-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  cursor: pointer;
+}
+
+.cmd-palette-item:hover,
+.cmd-palette-item.highlighted {
+  background: var(--bg-dim);
+}
+
+.cmd-palette-rune {
+  font-size: 14px;
+  width: 18px;
+  text-align: center;
+  color: var(--fg-dim);
+  flex-shrink: 0;
+}
+
+.cmd-palette-item:hover .cmd-palette-rune,
+.cmd-palette-item.highlighted .cmd-palette-rune {
+  color: var(--fg);
+}
+
+.cmd-palette-label {
+  flex: 1;
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  color: var(--fg);
+}
+
+.cmd-palette-hint {
+  font-family: inherit;
+  font-size: 10px;
+  color: var(--fg-faint);
+  background: var(--bg-dim);
+  border: 1px solid var(--fg-faint);
+  padding: 2px 6px;
+}
+
+.cmd-palette-empty {
+  padding: 16px;
+  text-align: center;
+  color: var(--fg-faint);
+  font-size: 12px;
+}
+
+/* ── Titlebar help button ── */
+.titlebar-help {
+  font-size: 14px;
+  font-weight: bold;
+}
+
 /* ── Convert operations panel ── */
 .ops-card {
   padding: 0;
