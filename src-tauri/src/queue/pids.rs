@@ -154,3 +154,48 @@ pub fn unregister(job_id: &str) {
         map.remove(job_id);
     }
 }
+
+// ── Download-cancellation registry ──
+
+/// Per-model cancellation flags for in-flight whisper model downloads.
+/// Mirrors the per-job token API above but keyed by model id.
+static DOWNLOAD_CANCEL: Lazy<Mutex<HashMap<String, Arc<AtomicBool>>>> =
+    Lazy::new(|| Mutex::new(HashMap::new()));
+
+/// Register a cancellation flag for a download and return a clone the
+/// download thread can poll.
+pub fn acquire_download_cancel(model_id: &str) -> Arc<AtomicBool> {
+    let flag = Arc::new(AtomicBool::new(false));
+    if let Ok(mut map) = DOWNLOAD_CANCEL.lock() {
+        map.insert(model_id.to_string(), Arc::clone(&flag));
+    }
+    flag
+}
+
+/// Flip the cancellation flag for `model_id`. No-op if the download already
+/// finished and unregistered.
+pub fn cancel_download(model_id: &str) {
+    if let Ok(map) = DOWNLOAD_CANCEL.lock() {
+        if let Some(flag) = map.get(model_id) {
+            flag.store(true, Ordering::SeqCst);
+        }
+    }
+}
+
+/// Drop the cancellation flag for `model_id` after the download finishes
+/// (success or failure).
+pub fn unregister_download(model_id: &str) {
+    if let Ok(mut map) = DOWNLOAD_CANCEL.lock() {
+        map.remove(model_id);
+    }
+}
+
+/// True if `model_id`'s download has been cancelled.
+pub fn is_download_cancelled(model_id: &str) -> bool {
+    if let Ok(map) = DOWNLOAD_CANCEL.lock() {
+        if let Some(flag) = map.get(model_id) {
+            return flag.load(Ordering::SeqCst);
+        }
+    }
+    false
+}

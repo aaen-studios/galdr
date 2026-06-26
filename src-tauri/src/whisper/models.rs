@@ -1,5 +1,9 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::Mutex;
+
+use once_cell::sync::Lazy;
 
 /// A whisper.cpp ggml model file offered for download.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -28,7 +32,43 @@ pub struct WhisperModel {
     pub description: String,
     /// `true` if the model file is currently on disk.
     pub installed: bool,
+    /// SHA-256 hex digest of the expected model file. Empty string means no
+    /// hash is known and post-download verification is skipped.
+    pub sha256: String,
+    /// `true` if this is a user-imported model rather than a built-in one.
+    pub custom: bool,
 }
+
+// ── Custom model registry ──
+
+/// User-imported models that live outside the static catalog. Stored in
+/// memory only — they don't survive a restart unless persisted separately.
+static CUSTOM_MODELS: Lazy<Mutex<HashMap<String, WhisperModel>>> =
+    Lazy::new(|| Mutex::new(HashMap::new()));
+
+/// Add a user-imported model to the in-memory registry.
+pub fn add_custom_model(model: WhisperModel) {
+    if let Ok(mut map) = CUSTOM_MODELS.lock() {
+        map.insert(model.id.clone(), model);
+    }
+}
+
+/// Remove a custom model from the registry. Returns the removed entry if it
+/// existed (so the caller can also delete the file).
+pub fn remove_custom_model(id: &str) -> Option<WhisperModel> {
+    if let Ok(mut map) = CUSTOM_MODELS.lock() {
+        map.remove(id)
+    } else {
+        None
+    }
+}
+
+/// `true` if `id` refers to a user-imported model (prefix `custom-`).
+pub fn is_custom_model(id: &str) -> bool {
+    id.starts_with("custom-")
+}
+
+// ── Catalog ──
 
 /// Catalog of models offered for download. Ordered roughly fast → best,
 /// with quantized variants listed directly after their full-precision parent.
@@ -38,7 +78,7 @@ pub struct WhisperModel {
 /// Distil-whisper models live in a separate repo and use a custom URL.
 fn catalog() -> Vec<WhisperModel> {
     let base = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main";
-    let entry = |id: &str, label: &str, file: &str, size_mb: u64, class: &str, tier: &str, quantized: bool, category: &str, desc: &str| WhisperModel {
+    let entry = |id: &str, label: &str, file: &str, size_mb: u64, class: &str, tier: &str, quantized: bool, category: &str, desc: &str, sha256: &str| WhisperModel {
         id: id.to_string(),
         label: label.to_string(),
         file_name: file.to_string(),
@@ -50,9 +90,11 @@ fn catalog() -> Vec<WhisperModel> {
         category: category.to_string(),
         description: desc.to_string(),
         installed: false,
+        sha256: sha256.to_string(),
+        custom: false,
     };
     // Distil models use a different HF repo + file naming convention.
-    let distil = |id: &str, label: &str, file: &str, size_mb: u64, class: &str, tier: &str, category: &str, desc: &str| WhisperModel {
+    let distil = |id: &str, label: &str, file: &str, size_mb: u64, class: &str, tier: &str, category: &str, desc: &str, sha256: &str| WhisperModel {
         id: id.to_string(),
         label: label.to_string(),
         file_name: file.to_string(),
@@ -64,73 +106,83 @@ fn catalog() -> Vec<WhisperModel> {
         category: category.to_string(),
         description: desc.to_string(),
         installed: false,
+        sha256: sha256.to_string(),
+        custom: false,
     };
 
     vec![
         // --- tiny ---
         entry("tiny", "tiny", "ggml-tiny.bin", 75, "multilingual", "fast", false, "tiny",
-            "fastest, lowest accuracy — quick drafts and very long files"),
+            "fastest, lowest accuracy — quick drafts and very long files", ""),
         entry("tiny-q5_1", "tiny Q5", "ggml-tiny-q5_1.bin", 32, "multilingual", "fast", true, "tiny",
-            "tiny quantized to Q5 — 32 MB, ultra-light"),
+            "tiny quantized to Q5 — 32 MB, ultra-light", ""),
         entry("tiny-en", "tiny.en", "ggml-tiny.en.bin", 75, "english-only", "fast", false, "tiny",
-            "fastest, English-only"),
+            "fastest, English-only", ""),
         entry("tiny-en-q5_1", "tiny.en Q5", "ggml-tiny.en-q5_1.bin", 32, "english-only", "fast", true, "tiny",
-            "tiny quantized to Q5, English-only"),
+            "tiny quantized to Q5, English-only", ""),
 
         // --- base ---
         entry("base", "base", "ggml-base.bin", 142, "multilingual", "balanced", false, "base",
-            "good balance of speed and accuracy — recommended default"),
+            "good balance of speed and accuracy — recommended default", ""),
         entry("base-q5_1", "base Q5", "ggml-base-q5_1.bin", 60, "multilingual", "balanced", true, "base",
-            "base quantized to Q5 — 60 MB, fast with good accuracy"),
+            "base quantized to Q5 — 60 MB, fast with good accuracy", ""),
         entry("base-en", "base.en", "ggml-base.en.bin", 142, "english-only", "balanced", false, "base",
-            "good balance, English-only"),
+            "good balance, English-only", ""),
         entry("base-en-q5_1", "base.en Q5", "ggml-base.en-q5_1.bin", 60, "english-only", "balanced", true, "base",
-            "base quantized to Q5, English-only"),
+            "base quantized to Q5, English-only", ""),
 
         // --- small ---
         entry("small", "small", "ggml-small.bin", 466, "multilingual", "accurate", false, "small",
-            "high accuracy, slower — great for captions"),
+            "high accuracy, slower — great for captions", ""),
         entry("small-q5_1", "small Q5", "ggml-small-q5_1.bin", 190, "multilingual", "accurate", true, "small",
-            "small quantized to Q5 — 190 MB, great portable option"),
+            "small quantized to Q5 — 190 MB, great portable option", ""),
         entry("small-en", "small.en", "ggml-small.en.bin", 466, "english-only", "accurate", false, "small",
-            "high accuracy, English-only"),
+            "high accuracy, English-only", ""),
         entry("small-en-q5_1", "small.en Q5", "ggml-small.en-q5_1.bin", 190, "english-only", "accurate", true, "small",
-            "small quantized to Q5, English-only"),
+            "small quantized to Q5, English-only", ""),
 
         // --- medium ---
         entry("medium", "medium", "ggml-medium.bin", 1500, "multilingual", "accurate", false, "medium",
-            "very high accuracy, slow — heavy use"),
+            "very high accuracy, slow — heavy use", ""),
         entry("medium-q5_0", "medium Q5", "ggml-medium-q5_0.bin", 539, "multilingual", "accurate", true, "medium",
-            "medium quantized to Q5 — 539 MB, good for most use"),
+            "medium quantized to Q5 — 539 MB, good for most use", ""),
         entry("medium-en", "medium.en", "ggml-medium.en.bin", 1500, "english-only", "accurate", false, "medium",
-            "very high accuracy, English-only"),
+            "very high accuracy, English-only", ""),
         entry("medium-en-q5_0", "medium.en Q5", "ggml-medium.en-q5_0.bin", 539, "english-only", "accurate", true, "medium",
-            "medium quantized to Q5, English-only"),
+            "medium quantized to Q5, English-only", ""),
 
         // --- large-v3 ---
         entry("large-v3", "large-v3", "ggml-large-v3.bin", 3000, "multilingual", "best", false, "large-v3",
-            "best possible accuracy — slowest, 3 GB download"),
+            "best possible accuracy — slowest, 3 GB download", ""),
         entry("large-v3-q5_0", "large-v3 Q5", "ggml-large-v3-q5_0.bin", 1080, "multilingual", "best", true, "large-v3",
-            "large-v3 quantized to Q5 — 1.1 GB, slightly reduced accuracy"),
+            "large-v3 quantized to Q5 — 1.1 GB, slightly reduced accuracy", ""),
 
         // --- large-v3-turbo ---
         entry("large-v3-turbo", "large-v3-turbo", "ggml-large-v3-turbo.bin", 1620, "multilingual", "best", false, "large-v3-turbo",
-            "near large-v3 accuracy, 3× faster — best speed/accuracy tradeoff"),
+            "near large-v3 accuracy, 3× faster — best speed/accuracy tradeoff", ""),
         entry("large-v3-turbo-q5_0", "large-v3-turbo Q5", "ggml-large-v3-turbo-q5_0.bin", 574, "multilingual", "best", true, "large-v3-turbo",
-            "turbo quantized to Q5 — 574 MB, near-turbo accuracy"),
+            "turbo quantized to Q5 — 574 MB, near-turbo accuracy", ""),
         entry("large-v3-turbo-q8_0", "large-v3-turbo Q8", "ggml-large-v3-turbo-q8_0.bin", 874, "multilingual", "best", true, "large-v3-turbo",
-            "turbo quantized to Q8 — 874 MB, closer to full turbo"),
+            "turbo quantized to Q8 — 874 MB, closer to full turbo", ""),
 
         // --- distil-whisper ---
         distil("distil-large-v3", "distil-large-v3", "ggml-distil-large-v3.bin", 1520, "multilingual", "best", "distil-large-v3",
-            "distilled from large-v3 — 6× faster, near-large accuracy"),
+            "distilled from large-v3 — 6× faster, near-large accuracy", ""),
         distil("distil-large-v3.5", "distil-large-v3.5", "ggml-distil-large-v3.5.bin", 1520, "multilingual", "best", "distil-large-v3.5",
-            "latest distilled model — best distil-whisper quality"),
+            "latest distilled model — best distil-whisper quality", ""),
     ]
 }
 
 /// Path a given model file would occupy on disk (whether or not it's there).
+/// Checks both the static catalog and the custom-model registry.
 pub fn model_path(id: &str) -> Option<PathBuf> {
+    // Check custom registry first so custom ids (which don't start with a
+    // catalog prefix) resolve correctly.
+    if let Ok(map) = CUSTOM_MODELS.lock() {
+        if let Some(m) = map.get(id) {
+            return Some(crate::whisper::models_dir().join(&m.file_name));
+        }
+    }
     catalog()
         .iter()
         .find(|m| m.id == id)
@@ -139,24 +191,42 @@ pub fn model_path(id: &str) -> Option<PathBuf> {
 
 /// `true` if the model file for `id` currently exists in the models dir.
 pub fn is_model_installed(id: &str) -> bool {
-    model_path(id)
-        .map(|p| p.exists())
-        .unwrap_or(false)
+    model_path(id).map(|p| p.exists()).unwrap_or(false)
 }
 
-/// Catalog annotated with each model's current install state.
+/// Catalog annotated with each model's current install state, with user-imported
+/// custom models appended at the end.
 pub fn list_models() -> Vec<WhisperModel> {
-    catalog()
+    let mut models: Vec<WhisperModel> = catalog()
         .into_iter()
         .map(|mut m| {
             m.installed = is_model_installed(&m.id);
             m
         })
-        .collect()
+        .collect();
+
+    if let Ok(map) = CUSTOM_MODELS.lock() {
+        for (_, m) in map.iter() {
+            let mut m = m.clone();
+            m.installed = is_model_installed(&m.id);
+            models.push(m);
+        }
+    }
+
+    models
 }
 
-/// Look up a single model entry by id (install flag populated).
+/// Look up a single model entry by id (install flag populated). Searches the
+/// static catalog first, then the custom registry.
 pub fn find_model(id: &str) -> Option<WhisperModel> {
+    // Check custom registry first.
+    if let Ok(map) = CUSTOM_MODELS.lock() {
+        if let Some(m) = map.get(id) {
+            let mut m = m.clone();
+            m.installed = is_model_installed(id);
+            return Some(m);
+        }
+    }
     list_models().into_iter().find(|m| m.id == id)
 }
 

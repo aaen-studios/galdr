@@ -3487,6 +3487,76 @@ body {
   cursor: not-allowed;
 }
 
+/* Cancel button — same sizing as install, visually distinct */
+.whisper-model-btn.cancel {
+  color: var(--fg-dim);
+  border-color: var(--fg-faint);
+}
+
+.whisper-model-btn.cancel:hover:not(:disabled) {
+  border-color: var(--fg);
+  color: var(--fg);
+}
+
+/* Retry button — stands out so failed downloads are recoverable */
+.whisper-model-btn.retry {
+  color: var(--fg);
+  border-color: var(--fg-dim);
+}
+
+.whisper-model-btn.retry:hover:not(:disabled) {
+  background: var(--fg);
+  color: var(--bg);
+}
+
+/* Import button — full-width at the bottom of the grid */
+.whisper-model-btn.import {
+  width: 100%;
+  color: var(--fg-dim);
+  border-color: var(--fg-faint);
+  text-align: center;
+}
+
+.whisper-model-btn.import:hover:not(:disabled) {
+  border-color: var(--fg);
+  color: var(--fg);
+}
+
+.whisper-model-import {
+  padding: 8px 20px 20px;
+}
+
+/* Custom badge — same aesthetic as tier badge */
+.whisper-model-custom {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fg-dim);
+  border: 1px solid var(--fg-faint);
+  padding: 1px 6px;
+  opacity: 0.6;
+}
+
+/* Integrity-verified badge */
+.whisper-model-verified {
+  font-size: 10px;
+  color: var(--fg-dim);
+  letter-spacing: 0.03em;
+  opacity: 0.7;
+}
+
+/* Download error text */
+.whisper-download-error {
+  font-size: 11px;
+  color: var(--fg);
+  margin-top: 6px;
+  padding: 4px 8px;
+  border: 1px solid var(--fg-dim);
+  background: rgba(200, 200, 200, 0.03);
+  line-height: 1.4;
+  word-break: break-word;
+}
+
 .whisper-model-hint {
   font-size: 11px;
   color: var(--fg-dim);

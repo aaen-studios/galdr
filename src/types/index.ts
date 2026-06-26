@@ -291,6 +291,10 @@ export interface WhisperModel {
   category: string;
   description: string;
   installed: boolean;
+  /** SHA-256 hex digest of the expected model file, or empty if unknown. */
+  sha256?: string;
+  /** `true` if this is a user-imported custom model. */
+  custom?: boolean;
 }
 
 export interface WhisperStatus {
@@ -321,6 +325,16 @@ export interface TranscribeResult {
 
 export interface DownloadProgress {
   modelId: string;
+  progress: number;
+  downloadedBytes: number;
+  totalBytes: number;
+}
+
+/** Extended download state for cancel/retry support in the model manager. */
+export interface DownloadStatus {
+  modelId: string;
+  state: "downloading" | "failed";
+  error?: string;
   progress: number;
   downloadedBytes: number;
   totalBytes: number;

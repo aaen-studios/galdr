@@ -1,13 +1,16 @@
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
+use std::sync::Arc;
 use tauri::Emitter;
 
 use base64::Engine;
+use sha2::Digest;
+use tauri_plugin_dialog::DialogExt;
 
 use crate::whisper::{
-    self, find_model, list_models, require_installed_model, run_whisper, run_whisper_streaming,
-    WhisperEvent, WhisperModel,
+    self, add_custom_model, find_model, is_custom_model, list_models, remove_custom_model,
+    require_installed_model, run_whisper, run_whisper_streaming, WhisperEvent, WhisperModel,
 };
 
 // ── Event payloads (mirror conversion.rs) ──
@@ -56,6 +59,7 @@ pub fn is_whisper_available() -> bool {
 
 /// Download a whisper model into the per-user models dir, streaming progress
 /// to the frontend via `whisper-download-progress` events and the shared queue.
+/// Verifies the SHA-256 hash (when known) after the download completes.
 #[tauri::command]
 pub async fn install_whisper_model(
     app_handle: tauri::AppHandle,
@@ -77,6 +81,7 @@ pub async fn install_whisper_model(
     let model_id_for_thread = model_id.clone();
     let app_for_thread = app_handle.clone();
     let label = model.label.clone();
+    let expected_hash = model.sha256.clone();
 
     // Register this download in the shared queue so it appears in the background
     // jobs panel alongside conversions, transcriptions, etc.
@@ -91,9 +96,13 @@ pub async fn install_whisper_model(
     let job_id_for_thread = job_id.clone();
     let dest_path = dest.to_string_lossy().to_string();
 
+    // Also register a per-model cancel flag so the model manager's cancel
+    // button (which doesn't know the queue job id) can signal cancellation.
+    let cancel_flag = crate::queue::pids::acquire_download_cancel(&model_id);
+    let cancel_for_thread = Arc::clone(&cancel_flag);
+
     // Run the blocking download on a thread so the command stays async and
-    // the event loop can deliver progress events. Cancellation is handled via
-    // the queue's per-job token so the queue panel's cancel button works.
+    // the event loop can deliver progress events.
     let result = tokio::task::spawn_blocking(move || -> Result<WhisperModel, String> {
         let emit_progress = |progress: f64, downloaded: u64| {
             // Dedicated event for the model manager card.
@@ -134,7 +143,10 @@ pub async fn install_whisper_model(
         let mut downloaded: u64 = 0;
         let mut buf = [0u8; 64 * 1024];
         loop {
-            if crate::queue::pids::is_cancelled(&job_id_for_thread) {
+            // Check both the queue-level cancel token and the per-model flag.
+            if crate::queue::pids::is_cancelled(&job_id_for_thread)
+                || cancel_for_thread.load(std::sync::atomic::Ordering::SeqCst)
+            {
                 let _ = std::fs::remove_file(&tmp_dest);
                 return Err("download cancelled".to_string());
             }
@@ -154,6 +166,19 @@ pub async fn install_whisper_model(
             emit_progress(progress, downloaded);
         }
 
+        // Verify SHA-256 hash if one is known for this model.
+        if !expected_hash.is_empty() {
+            let actual_hash = compute_file_sha256(&tmp_dest)
+                .map_err(|e| format!("failed to compute model hash: {}", e))?;
+            if actual_hash != expected_hash {
+                let _ = std::fs::remove_file(&tmp_dest);
+                return Err(format!(
+                    "hash mismatch for {}: expected {}, got {}",
+                    model_id_for_thread, expected_hash, actual_hash
+                ));
+            }
+        }
+
         std::fs::rename(&tmp_dest, &dest)
             .map_err(|e| format!("failed to finalize model file: {}", e))?;
 
@@ -164,6 +189,9 @@ pub async fn install_whisper_model(
         crate::queue::fail(&app_handle, &job_id, format!("download task panicked: {}", e));
         format!("download task panicked: {}", e)
     })?;
+
+    // Clean up the per-model cancel flag regardless of outcome.
+    crate::queue::pids::unregister_download(&model_id);
 
     match result {
         Ok(model) => {
@@ -178,14 +206,136 @@ pub async fn install_whisper_model(
     }
 }
 
+/// Cancel an in-flight whisper model download by model id. The model manager
+/// cancel button calls this; the queue panel's cancel button uses the
+/// queue-level token (which this command also flips).
+#[tauri::command]
+pub fn cancel_whisper_download(model_id: String) {
+    crate::queue::pids::cancel_download(&model_id);
+}
+
+/// Compute the SHA-256 hex digest of a file on disk.
+fn compute_file_sha256(path: &std::path::Path) -> Result<String, String> {
+    use std::io::Read;
+    let mut file = std::fs::File::open(path)
+        .map_err(|e| format!("failed to open file for hashing: {}", e))?;
+    let mut hasher = sha2::Sha256::new();
+    let mut buf = [0u8; 64 * 1024];
+    loop {
+        let n = Read::read(&mut file, &mut buf)
+            .map_err(|e| format!("failed to read file for hashing: {}", e))?;
+        if n == 0 {
+            break;
+        }
+        hasher.update(&buf[..n]);
+    }
+    Ok(format!("{:x}", hasher.finalize()))
+}
+
 #[tauri::command]
 pub fn delete_whisper_model(model_id: String) -> Result<(), String> {
+    // Custom models: remove from registry as well as deleting the file.
+    if is_custom_model(&model_id) {
+        let removed = remove_custom_model(&model_id);
+        if let Some(removed) = removed {
+            let path = crate::whisper::models_dir().join(&removed.file_name);
+            if path.exists() {
+                std::fs::remove_file(&path)
+                    .map_err(|e| format!("failed to delete model file: {}", e))?;
+            }
+        }
+        return Ok(());
+    }
     if let Some(path) = crate::whisper::model_path(&model_id) {
         if path.exists() {
             std::fs::remove_file(&path).map_err(|e| format!("failed to delete model: {}", e))?;
         }
     }
     Ok(())
+}
+
+/// Import a user-provided .bin model file into the models dir and register it
+/// as a custom model that appears in the catalog.
+#[tauri::command]
+pub fn import_custom_model(src_path: String) -> Result<WhisperModel, String> {
+    let src = PathBuf::from(&src_path);
+
+    // Validate the source file.
+    if !src.exists() {
+        return Err(format!("file not found: {}", src_path));
+    }
+    if !src.extension().map_or(false, |e| e == "bin") {
+        return Err("only .bin model files are supported".to_string());
+    }
+
+    // Derive metadata from the original file name.
+    let original_name = src
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("custom")
+        .to_string();
+    let size_bytes = std::fs::metadata(&src)
+        .map_err(|e| format!("failed to read file metadata: {}", e))?
+        .len();
+
+    if size_bytes == 0 {
+        return Err("model file is empty".to_string());
+    }
+
+    // Generate a unique id and destination path.
+    let id = format!("custom-{}", uuid::Uuid::new_v4());
+    let file_name = format!("{}.bin", id);
+    let dest = crate::whisper::models_dir().join(&file_name);
+
+    // Ensure the models dir exists.
+    std::fs::create_dir_all(crate::whisper::models_dir())
+        .map_err(|e| format!("failed to create models dir: {}", e))?;
+
+    // Copy the file into place.
+    std::fs::copy(&src, &dest)
+        .map_err(|e| format!("failed to copy model to models dir: {}", e))?;
+
+    // Build a catalog entry.
+    let label = original_name;
+    let model = WhisperModel {
+        id: id.clone(),
+        label,
+        file_name: file_name.clone(),
+        url: String::new(),
+        size_bytes,
+        language_class: "multilingual".to_string(),
+        tier: "accurate".to_string(),
+        quantized: false,
+        category: "custom".to_string(),
+        description: format!("custom model imported from {}", src_path),
+        installed: true,
+        sha256: String::new(),
+        custom: true,
+    };
+
+    add_custom_model(model.clone());
+
+    Ok(model)
+}
+
+/// Open a native file dialog filtered to .bin files and return the selected
+/// path (or `None` if the user cancelled). Uses a channel internally because
+/// the Tauri dialog API is callback-based.
+#[tauri::command]
+pub async fn pick_model_file(app_handle: tauri::AppHandle) -> Option<String> {
+    use std::sync::mpsc;
+    let (tx, rx) = mpsc::channel();
+    app_handle
+        .dialog()
+        .file()
+        .add_filter("GGML model", &["bin"])
+        .pick_file(move |path| {
+            let path_str = path.and_then(|p| p.into_path().ok()).map(|p| p.to_string_lossy().to_string());
+            let _ = tx.send(path_str);
+        });
+    // Wait for the dialog callback. The channel closes if the dialog is
+    // dismissed without picking, which returns None.
+    rx.recv().ok().flatten()
 }
 
 // ── Transcription ──

@@ -40,6 +40,8 @@ reqwest = { version = "0.12", default-features = false, features = ["blocking", 
 # Tauri runs commands on tokio; we need spawn_blocking for the blocking
 # ffmpeg/whisper/download work so async commands stay responsive.
 tokio = { version = "1", features = ["rt", "rt-multi-thread"] }
+# SHA-256 digest for post-download model integrity verification.
+sha2 = "0.10"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 zip = { version = "4", default-features = false, features = ["deflate"] }

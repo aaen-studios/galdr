@@ -31,7 +31,17 @@ interface Props {
  * the shared `whisper-download-progress` event (read from the subtitle store).
  */
 export default function ModelManager({ selectedId, onSelect, allowDelete = true }: Props) {
-  const { models, downloads, installModel, deleteModel, refreshModels } = useSubtitleStore();
+  const {
+    models,
+    downloads,
+    downloadStatuses,
+    installModel,
+    cancelDownload,
+    deleteModel,
+    importCustomModel,
+    pickModelFile,
+    refreshModels,
+  } = useSubtitleStore();
   const [open, setOpen] = useState(false);
   const { show } = useContextMenu();
 
@@ -61,6 +71,13 @@ export default function ModelManager({ selectedId, onSelect, allowDelete = true 
     },
     [show, installModel, deleteModel, refreshModels, allowDelete],
   );
+
+  const handleImport = useCallback(async () => {
+    const path = await pickModelFile();
+    if (path) {
+      await importCustomModel(path);
+    }
+  }, [pickModelFile, importCustomModel]);
 
   return (
     <div className="card whisper-models">
@@ -92,8 +109,11 @@ export default function ModelManager({ selectedId, onSelect, allowDelete = true 
             <div className="whisper-model-grid">
               {models.map((m) => {
                 const dl = downloads[m.id];
-                const isDownloading = !!dl;
+                const status = downloadStatuses[m.id];
+                const isDownloading = !!dl && status?.state === "downloading";
+                const isFailed = status?.state === "failed";
                 const isSelected = selectedId === m.id;
+                const isVerified = !!(m.installed && m.sha256 && m.sha256.length > 0);
                 return (
                   <div
                     key={m.id}
@@ -111,7 +131,11 @@ export default function ModelManager({ selectedId, onSelect, allowDelete = true 
                         {m.languageClass === "english-only" && (
                           <span className="whisper-model-lang">en-only</span>
                         )}
+                        {m.custom && (
+                          <span className="whisper-model-custom">custom</span>
+                        )}
                         {m.installed && <span className="whisper-model-installed" title="installed">✓</span>}
+                        {isVerified && <span className="whisper-model-verified" title="integrity verified">✓ verified</span>}
                       </div>
                       <div className="whisper-model-desc">{m.description}</div>
                       <div className="whisper-model-size">{fmtSize(m.sizeBytes)}</div>
@@ -128,15 +152,31 @@ export default function ModelManager({ selectedId, onSelect, allowDelete = true 
                           </span>
                         </div>
                       )}
+
+                      {isFailed && status?.error && (
+                        <div className="whisper-download-error">
+                          {status.error}
+                        </div>
+                      )}
                     </div>
 
                     <div className="whisper-model-actions">
-                      {m.installed ? (
+                      {isDownloading ? (
+                        <button
+                          className="whisper-model-btn cancel"
+                          title="cancel download"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void cancelDownload(m.id);
+                          }}
+                        >
+                          cancel
+                        </button>
+                      ) : m.installed ? (
                         allowDelete && (
                           <button
                             className="whisper-model-btn delete"
                             title="delete model"
-                            disabled={isDownloading}
                             onClick={(e) => {
                               e.stopPropagation();
                               void deleteModel(m.id);
@@ -145,17 +185,27 @@ export default function ModelManager({ selectedId, onSelect, allowDelete = true 
                             ×
                           </button>
                         )
-                      ) : (
+                      ) : isFailed ? (
                         <button
-                          className="whisper-model-btn install"
-                          title="install model"
-                          disabled={isDownloading}
+                          className="whisper-model-btn retry"
+                          title="retry download"
                           onClick={(e) => {
                             e.stopPropagation();
                             void installModel(m.id);
                           }}
                         >
-                          {isDownloading ? "…" : "install"}
+                          retry
+                        </button>
+                      ) : (
+                        <button
+                          className="whisper-model-btn install"
+                          title="install model"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void installModel(m.id);
+                          }}
+                        >
+                          install
                         </button>
                       )}
                     </div>
@@ -164,6 +214,19 @@ export default function ModelManager({ selectedId, onSelect, allowDelete = true 
               })}
             </div>
           )}
+
+          <div className="whisper-model-import">
+            <button
+              className="whisper-model-btn import"
+              title="import a custom .bin model file"
+              onClick={(e) => {
+                e.stopPropagation();
+                void handleImport();
+              }}
+            >
+              import custom model…
+            </button>
+          </div>
         </>
       )}
     </div>

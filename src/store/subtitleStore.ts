@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type {
   DownloadProgress,
+  DownloadStatus,
   TranscribeParams,
   TranscribeResult,
   WhisperModel,
@@ -21,6 +22,8 @@ interface SubtitleState {
 
   /** Download progress keyed by model id (0.0–1.0). */
   downloads: Record<string, DownloadProgress>;
+  /** Download status keyed by model id — tracks failed state for retry UI. */
+  downloadStatuses: Record<string, DownloadStatus>;
 
   /** Active transcription run, or `null` when idle. */
   transcribing: boolean;
@@ -34,7 +37,10 @@ interface SubtitleState {
   load: () => Promise<void>;
   refreshModels: () => Promise<void>;
   installModel: (id: string) => Promise<void>;
+  cancelDownload: (id: string) => Promise<void>;
   deleteModel: (id: string) => Promise<void>;
+  importCustomModel: (srcPath: string) => Promise<void>;
+  pickModelFile: () => Promise<string | null>;
   transcribe: (params: TranscribeParams) => Promise<TranscribeResult | null>;
   cancelTranscription: () => Promise<void>;
   clearError: () => void;
@@ -49,6 +55,7 @@ export const useSubtitleStore = create<SubtitleState>((set) => ({
   whisperAvailable: false,
   whisperResolvedPath: "",
   downloads: {},
+  downloadStatuses: {},
   transcribing: false,
   transcriptionProgress: 0,
   transcriptionLog: [],
@@ -83,18 +90,53 @@ export const useSubtitleStore = create<SubtitleState>((set) => ({
     try {
       set((s) => ({
         downloads: { ...s.downloads, [id]: { modelId: id, progress: 0, downloadedBytes: 0, totalBytes: 0 } },
+        downloadStatuses: {
+          ...s.downloadStatuses,
+          [id]: { modelId: id, state: "downloading", progress: 0, downloadedBytes: 0, totalBytes: 0 },
+        },
       }));
       const updated = await invoke<WhisperModel>("install_whisper_model", { modelId: id });
       set((s) => ({
         models: s.models.map((m) => (m.id === updated.id ? updated : m)),
         downloads: Object.fromEntries(Object.entries(s.downloads).filter(([k]) => k !== id)),
+        downloadStatuses: Object.fromEntries(
+          Object.entries(s.downloadStatuses).filter(([k]) => k !== id),
+        ),
       }));
     } catch (e) {
+      const msg = String(e);
       set((s) => ({
-        error: String(e),
+        error: msg,
         downloads: Object.fromEntries(Object.entries(s.downloads).filter(([k]) => k !== id)),
+        // Keep the download entry in downloads so the UI can show the error,
+        // but mark the status as failed for retry.
+        downloadStatuses: {
+          ...s.downloadStatuses,
+          [id]: {
+            modelId: id,
+            state: "failed",
+            error: msg,
+            progress: s.downloads[id]?.progress ?? 0,
+            downloadedBytes: s.downloads[id]?.downloadedBytes ?? 0,
+            totalBytes: s.downloadStatuses[id]?.totalBytes ?? 0,
+          },
+        },
       }));
     }
+  },
+
+  cancelDownload: async (id) => {
+    try {
+      await invoke("cancel_whisper_download", { modelId: id });
+    } catch {
+      // ignore — the install command will surface the cancellation
+    }
+    set((s) => ({
+      downloads: Object.fromEntries(Object.entries(s.downloads).filter(([k]) => k !== id)),
+      downloadStatuses: Object.fromEntries(
+        Object.entries(s.downloadStatuses).filter(([k]) => k !== id),
+      ),
+    }));
   },
 
   deleteModel: async (id) => {
@@ -105,6 +147,26 @@ export const useSubtitleStore = create<SubtitleState>((set) => ({
       }));
     } catch (e) {
       set({ error: String(e) });
+    }
+  },
+
+  importCustomModel: async (srcPath) => {
+    try {
+      const model = await invoke<WhisperModel>("import_custom_model", { srcPath });
+      set((s) => ({
+        models: [...s.models.filter((m) => m.id !== model.id), model],
+      }));
+    } catch (e) {
+      set({ error: String(e) });
+    }
+  },
+
+  pickModelFile: async () => {
+    try {
+      const path = await invoke<string | null>("pick_model_file");
+      return path;
+    } catch {
+      return null;
     }
   },
 
@@ -169,7 +231,20 @@ export const useSubtitleStore = create<SubtitleState>((set) => ({
 
     unlisteners.push(
       await listen<DownloadProgress>("whisper-download-progress", (e) => {
-        set((s) => ({ downloads: { ...s.downloads, [e.payload.modelId]: e.payload } }));
+        set((s) => ({
+          downloads: { ...s.downloads, [e.payload.modelId]: e.payload },
+          // Also update the status entry so retry UI can show progress.
+          downloadStatuses: {
+            ...s.downloadStatuses,
+            [e.payload.modelId]: {
+              modelId: e.payload.modelId,
+              state: "downloading",
+              progress: e.payload.progress,
+              downloadedBytes: e.payload.downloadedBytes,
+              totalBytes: e.payload.totalBytes,
+            },
+          },
+        }));
       }),
     );
 
