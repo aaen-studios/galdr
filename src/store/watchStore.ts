@@ -19,6 +19,7 @@ interface WatchState {
   convertQueued: (id: string) => Promise<string | null>;
   dequeue: (id: string) => Promise<void>;
   clearQueue: () => Promise<void>;
+  clearLog: (id: string) => Promise<void>;
   /** Subscribe to watch:// events. Idempotent. */
   bindEvents: () => Promise<() => void>;
 }
@@ -83,6 +84,16 @@ export const useWatchStore = create<WatchState>((set, get) => ({
     set({ queue: [] });
   },
 
+  clearLog: async (id) => {
+    await invoke("clear_watch_log", { id });
+    // Update local state to reflect cleared log.
+    set({
+      folders: get().folders.map((f) =>
+        f.id === id ? { ...f, processingLog: [] } : f
+      ),
+    });
+  },
+
   bindEvents: async () => {
     if (get().listenersBound) return () => {};
     set({ listenersBound: true });
@@ -108,13 +119,21 @@ export const useWatchStore = create<WatchState>((set, get) => ({
     );
 
     unlisteners.push(
-      await listen<{ folderId: string; path: string; outputPath: string }>("watch://convert-done", (e) => {
+      await listen<{ folderId: string; path: string; outputPath?: string; outputPaths?: string[] }>("watch://convert-done", (e) => {
         const key = `${e.payload.folderId}:${e.payload.path}`;
         const cur = get().activity[key];
         set({
           activity: {
             ...get().activity,
-            [key]: { ...cur, folderId: e.payload.folderId, path: e.payload.path, progress: 1, status: "done", outputPath: e.payload.outputPath },
+            [key]: {
+              ...cur,
+              folderId: e.payload.folderId,
+              path: e.payload.path,
+              progress: 1,
+              status: "done",
+              // Prefer the first output path for backwards compat with the UI.
+              outputPath: e.payload.outputPath ?? e.payload.outputPaths?.[0],
+            },
           },
         });
         // Drop the activity entry after a short delay so the UI can show "done".

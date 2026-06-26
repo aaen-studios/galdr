@@ -59,6 +59,7 @@ pub(crate) fn make_label(job_type: &JobType, input_path: &str) -> String {
         JobType::Concatenation => format!("Concatenating {} clips", file_name),
         JobType::AudioExtraction => format!("Extracting audio from {}", file_name),
         JobType::ForgeExport => "Exporting Forge timeline".to_string(),
+        JobType::Download => format!("Downloading {}", file_name),
     }
 }
 

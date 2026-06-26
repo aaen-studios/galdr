@@ -1,4 +1,5 @@
 pub mod convert;
+pub mod download;
 pub mod forge;
 pub mod info;
 pub mod preview;
@@ -10,6 +11,7 @@ pub mod subtitles;
 pub mod watch_folder;
 
 pub use convert::*;
+pub use download::*;
 pub use forge::*;
 pub use info::*;
 pub use preview::*;

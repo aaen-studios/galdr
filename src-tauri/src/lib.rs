@@ -6,6 +6,7 @@ mod queue;
 mod tray;
 mod watcher;
 mod whisper;
+mod yt_dlp;
 
 use models::settings::WindowState;
 use once_cell::sync::Lazy;
@@ -47,6 +48,7 @@ pub fn run() {
         .setup(|app| {
             ffmpeg::init_paths(&app.handle());
             whisper::init_paths(&app.handle());
+            yt_dlp::init_paths(&app.handle());
             discord_rpc::connect(DISCORD_CLIENT_ID);
             // Apply the saved discord-enabled setting BEFORE the first
             // set_idle, so RPC only goes live if the user left it on.
@@ -148,6 +150,7 @@ pub fn run() {
             commands::dequeue_file,
             commands::clear_queue,
             commands::convert_queued_file,
+            commands::clear_watch_log,
             commands::list_whisper_models,
             commands::is_whisper_available,
             commands::install_whisper_model,
@@ -168,6 +171,13 @@ pub fn run() {
             commands::get_queue,
             commands::cancel_job,
             commands::clear_completed_jobs,
+            commands::ytdlp_status,
+            commands::ensure_ytdlp,
+            commands::fetch_metadata,
+            commands::start_download,
+            commands::cancel_download,
+            commands::list_downloads,
+            commands::delete_download,
         ])
         .on_window_event(|window, event| {
             if let WindowEvent::CloseRequested { api, .. } = event {

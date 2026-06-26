@@ -26,6 +26,16 @@ pub struct AppSettings {
     /// the default software encoder instead of failing.
     #[serde(default = "default_true")]
     pub auto_fallback_hw: bool,
+    /// App-managed folder where yt-dlp downloads are saved.
+    /// Defaults to `<data_dir>/galdr/downloads/` if empty.
+    #[serde(default)]
+    pub download_dir: String,
+    /// Automatically download available subtitles when importing from a URL.
+    #[serde(default)]
+    pub auto_download_subtitles: bool,
+    /// Automatically embed downloaded subtitles into the media file (mkv/mp4).
+    #[serde(default)]
+    pub auto_embed_subtitles: bool,
 }
 
 fn default_true() -> bool {
@@ -44,6 +54,9 @@ impl Default for AppSettings {
             notify_on_watch_complete: true,
             preferred_video_encoder: None,
             auto_fallback_hw: true,
+            download_dir: String::new(),
+            auto_download_subtitles: false,
+            auto_embed_subtitles: false,
         }
     }
 }

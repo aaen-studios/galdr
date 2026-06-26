@@ -13,6 +13,7 @@ pub enum JobType {
     Concatenation,
     AudioExtraction,
     ForgeExport,
+    Download,
 }
 
 impl std::fmt::Display for JobType {
@@ -27,6 +28,7 @@ impl std::fmt::Display for JobType {
             JobType::Concatenation => write!(f, "concatenation"),
             JobType::AudioExtraction => write!(f, "audio_extraction"),
             JobType::ForgeExport => write!(f, "forge_export"),
+            JobType::Download => write!(f, "download"),
         }
     }
 }

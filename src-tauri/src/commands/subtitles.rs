@@ -55,7 +55,7 @@ pub fn is_whisper_available() -> bool {
 }
 
 /// Download a whisper model into the per-user models dir, streaming progress
-/// to the frontend via `whisper-download-progress` events.
+/// to the frontend via `whisper-download-progress` events and the shared queue.
 #[tauri::command]
 pub async fn install_whisper_model(
     app_handle: tauri::AppHandle,
@@ -76,13 +76,40 @@ pub async fn install_whisper_model(
     let total = model.size_bytes;
     let model_id_for_thread = model_id.clone();
     let app_for_thread = app_handle.clone();
+    let label = model.label.clone();
+
+    // Register this download in the shared queue so it appears in the background
+    // jobs panel alongside conversions, transcriptions, etc.
+    let job_id = crate::queue::register(
+        &app_handle,
+        crate::models::JobType::Download,
+        format!("Downloading {}", label),
+        label,
+        None,
+    );
+    let _ = crate::queue::cancel_token::acquire(&job_id);
+    let job_id_for_thread = job_id.clone();
+    let dest_path = dest.to_string_lossy().to_string();
 
     // Run the blocking download on a thread so the command stays async and
-    // the event loop can deliver progress events. A per-download cancel flag
-    // (local to this closure) replaces the old process-wide static.
-    let cancel_flag = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
-    let cancel_for_thread = std::sync::Arc::clone(&cancel_flag);
+    // the event loop can deliver progress events. Cancellation is handled via
+    // the queue's per-job token so the queue panel's cancel button works.
     let result = tokio::task::spawn_blocking(move || -> Result<WhisperModel, String> {
+        let emit_progress = |progress: f64, downloaded: u64| {
+            // Dedicated event for the model manager card.
+            let _ = app_for_thread.emit(
+                "whisper-download-progress",
+                DownloadProgressPayload {
+                    model_id: model_id_for_thread.clone(),
+                    progress,
+                    downloaded_bytes: downloaded,
+                    total_bytes: total,
+                },
+            );
+            // Shared queue event for the background jobs panel.
+            crate::queue::update_progress(&app_for_thread, &job_id_for_thread, progress);
+        };
+
         let mut response = reqwest::blocking::get(&model.url)
             .map_err(|e| format!("download failed: {}", e))?;
 
@@ -107,7 +134,7 @@ pub async fn install_whisper_model(
         let mut downloaded: u64 = 0;
         let mut buf = [0u8; 64 * 1024];
         loop {
-            if cancel_for_thread.load(std::sync::atomic::Ordering::SeqCst) {
+            if crate::queue::pids::is_cancelled(&job_id_for_thread) {
                 let _ = std::fs::remove_file(&tmp_dest);
                 return Err("download cancelled".to_string());
             }
@@ -124,15 +151,7 @@ pub async fn install_whisper_model(
             } else {
                 0.0
             };
-            let _ = app_for_thread.emit(
-                "whisper-download-progress",
-                DownloadProgressPayload {
-                    model_id: model_id_for_thread.clone(),
-                    progress,
-                    downloaded_bytes: downloaded,
-                    total_bytes: total,
-                },
-            );
+            emit_progress(progress, downloaded);
         }
 
         std::fs::rename(&tmp_dest, &dest)
@@ -141,10 +160,22 @@ pub async fn install_whisper_model(
         Ok(model)
     })
     .await
-    .map_err(|e| format!("download task panicked: {}", e))??;
+    .map_err(|e| {
+        crate::queue::fail(&app_handle, &job_id, format!("download task panicked: {}", e));
+        format!("download task panicked: {}", e)
+    })?;
 
-    // Re-fetch so the returned entry has installed: true.
-    Ok(find_model(&model_id).unwrap_or(result))
+    match result {
+        Ok(model) => {
+            crate::queue::complete(&app_handle, &job_id, Some(dest_path), None);
+            // Re-fetch so the returned entry has installed: true.
+            Ok(find_model(&model_id).unwrap_or(model))
+        }
+        Err(err) => {
+            crate::queue::fail(&app_handle, &job_id, err.clone());
+            Err(err)
+        }
+    }
 }
 
 #[tauri::command]

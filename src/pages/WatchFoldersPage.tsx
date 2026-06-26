@@ -5,11 +5,20 @@ import { useWatchStore } from "../store/watchStore";
 import Dropdown from "../components/Dropdown";
 import ScrambleText from "../components/ScrambleText";
 import { FORMAT_OPTIONS } from "../options";
-import type { ConversionParams, WatchAction, WatchFolderConfig } from "../types";
+import type {
+  ConversionParams, WatchAction, WatchFolderConfig,
+  WatchOutputFormat, ConflictPolicy, WatchLogStatus,
+} from "../types";
 
 const ACTION_OPTIONS = [
   { value: "autoConvert", label: "auto-convert now" },
   { value: "queue", label: "queue for review" },
+];
+
+const CONFLICT_OPTIONS: { value: ConflictPolicy; label: string }[] = [
+  { value: "skip", label: "skip (don't overwrite)" },
+  { value: "overwrite", label: "overwrite existing" },
+  { value: "rename", label: "auto-rename (_1, _2, …)" },
 ];
 
 /** Minimal-but-complete ConversionParams preset. input_path/output_dir are
@@ -23,29 +32,51 @@ function defaultParams(): ConversionParams {
   };
 }
 
+function defaultOutputFormat(): WatchOutputFormat {
+  return { outputFormat: "mp4", quality: 0.8 };
+}
+
 function emptyFolder(): WatchFolderConfig {
   return {
     id: "",
     enabled: true,
     path: "",
-    extensions: [],
+    patterns: [],
+    ignoreOlderThanMinutes: 0,
+    settleMs: 10000,
     outputDir: "",
     action: "autoConvert",
-    params: defaultParams(),
+    outputFormats: [defaultOutputFormat()],
+    conflictPolicy: "skip",
     deleteSource: false,
     recursive: false,
     preservePath: false,
+    processingLog: [],
+    // deprecated
+    extensions: [],
+    params: defaultParams(),
   };
+}
+
+/** Map a WatchLogStatus to a short display label + css class. */
+function logStatusBadge(status: WatchLogStatus): { label: string; cls: string } {
+  switch (status) {
+    case "success": return { label: "✓ done", cls: "log-badge-success" };
+    case "skippedConflict": return { label: "⏭ skip", cls: "log-badge-skip" };
+    case "skippedAge": return { label: "⏭ old", cls: "log-badge-skip" };
+    case "failed": return { label: "✗ fail", cls: "log-badge-error" };
+  }
 }
 
 export default function WatchFoldersPage() {
   const {
     folders, paused, queue, activity, load, saveFolder, deleteFolder,
-    setPaused, convertQueued, dequeue, clearQueue, bindEvents,
+    setPaused, convertQueued, dequeue, clearQueue, bindEvents, clearLog,
   } = useWatchStore();
 
   const [editing, setEditing] = useState<WatchFolderConfig | null>(null);
-  const [extInput, setExtInput] = useState("");
+  const [patternInput, setPatternInput] = useState("");
+  const [expandedLog, setExpandedLog] = useState<string | null>(null);
 
   useEffect(() => {
     load();
@@ -64,14 +95,46 @@ export default function WatchFoldersPage() {
     if (sel && editing) setEditing({ ...editing, outputDir: sel as string });
   }, [editing]);
 
-  const addExt = useCallback(() => {
-    if (!editing || !extInput.trim()) return;
-    const ext = extInput.trim().replace(/^\./, "").toLowerCase();
-    if (!editing.extensions.includes(ext)) {
-      setEditing({ ...editing, extensions: [...editing.extensions, ext] });
+  const pickFormatOutput = useCallback(async (index: number) => {
+    const sel = await open({ directory: true, multiple: false });
+    if (sel && editing) {
+      const formats = [...editing.outputFormats];
+      formats[index] = { ...formats[index], outputDir: sel as string };
+      setEditing({ ...editing, outputFormats: formats });
     }
-    setExtInput("");
-  }, [editing, extInput]);
+  }, [editing]);
+
+  const addPattern = useCallback(() => {
+    if (!editing || !patternInput.trim()) return;
+    const pat = patternInput.trim();
+    if (!editing.patterns.includes(pat)) {
+      setEditing({ ...editing, patterns: [...editing.patterns, pat] });
+    }
+    setPatternInput("");
+  }, [editing, patternInput]);
+
+  const addFormat = useCallback(() => {
+    if (!editing) return;
+    setEditing({
+      ...editing,
+      outputFormats: [...editing.outputFormats, defaultOutputFormat()],
+    });
+  }, [editing]);
+
+  const removeFormat = useCallback((index: number) => {
+    if (!editing || editing.outputFormats.length <= 1) return;
+    setEditing({
+      ...editing,
+      outputFormats: editing.outputFormats.filter((_, i) => i !== index),
+    });
+  }, [editing]);
+
+  const updateFormat = useCallback((index: number, updates: Partial<WatchOutputFormat>) => {
+    if (!editing) return;
+    const formats = [...editing.outputFormats];
+    formats[index] = { ...formats[index], ...updates };
+    setEditing({ ...editing, outputFormats: formats });
+  }, [editing]);
 
   const save = useCallback(async () => {
     if (!editing || !editing.path || !editing.outputDir) return;
@@ -118,12 +181,15 @@ export default function WatchFoldersPage() {
             <div>
               <div style={{ fontSize: 14 }}>{f.path || "(no path)"}</div>
               <div className="ops-sub">
-                {f.extensions.length ? f.extensions.join(", ") : "all files"} ·{" "}
+                {f.patterns.length ? f.patterns.join(", ") : "all files"} ·{" "}
                 {f.action === "autoConvert" ? "auto-convert" : "queue"} ·{" "}
-                {f.params.output_format}
+                {f.outputFormats.map((fmt) => fmt.outputFormat).join(" + ")}
+                {f.conflictPolicy !== "skip" ? ` · ${f.conflictPolicy}` : ""}
                 {f.deleteSource ? " · delete source" : ""}
                 {f.recursive ? " · subfolders" : ""}
                 {f.recursive && f.preservePath ? " · preserve paths" : ""}
+                {f.settleMs !== 10000 ? ` · ${f.settleMs / 1000}s debounce` : ""}
+                {f.ignoreOlderThanMinutes > 0 ? ` · skip >${f.ignoreOlderThanMinutes}m` : ""}
               </div>
             </div>
             <div className="ops-row">
@@ -141,6 +207,52 @@ export default function WatchFoldersPage() {
               <button className="btn" onClick={() => deleteFolder(f.id)}>delete</button>
             </div>
           </div>
+
+          {/* Processing log (collapsible) */}
+          {f.processingLog.length > 0 && (
+            <div style={{ marginTop: 10, borderTop: "1px solid var(--fg-faint)", paddingTop: 8 }}>
+              <button
+                className="btn"
+                style={{ fontSize: 12, padding: "2px 8px" }}
+                onClick={() => setExpandedLog(expandedLog === f.id ? null : f.id)}
+              >
+                {expandedLog === f.id ? "▼" : "▶"} history ({f.processingLog.length})
+              </button>
+              {expandedLog === f.id && (
+                <div style={{ marginTop: 6, maxHeight: 200, overflowY: "auto" }}>
+                  {f.processingLog.slice(0, 20).map((entry, i) => {
+                    const badge = logStatusBadge(entry.status);
+                    return (
+                      <div
+                        key={i}
+                        className="ops-row"
+                        style={{ justifyContent: "space-between", fontSize: 12, padding: "2px 0" }}
+                      >
+                        <span className="ops-sub" style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {entry.inputPath.split(/[/\\]/).pop()}
+                        </span>
+                        <span className={`log-badge ${badge.cls}`} style={{ padding: "1px 6px", fontSize: 11 }}>
+                          {badge.label}
+                        </span>
+                        <span className="ops-sub" style={{ fontSize: 10, marginLeft: 8 }}>
+                          {new Date(entry.timestamp).toLocaleTimeString()}
+                        </span>
+                      </div>
+                    );
+                  })}
+                  <div className="ops-row" style={{ marginTop: 6 }}>
+                    <button
+                      className="btn"
+                      style={{ fontSize: 11, padding: "2px 8px" }}
+                      onClick={() => clearLog(f.id)}
+                    >
+                      clear history
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       ))}
 
@@ -152,6 +264,7 @@ export default function WatchFoldersPage() {
             <span className="label">{editing.id ? "edit folder" : "new folder"}</span>
           </div>
           <div className="ops-body" style={{ overflow: "visible" }}>
+            {/* Folder to watch */}
             <div className="ops-group">
               <span className="ops-group-label">folder to watch</span>
               <div className="ops-row">
@@ -160,6 +273,7 @@ export default function WatchFoldersPage() {
               </div>
             </div>
 
+            {/* Output folder */}
             <div className="ops-group">
               <span className="ops-group-label">output folder</span>
               <div className="ops-row">
@@ -168,51 +282,131 @@ export default function WatchFoldersPage() {
               </div>
             </div>
 
+            {/* Glob patterns */}
             <div className="ops-group">
-              <span className="ops-group-label">extensions (empty = all)</span>
+              <span className="ops-group-label">file patterns (empty = all)</span>
               <div className="ops-row">
-                {editing.extensions.map((e) => (
+                {editing.patterns.map((p) => (
                   <button
-                    key={e}
+                    key={p}
                     className="ops-toggle on"
-                    onClick={() => setEditing({ ...editing, extensions: editing.extensions.filter((x) => x !== e) })}
-                  >.{e} ✕</button>
+                    onClick={() => setEditing({ ...editing, patterns: editing.patterns.filter((x) => x !== p) })}
+                  >{p} ✕</button>
                 ))}
                 <input
                   className="ops-field-input"
-                  value={extInput}
-                  onChange={(ev) => setExtInput(ev.target.value)}
-                  onKeyDown={(ev) => ev.key === "Enter" && addExt()}
-                  placeholder="mp4"
-                  style={{ background: "transparent", border: "1px solid var(--fg-faint)", color: "var(--fg)", padding: "4px 6px", fontFamily: "inherit", fontSize: 13, width: 90 }}
+                  value={patternInput}
+                  onChange={(ev) => setPatternInput(ev.target.value)}
+                  onKeyDown={(ev) => ev.key === "Enter" && addPattern()}
+                  placeholder="*.mp4"
+                  style={{ background: "transparent", border: "1px solid var(--fg-faint)", color: "var(--fg)", padding: "4px 6px", fontFamily: "inherit", fontSize: 13, width: 120 }}
                 />
-                <button className="btn" onClick={addExt}>add</button>
+                <button className="btn" onClick={addPattern}>add</button>
+              </div>
+              <div className="ops-sub" style={{ fontSize: 11, marginTop: 4 }}>
+                glob patterns: *.mp4, *_hq.*, screenshot_*.png
               </div>
             </div>
 
+            {/* Output formats */}
             <div className="ops-group">
-              <span className="ops-group-label">output format</span>
-              <Dropdown
-                options={FORMAT_OPTIONS}
-                value={editing.params.output_format ?? "mp4"}
-                onChange={(v) => setEditing({ ...editing, params: { ...editing.params, output_format: v } })}
-                showCategories
-              />
+              <span className="ops-group-label">output formats</span>
+              {editing.outputFormats.map((fmt, i) => (
+                <div key={i} style={{ marginBottom: 8, padding: 8, border: "1px solid var(--fg-faint)", borderRadius: 4 }}>
+                  <div className="ops-row" style={{ justifyContent: "space-between", marginBottom: 4 }}>
+                    <span className="ops-sub">{i === 0 ? "primary" : `format ${i + 1}`}</span>
+                    {editing.outputFormats.length > 1 && (
+                      <button
+                        className="btn"
+                        style={{ fontSize: 11, padding: "2px 8px" }}
+                        onClick={() => removeFormat(i)}
+                      >remove</button>
+                    )}
+                  </div>
+                  <div className="ops-row" style={{ gap: 8 }}>
+                    <Dropdown
+                      options={FORMAT_OPTIONS}
+                      value={fmt.outputFormat}
+                      onChange={(v) => updateFormat(i, { outputFormat: v })}
+                      showCategories
+                    />
+                    <span className="ops-sub" style={{ whiteSpace: "nowrap" }}>
+                      quality ({Math.round((fmt.quality ?? 0.8) * 100)}%)
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    className="watch-slider"
+                    min={0}
+                    max={1}
+                    step={0.05}
+                    value={fmt.quality ?? 0.8}
+                    onChange={(e) => updateFormat(i, { quality: Number(e.target.value) })}
+                    style={{ width: "100%", marginTop: 4 }}
+                  />
+                  <div className="ops-row" style={{ marginTop: 4 }}>
+                    <span className="ops-sub" style={{ fontSize: 11, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {fmt.outputDir || `default: ${editing.outputDir || "—"}`}
+                    </span>
+                    <button
+                      className="btn"
+                      style={{ fontSize: 11, padding: "2px 8px" }}
+                      onClick={() => pickFormatOutput(i)}
+                    >custom dir</button>
+                  </div>
+                </div>
+              ))}
+              <button className="btn" style={{ fontSize: 12, padding: "4px 12px" }} onClick={addFormat}>
+                + add format
+              </button>
             </div>
 
+            {/* Debounce window */}
             <div className="ops-group">
-              <span className="ops-group-label">quality ({Math.round((editing.params.quality ?? 0.8) * 100)}%)</span>
+              <span className="ops-group-label">
+                debounce window ({(editing.settleMs / 1000).toFixed(1)}s)
+              </span>
               <input
                 type="range"
                 className="watch-slider"
-                min={0}
-                max={1}
-                step={0.05}
-                value={editing.params.quality ?? 0.8}
-                onChange={(e) => setEditing({ ...editing, params: { ...editing.params, quality: Number(e.target.value) } })}
+                min={0.5}
+                max={60}
+                step={0.5}
+                value={editing.settleMs / 1000}
+                onChange={(e) => setEditing({ ...editing, settleMs: Math.round(Number(e.target.value) * 1000) })}
+              />
+              <div className="ops-sub" style={{ fontSize: 11 }}>
+                wait for file to be stable before processing
+              </div>
+            </div>
+
+            {/* File age filter */}
+            <div className="ops-group">
+              <span className="ops-group-label">ignore files older than</span>
+              <div className="ops-row" style={{ gap: 8 }}>
+                <input
+                  type="number"
+                  min={0}
+                  max={10080}
+                  value={editing.ignoreOlderThanMinutes}
+                  onChange={(e) => setEditing({ ...editing, ignoreOlderThanMinutes: Math.max(0, Number(e.target.value)) })}
+                  style={{ background: "transparent", border: "1px solid var(--fg-faint)", color: "var(--fg)", padding: "4px 6px", fontFamily: "inherit", fontSize: 13, width: 80 }}
+                />
+                <span className="ops-sub">minutes (0 = no limit)</span>
+              </div>
+            </div>
+
+            {/* Conflict policy */}
+            <div className="ops-group">
+              <span className="ops-group-label">when output exists</span>
+              <Dropdown
+                options={CONFLICT_OPTIONS}
+                value={editing.conflictPolicy}
+                onChange={(v) => setEditing({ ...editing, conflictPolicy: v as ConflictPolicy })}
               />
             </div>
 
+            {/* Action */}
             <div className="ops-group">
               <span className="ops-group-label">action</span>
               <Dropdown
@@ -241,7 +435,6 @@ export default function WatchFoldersPage() {
                   setEditing({
                     ...editing,
                     recursive: e.target.checked,
-                    // Smart default: when enabling subfolders, auto-enable path preservation
                     preservePath: e.target.checked ? true : false,
                   })
                 }

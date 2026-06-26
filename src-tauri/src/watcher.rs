@@ -1,9 +1,9 @@
 //! Watch-folder daemon.
 //!
 //! One `notify` watcher per configured folder. On a create/modify event the
-//! file is debounced (settle check), filtered by extension, then either
-//! auto-converted (Phase 3) or pushed to the in-memory review queue and
-//! surfaced to the UI via `watch://` events.
+//! file is debounced (settle check), filtered by glob pattern + file age,
+//! then either auto-converted (Phase 3) or pushed to the in-memory review
+//! queue and surfaced to the UI via `watch://` events.
 //!
 //! Designed to keep running while the main window is hidden (close-to-tray):
 //! it lives entirely in Tauri managed state and emits events that the UI
@@ -15,18 +15,18 @@ use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
 use chrono::Utc;
+use globset::GlobSet;
 use notify::{event::EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use tauri::{AppHandle, Emitter, Manager, Runtime};
 use uuid::Uuid;
 
-use crate::commands::settings::load_settings;
-use crate::models::watch_folder::{QueuedFile, WatchAction, WatchFolderConfig};
+use crate::commands::settings::{load_settings, save_settings};
+use crate::models::watch_folder::{
+    ConflictPolicy, QueuedFile, WatchAction, WatchFolderConfig, WatchLogEntry, WatchLogStatus,
+    WatchOutputFormat, MAX_LOG_ENTRIES,
+};
 use crate::tray;
 
-/// Per-folder "last seen" timestamps to debounce rapid create+write bursts.
-/// Keyed by file path. A file is only processed once it has gone unmodified
-/// for `SETTLE_MS`.
-const SETTLE_MS: u64 = 1500;
 /// How often the settle-sweep loop runs.
 const SWEEP_INTERVAL_MS: u64 = 500;
 
@@ -35,7 +35,8 @@ pub struct WatcherState {
     /// Active watchers keyed by folder id. Dropping a watcher stops it.
     watchers: Mutex<HashMap<String, RecommendedWatcher>>,
     /// Files seen but not yet settled, keyed by (folder_id, path).
-    pending: Mutex<HashMap<String, (Instant, String, String)>>, // key -> (first_seen, folder_id, path)
+    /// Value: (first_seen, folder_id, path)
+    pending: Mutex<HashMap<String, (Instant, String, String)>>,
     /// The manual-review queue (Queue-action folders).
     queue: Mutex<VecDeque<QueuedFile>>,
 }
@@ -186,14 +187,24 @@ fn ensure_sweep_loop<R: Runtime + 'static>(app: AppHandle<R>) {
     });
 }
 
-/// Pull all pending entries that have been quiet for >= SETTLE_MS.
+/// Pull all pending entries that have been quiet for >= their folder's settle
+/// duration. Each folder can have a different debounce window.
 fn take_settled<R: Runtime>(app: &AppHandle<R>) -> Vec<(String, String)> {
     let state = app.state::<WatcherState>();
     let mut pending = state.pending.lock().expect("pending poisoned");
     let now = Instant::now();
+
+    // Collect folder settle durations so we can compare per-folder.
+    let settle_map: HashMap<String, u64> = load_settings()
+        .watch_folders
+        .into_iter()
+        .map(|f| (f.id, f.settle_ms))
+        .collect();
+
     let mut out = Vec::new();
     pending.retain(|_key, (seen, folder_id, path)| {
-        if now.duration_since(*seen) >= Duration::from_millis(SETTLE_MS) {
+        let settle_ms = settle_map.get(folder_id).copied().unwrap_or(10000);
+        if now.duration_since(*seen) >= Duration::from_millis(settle_ms) {
             out.push((folder_id.clone(), path.clone()));
             false // remove settled
         } else {
@@ -201,6 +212,33 @@ fn take_settled<R: Runtime>(app: &AppHandle<R>) -> Vec<(String, String)> {
         }
     });
     out
+}
+
+/// Build a GlobSet from a folder's patterns. Returns None if patterns is
+/// empty (meaning "accept all").
+fn build_pattern_set(folder: &WatchFolderConfig) -> Option<GlobSet> {
+    if folder.patterns.is_empty() {
+        return None;
+    }
+    let mut builder = globset::GlobSetBuilder::new();
+    for pat in &folder.patterns {
+        // globset patterns match against the full path by default; we only
+        // want to match the filename. We use the pattern as-is but match
+        // against the file_name() component.
+        if let Ok(glob) = globset::Glob::new(pat) {
+            builder.add(glob);
+        }
+    }
+    builder.build().ok()
+}
+
+/// Check whether a filename matches any of the folder's glob patterns.
+fn matches_patterns(folder: &WatchFolderConfig, filename: &str) -> bool {
+    let set = match build_pattern_set(folder) {
+        Some(s) => s,
+        None => return true, // no patterns = accept all
+    };
+    set.is_match(filename)
 }
 
 /// A file has settled: validate it, then route by the folder's action mode.
@@ -218,15 +256,32 @@ fn handle_settled_file<R: Runtime>(app: &AppHandle<R>, folder_id: &str, path: &s
         return;
     }
 
-    // Extension filter (empty list = accept all).
-    if !folder.extensions.is_empty() {
-        let ext = p
-            .extension()
-            .and_then(|e| e.to_str())
-            .map(|s| s.to_lowercase())
-            .unwrap_or_default();
-        if !folder.extensions.iter().any(|e| e.eq_ignore_ascii_case(&ext)) {
-            return;
+    // ── Glob pattern filter ──
+    let filename = p.file_name().and_then(|n| n.to_str()).unwrap_or("");
+    if !matches_patterns(&folder, filename) {
+        return;
+    }
+
+    // ── File age filter ──
+    if folder.ignore_older_than_minutes > 0 {
+        if let Ok(metadata) = p.metadata() {
+            if let Ok(modified) = metadata.modified() {
+                if let Ok(age) = modified.elapsed() {
+                    let max_age = Duration::from_secs(folder.ignore_older_than_minutes * 60);
+                    if age > max_age {
+                        // Log the skip and return.
+                        let entry = WatchLogEntry {
+                            input_path: path.to_string(),
+                            output_paths: vec![],
+                            status: WatchLogStatus::SkippedAge,
+                            timestamp: Utc::now().to_rfc3339(),
+                            error: None,
+                        };
+                        push_log_entry(&folder.id, entry);
+                        return;
+                    }
+                }
+            }
         }
     }
 
@@ -248,8 +303,52 @@ fn handle_settled_file<R: Runtime>(app: &AppHandle<R>, folder_id: &str, path: &s
     }
 }
 
-/// Run a single auto-conversion for a detected file. Serialized per folder
-/// by a shared mutex so one folder never runs two ffmpeg processes at once.
+/// Compute the output path for a given format, applying conflict resolution.
+/// Returns None if the file should be skipped due to conflict policy.
+fn resolve_output_path(
+    folder: &WatchFolderConfig,
+    fmt: &WatchOutputFormat,
+    input_stem: &str,
+) -> Option<std::path::PathBuf> {
+    let output_dir = if fmt.output_dir.is_empty() {
+        std::path::PathBuf::from(&folder.output_dir)
+    } else {
+        std::path::PathBuf::from(&fmt.output_dir)
+    };
+
+    let mut out_path = output_dir.join(format!("{}.{}", input_stem, fmt.output_format));
+
+    if out_path.exists() {
+        match folder.conflict_policy {
+            ConflictPolicy::Skip => return None,
+            ConflictPolicy::Overwrite => {} // proceed — ffmpeg -y handles it
+            ConflictPolicy::Rename => {
+                let mut counter = 1;
+                loop {
+                    let candidate = output_dir.join(format!(
+                        "{}_{}.{}",
+                        input_stem, counter, fmt.output_format
+                    ));
+                    if !candidate.exists() {
+                        out_path = candidate;
+                        break;
+                    }
+                    counter += 1;
+                    // Safety valve — avoid infinite loops on pathological cases.
+                    if counter > 9999 {
+                        return None;
+                    }
+                }
+            }
+        }
+    }
+
+    Some(out_path)
+}
+
+/// Run auto-conversion for a detected file, producing one output per format.
+/// Serialized per folder by a shared mutex so one folder never runs two
+/// ffmpeg processes at once.
 fn run_auto_convert<R: Runtime>(app: AppHandle<R>, folder: WatchFolderConfig, path: String) {
     let job_id = format!("watch:{}", folder.id);
 
@@ -257,53 +356,157 @@ fn run_auto_convert<R: Runtime>(app: AppHandle<R>, folder: WatchFolderConfig, pa
     let lock = folder_lock(&folder.id);
     let _guard = lock.lock().expect("folder lock poisoned");
 
-    // Build params from the preset: clone it, overwrite input + output.
-    let mut params = folder.params.clone();
-    params.input_path = std::path::PathBuf::from(&path);
+    let input_stem = std::path::Path::new(&path)
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("output")
+        .to_string();
 
-    // When watching recursively with path preservation, mirror the relative
-    // subfolder structure under the output directory.
-    let mut output_dir = std::path::PathBuf::from(&folder.output_dir);
-    if folder.recursive && folder.preserve_path {
-        if let Ok(relative) = std::path::Path::new(&path).strip_prefix(&folder.path) {
-            if let Some(parent) = relative.parent() {
-                if !parent.as_os_str().is_empty() {
-                    output_dir = output_dir.join(parent);
-                }
+    // Determine the effective output formats. Fall back to legacy params
+    // if output_formats is empty (shouldn't happen after migration, but safe).
+    let formats: Vec<WatchOutputFormat> = if folder.output_formats.is_empty() {
+        vec![WatchOutputFormat {
+            output_format: folder.params.output_format.clone(),
+            quality: folder.params.quality,
+            output_dir: folder.output_dir.clone(),
+        }]
+    } else {
+        folder.output_formats.clone()
+    };
+
+    // Compute output paths with conflict resolution. If ALL formats would be
+    // skipped, log and return early.
+    let mut output_paths: Vec<(WatchOutputFormat, std::path::PathBuf)> = Vec::new();
+    let mut all_skipped = true;
+    for fmt in &formats {
+        match resolve_output_path(&folder, fmt, &input_stem) {
+            Some(p) => {
+                output_paths.push((fmt.clone(), p));
+                all_skipped = false;
+            }
+            None => {
+                // This format is skipped due to conflict policy.
+                continue;
             }
         }
     }
-    params.output_dir = output_dir;
+
+    if all_skipped {
+        // All outputs already exist and policy is Skip.
+        let entry = WatchLogEntry {
+            input_path: path.clone(),
+            output_paths: output_paths.iter().map(|(_, p)| p.to_string_lossy().to_string()).collect(),
+            status: WatchLogStatus::SkippedConflict,
+            timestamp: Utc::now().to_rfc3339(),
+            error: None,
+        };
+        push_log_entry(&folder.id, entry);
+        let _ = app.emit(
+            "watch://convert-error",
+            serde_json::json!({ "folderId": folder.id, "path": path, "error": "skipped: output already exists" }),
+        );
+        return;
+    }
 
     let _ = app.emit(
         "watch://convert-started",
         serde_json::json!({ "folderId": folder.id, "path": path, "jobId": job_id }),
     );
 
-    match crate::commands::run_single_conversion(&app, params, &job_id) {
-        Ok(done) => {
-            let _ = app.emit(
-                "watch://convert-done",
-                serde_json::json!({
-                    "folderId": folder.id,
-                    "path": path,
-                    "outputPath": done.output_path,
-                }),
-            );
-            // Optional: remove the source after a successful conversion.
-            if folder.delete_source {
-                let _ = std::fs::remove_file(&path);
-            }
-            // Rebuild a concise tray status reflecting active folders.
-            crate::tray::set_tooltip_status(&app, Some("converted"));
+    // Run conversion for each format sequentially (within the folder lock).
+    let mut all_output_paths: Vec<String> = Vec::new();
+    let mut any_failed = false;
+    let mut last_error = String::new();
+
+    for (fmt, output_path) in &output_paths {
+        let mut params = folder.params.clone();
+        params.input_path = std::path::PathBuf::from(&path);
+        params.output_dir = output_path.parent().map(|p| p.to_path_buf()).unwrap_or_default();
+        params.output_format = fmt.output_format.clone();
+        if let Some(q) = fmt.quality {
+            params.quality = Some(q);
         }
-        Err(e) => {
-            let _ = app.emit(
-                "watch://convert-error",
-                serde_json::json!({ "folderId": folder.id, "path": path, "error": e }),
-            );
+
+        // When watching recursively with path preservation, mirror the
+        // relative subfolder path under the output directory.
+        if folder.recursive && folder.preserve_path {
+            if let Ok(relative) = std::path::Path::new(&path).strip_prefix(&folder.path) {
+                if let Some(parent) = relative.parent() {
+                    if !parent.as_os_str().is_empty() {
+                        params.output_dir = params.output_dir.join(parent);
+                    }
+                }
+            }
+        }
+
+        match crate::commands::run_single_conversion(&app, params, &job_id) {
+            Ok(done) => {
+                all_output_paths.push(done.output_path);
+            }
+            Err(e) => {
+                any_failed = true;
+                last_error = e;
+                // Continue with remaining formats — partial success is still useful.
+            }
         }
     }
+
+    if any_failed {
+        let entry = WatchLogEntry {
+            input_path: path.clone(),
+            output_paths: all_output_paths.clone(),
+            status: WatchLogStatus::Failed,
+            timestamp: Utc::now().to_rfc3339(),
+            error: Some(last_error.clone()),
+        };
+        push_log_entry(&folder.id, entry);
+
+        let _ = app.emit(
+            "watch://convert-error",
+            serde_json::json!({ "folderId": folder.id, "path": path, "error": last_error }),
+        );
+    } else {
+        let entry = WatchLogEntry {
+            input_path: path.clone(),
+            output_paths: all_output_paths.clone(),
+            status: WatchLogStatus::Success,
+            timestamp: Utc::now().to_rfc3339(),
+            error: None,
+        };
+        push_log_entry(&folder.id, entry);
+
+        let _ = app.emit(
+            "watch://convert-done",
+            serde_json::json!({
+                "folderId": folder.id,
+                "path": path,
+                "outputPath": all_output_paths.first(),
+                "outputPaths": all_output_paths,
+            }),
+        );
+
+        // Optional: remove the source after a successful conversion.
+        if folder.delete_source {
+            let _ = std::fs::remove_file(&path);
+        }
+    }
+
+    // Rebuild a concise tray status reflecting active folders.
+    crate::tray::set_tooltip_status(&app, Some("converted"));
+}
+
+/// Append a log entry to a folder's processing_log, trim to MAX_LOG_ENTRIES,
+/// and persist settings. Log entries are most-recent-first.
+fn push_log_entry(folder_id: &str, entry: WatchLogEntry) {
+    let mut settings = load_settings();
+    if let Some(folder) = settings.watch_folders.iter_mut().find(|f| f.id == folder_id) {
+        folder.processing_log.insert(0, entry);
+        if folder.processing_log.len() > MAX_LOG_ENTRIES {
+            folder.processing_log.truncate(MAX_LOG_ENTRIES);
+        }
+    }
+    // Best-effort save — don't crash the watcher if persistence fails.
+    let _ = save_settings(settings);
 }
 
 /// A shared, lazily-created mutex per folder id. Keeps concurrent

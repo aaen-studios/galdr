@@ -13,6 +13,7 @@ import RunesPage from "./pages/RunesPage";
 import ForgePage from "./pages/ForgePage";
 import WatchFoldersPage from "./pages/WatchFoldersPage";
 import SubtitlesPage from "./pages/SubtitlesPage";
+import ImportPage from "./pages/ImportPage";
 import ScrambleText from "./components/ScrambleText";
 import UpdateBanner from "./components/UpdateBanner";
 import QueueDropdown from "./components/QueueDropdown";
@@ -20,6 +21,7 @@ import PageTransition from "./transitions";
 import { useGaldrStore } from "./store";
 import { useForgeStore } from "./store/forgeStore";
 import { bindQueueEvents, useQueueStore, selectOverallProgress } from "./store/queueStore";
+import { bindDownloadEvents } from "./store/downloadStore";
 import { ContextMenuProvider, useContextMenu } from "./components/ContextMenu";
 import type { GaldrProjectFile } from "./types";
 import "./App.css";
@@ -32,14 +34,18 @@ interface AppSettings {
   discordEnabled: boolean;
   preferredVideoEncoder: string | null;
   autoFallbackHw: boolean;
+  downloadDir: string;
+  autoDownloadSubtitles: boolean;
+  autoEmbedSubtitles: boolean;
 }
 
 const PERSIST_FIELDS: (keyof AppSettings)[] = [
   "outputDir", "transitionStyle", "crtEnabled", "showRuneInTitlebar", "discordEnabled",
-  "preferredVideoEncoder", "autoFallbackHw",
+  "preferredVideoEncoder", "autoFallbackHw", "downloadDir", "autoDownloadSubtitles",
+  "autoEmbedSubtitles",
 ];
 
-type Page = "home" | "convert" | "compress" | "settings" | "runes" | "forge" | "watch" | "subtitles";
+type Page = "home" | "convert" | "compress" | "settings" | "runes" | "forge" | "watch" | "subtitles" | "import";
 
 function AppShell() {
   const [page, setPage] = useState<Page>("home");
@@ -119,6 +125,9 @@ function AppShell() {
         store.setPreferredVideoEncoder(s.preferredVideoEncoder);
       }
       store.setAutoFallbackHw(s.autoFallbackHw);
+      store.setDownloadDir(s.downloadDir);
+      store.setAutoDownloadSubtitles(s.autoDownloadSubtitles);
+      store.setAutoEmbedSubtitles(s.autoEmbedSubtitles);
     }).catch(() => {});
   }, []);
 
@@ -130,6 +139,11 @@ function AppShell() {
   // Bind the background queue event listener on mount.
   useEffect(() => {
     bindQueueEvents();
+  }, []);
+
+  // Bind the download event listener on mount.
+  useEffect(() => {
+    bindDownloadEvents();
   }, []);
 
   // Read OS autostart state on mount (autostart is OS-managed, not in settings.json)
@@ -172,6 +186,9 @@ function AppShell() {
           discordEnabled: s.discordEnabled,
           preferredVideoEncoder: s.preferredVideoEncoder === "software" ? null : s.preferredVideoEncoder,
           autoFallbackHw: s.autoFallbackHw,
+          downloadDir: s.downloadDir,
+          autoDownloadSubtitles: s.autoDownloadSubtitles,
+          autoEmbedSubtitles: s.autoEmbedSubtitles,
         }).catch(() => {});
       }, 300);
     });
@@ -388,6 +405,7 @@ function AppShell() {
           {page === "forge" && <ForgePage />}
           {page === "watch" && <WatchFoldersPage />}
           {page === "subtitles" && <SubtitlesPage />}
+          {page === "import" && <ImportPage />}
         </PageTransition>
       </main>
     </div>

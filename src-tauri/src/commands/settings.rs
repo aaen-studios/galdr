@@ -1,8 +1,9 @@
 use crate::models::settings::{AppSettings, WindowState};
+use crate::models::watch_folder::{WatchOutputFormat, MAX_LOG_ENTRIES};
 use std::fs;
 use std::path::PathBuf;
 
-fn store_dir() -> PathBuf {
+pub(crate) fn store_dir() -> PathBuf {
     let mut dir = dirs_data_dir();
     dir.push("galdr");
     let _ = fs::create_dir_all(&dir);
@@ -26,16 +27,52 @@ fn dirs_data_dir() -> PathBuf {
     }
 }
 
+/// Migrate watch-folder configs from older schema versions. Mutates in place.
+/// Handles:
+///   - extensions → patterns (["mp4"] → ["*.mp4"])
+///   - params/output_dir → output_formats (single preset → one-element vec)
+///   - settle_ms == 0 → 10000 (apply default)
+fn migrate_watch_folders(settings: &mut AppSettings) {
+    for folder in &mut settings.watch_folders {
+        // extensions → patterns
+        if folder.patterns.is_empty() && !folder.extensions.is_empty() {
+            folder.patterns = folder
+                .extensions
+                .iter()
+                .map(|e| format!("*.{}", e))
+                .collect();
+        }
+        // legacy params → output_formats
+        if folder.output_formats.is_empty() && !folder.params.output_format.is_empty() {
+            folder.output_formats = vec![WatchOutputFormat {
+                output_format: folder.params.output_format.clone(),
+                quality: folder.params.quality,
+                output_dir: folder.output_dir.clone(),
+            }];
+        }
+        // apply default debounce if unset
+        if folder.settle_ms == 0 {
+            folder.settle_ms = 10000;
+        }
+        // bound the log to prevent unbounded growth
+        if folder.processing_log.len() > MAX_LOG_ENTRIES {
+            folder.processing_log.truncate(MAX_LOG_ENTRIES);
+        }
+    }
+}
+
 #[tauri::command]
 pub fn load_settings() -> AppSettings {
     let path = store_dir().join("settings.json");
     if !path.exists() {
         return AppSettings::default();
     }
-    fs::read_to_string(&path)
+    let mut settings = fs::read_to_string(&path)
         .ok()
         .and_then(|content| serde_json::from_str(&content).ok())
-        .unwrap_or_default()
+        .unwrap_or_default();
+    migrate_watch_folders(&mut settings);
+    settings
 }
 
 #[tauri::command]
@@ -60,6 +97,9 @@ pub fn save_app_preferences(
     discord_enabled: bool,
     preferred_video_encoder: Option<String>,
     auto_fallback_hw: bool,
+    download_dir: String,
+    auto_download_subtitles: bool,
+    auto_embed_subtitles: bool,
 ) -> Result<(), String> {
     let path = store_dir().join("settings.json");
     let mut existing = load_settings();
@@ -70,6 +110,9 @@ pub fn save_app_preferences(
     existing.discord_enabled = discord_enabled;
     existing.preferred_video_encoder = preferred_video_encoder;
     existing.auto_fallback_hw = auto_fallback_hw;
+    existing.download_dir = download_dir;
+    existing.auto_download_subtitles = auto_download_subtitles;
+    existing.auto_embed_subtitles = auto_embed_subtitles;
     let json = serde_json::to_string_pretty(&existing).map_err(|e| e.to_string())?;
     fs::write(&path, json).map_err(|e| e.to_string())
 }

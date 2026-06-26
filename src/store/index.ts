@@ -42,10 +42,16 @@ interface GaldrState {
 
 	  /** Hardware encoders detected in the system's ffmpeg. */
 	  availableEncoders: HardwareEncoderInfo[];
-	  /** User's preferred video encoder setting: "auto" | "software" | encoder name */
-	  preferredVideoEncoder: string;
-	  /** Auto-fallback to software when the preferred HW encoder is unavailable. */
-	  autoFallbackHw: boolean;
+  /** User's preferred video encoder setting: "auto" | "software" | encoder name */
+  preferredVideoEncoder: string;
+  /** Auto-fallback to software when the preferred HW encoder is unavailable. */
+  autoFallbackHw: boolean;
+  /** App-managed folder where yt-dlp downloads are saved. */
+  downloadDir: string;
+  /** Automatically download available subtitles when importing from a URL. */
+  autoDownloadSubtitles: boolean;
+  /** Automatically embed downloaded subtitles into the media file. */
+  autoEmbedSubtitles: boolean;
 
   setMediaInfo: (info: MediaInfo | null) => void;
   setConversionParams: (params: Partial<ConversionParams>) => void;
@@ -79,8 +85,11 @@ interface GaldrState {
 	  setPendingRunesImport: (data: { runes: RuneTag[]; sourceName: string } | null) => void;
 	  setAvailableEncoders: (encoders: HardwareEncoderInfo[]) => void;
 	  setPreferredVideoEncoder: (v: string) => void;
-	  setAutoFallbackHw: (v: boolean) => void;
-	  loadHardwareEncoders: () => Promise<void>;
+  setAutoFallbackHw: (v: boolean) => void;
+  setDownloadDir: (v: string) => void;
+  setAutoDownloadSubtitles: (v: boolean) => void;
+  setAutoEmbedSubtitles: (v: boolean) => void;
+  loadHardwareEncoders: () => Promise<void>;
 	  /** Return the HardwareEncoderInfo that "auto" would resolve to for a given output format, or undefined. */
 		  getAutoSelectedEncoder: (outputFormat?: string) => HardwareEncoderInfo | undefined;
 		}
@@ -148,6 +157,9 @@ export const useGaldrStore = create<GaldrState>((set, get) => ({
 	  availableEncoders: [],
 	  preferredVideoEncoder: "auto",
 	  autoFallbackHw: true,
+		  downloadDir: "",
+		  autoDownloadSubtitles: false,
+		  autoEmbedSubtitles: false,
 
   setMediaInfo: (info) => set({ mediaInfo: info }),
   setConversionParams: (params) =>
@@ -205,8 +217,11 @@ export const useGaldrStore = create<GaldrState>((set, get) => ({
 	  setPendingRunesImport: (data) => set({ pendingRunesImport: data }),
 	  setAvailableEncoders: (encoders) => set({ availableEncoders: encoders }),
 	  setPreferredVideoEncoder: (v) => set({ preferredVideoEncoder: v }),
-	  setAutoFallbackHw: (v) => set({ autoFallbackHw: v }),
-	  loadHardwareEncoders: async () => {
+		  setAutoFallbackHw: (v) => set({ autoFallbackHw: v }),
+		  setDownloadDir: (v) => set({ downloadDir: v }),
+		  setAutoDownloadSubtitles: (v) => set({ autoDownloadSubtitles: v }),
+		  setAutoEmbedSubtitles: (v) => set({ autoEmbedSubtitles: v }),
+		  loadHardwareEncoders: async () => {
 	    try {
 	      const encoders = await invoke<HardwareEncoderInfo[]>("detect_hardware_encoders");
 	      set({ availableEncoders: encoders });

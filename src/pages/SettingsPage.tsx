@@ -38,6 +38,9 @@ export default function SettingsPage({ onNavigate }: Props) {
     availableEncoders, setAvailableEncoders,
     preferredVideoEncoder, setPreferredVideoEncoder,
     autoFallbackHw, setAutoFallbackHw,
+    downloadDir, setDownloadDir,
+    autoDownloadSubtitles, setAutoDownloadSubtitles,
+    autoEmbedSubtitles, setAutoEmbedSubtitles,
   } = useGaldrStore();
   const [version, setVersion] = useState("");
   const [subsOpen, setSubsOpen] = useState(false);
@@ -110,6 +113,11 @@ export default function SettingsPage({ onNavigate }: Props) {
     const sel = await open({ directory: true, multiple: false });
     if (sel) setOutputDir(sel as string);
   }, [setOutputDir]);
+
+  const pickDownloadFolder = useCallback(async () => {
+    const sel = await open({ directory: true, multiple: false });
+    if (sel) setDownloadDir(sel as string);
+  }, [setDownloadDir]);
 
   const copyToClipboard = useCallback((text: string) => {
     navigator.clipboard.writeText(text).catch(() => { });
@@ -278,6 +286,44 @@ export default function SettingsPage({ onNavigate }: Props) {
         <p className="settings-hint">
           when the selected hardware encoder is unavailable, use the default
           software encoder instead of failing
+        </p>
+      </div>
+
+      {/* ── Downloads (yt-dlp import) ── */}
+      <div className="card" onContextMenu={(e) => show(e, [
+        { label: "browse", rune: "ᚨ", action: pickDownloadFolder },
+        { label: "copy path", rune: "ᚷ", action: () => copyToClipboard(downloadDir) },
+        ...(downloadDir ? [{ label: "clear", rune: "ᛏ", action: () => setDownloadDir("") }] : []),
+      ])}>
+        <label className="label">ᛣ downloads folder</label>
+        <p className="settings-hint flush">
+          where media imported from URLs (YouTube, Vimeo, etc.) is saved.
+          leave empty to use the default app-managed folder.
+        </p>
+        <div className="row">
+          <input className="input" value={downloadDir} placeholder="default: app-managed downloads folder" readOnly />
+          <button className="btn" onClick={pickDownloadFolder}>browse</button>
+        </div>
+        <div className="row settings-toggle-row" style={{ marginTop: 10 }}>
+          <label className="toggle-label">auto-download subtitles</label>
+          <button
+            className={`btn toggle-btn${autoDownloadSubtitles ? " active" : ""}`}
+            onClick={() => setAutoDownloadSubtitles(!autoDownloadSubtitles)}
+          >
+            {autoDownloadSubtitles ? "on" : "off"}
+          </button>
+        </div>
+        <div className="row settings-toggle-row">
+          <label className="toggle-label">auto-embed subtitles</label>
+          <button
+            className={`btn toggle-btn${autoEmbedSubtitles ? " active" : ""}`}
+            onClick={() => setAutoEmbedSubtitles(!autoEmbedSubtitles)}
+          >
+            {autoEmbedSubtitles ? "on" : "off"}
+          </button>
+        </div>
+        <p className="settings-hint">
+          yt-dlp is downloaded on first use from GitHub (~15 MB) and cached on your machine.
         </p>
       </div>
     </div>

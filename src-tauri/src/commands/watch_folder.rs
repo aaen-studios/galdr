@@ -110,3 +110,15 @@ pub fn convert_queued_file<R: Runtime>(
     let done = crate::commands::run_single_conversion(&app, params, &job_id)?;
     Ok(done.output_path)
 }
+
+/// Clear the processing log for a watch folder by id.
+#[tauri::command]
+pub fn clear_watch_log<R: Runtime>(app: AppHandle<R>, id: String) -> Result<(), String> {
+    let mut settings = load_settings();
+    if let Some(folder) = settings.watch_folders.iter_mut().find(|f| f.id == id) {
+        folder.processing_log.clear();
+    }
+    save_settings(settings)?;
+    crate::watcher::start_watcher(&app);
+    Ok(())
+}
