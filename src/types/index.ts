@@ -313,6 +313,10 @@ export interface TranscribeParams {
   /** "srt" | "vtt" | "json" | "all" */
   outputFormat: string;
   outputDir: string;
+  /** Max segment length in characters (0 = no limit). Maps to whisper-cli -ml. */
+  maxSegmentLen?: number;
+  /** Split on word boundaries rather than tokens. Maps to whisper-cli -sow. */
+  splitOnWord?: boolean;
 }
 
 export interface TranscribeResult {

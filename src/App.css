@@ -3469,6 +3469,136 @@ body {
   padding-bottom: 80px;
 }
 
+/* ── Segment length slider ── */
+
+.segment-simple {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 4px;
+}
+
+.segment-slider-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.segment-end-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--fg-dim);
+  flex-shrink: 0;
+  width: 36px;
+}
+
+.segment-end-label:last-of-type {
+  text-align: right;
+}
+
+.segment-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  flex: 1;
+  height: 3px;
+  background: var(--fg-faint);
+  outline: none;
+  border-radius: 0;
+  cursor: pointer;
+}
+
+.segment-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  background: var(--fg);
+  border: none;
+  border-radius: 0;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.segment-slider::-webkit-slider-thumb:hover {
+  background: var(--accent);
+}
+
+.segment-slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  background: var(--fg);
+  border: none;
+  border-radius: 0;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.segment-slider::-moz-range-thumb:hover {
+  background: var(--accent);
+}
+
+.segment-slider::-moz-range-track {
+  height: 3px;
+  background: var(--fg-faint);
+}
+
+.segment-ticks {
+  display: flex;
+  justify-content: space-between;
+  padding: 0 2px;
+}
+
+.segment-tick {
+  font-size: 9px;
+  color: var(--fg-dim);
+  opacity: 0.5;
+  letter-spacing: 0.05em;
+}
+
+.segment-value {
+  font-size: 12px;
+  color: var(--fg-dim);
+  text-align: center;
+  padding-top: 2px;
+}
+
+.segment-val-unlimited {
+  color: var(--accent);
+  letter-spacing: 0.05em;
+}
+
+.segment-word-est {
+  color: var(--fg-dim);
+  opacity: 0.6;
+  font-size: 11px;
+}
+
+.segment-toggle-btn {
+  background: transparent;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  color: var(--fg-dim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: color 0.15s;
+  border-radius: 0;
+}
+
+.segment-toggle-btn:hover {
+  color: var(--fg);
+}
+
+.segment-advanced {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 4px;
+}
+
 /* Collapsible model-manager header */
 .whisper-models {
   padding: 0;

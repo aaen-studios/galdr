@@ -141,7 +141,10 @@ pub async fn install_whisper_model(
 
         use std::io::Write;
         let mut downloaded: u64 = 0;
-        let mut buf = [0u8; 64 * 1024];
+        // 1 MB buffer — much fewer iterations than 64 KB, cutting
+        // cancellation-check and progress-emission overhead by 16×.
+        let mut buf = [0u8; 1024 * 1024];
+        let mut last_reported_progress = -1.0;
         loop {
             // Check both the queue-level cancel token and the per-model flag.
             if crate::queue::pids::is_cancelled(&job_id_for_thread)
@@ -163,7 +166,13 @@ pub async fn install_whisper_model(
             } else {
                 0.0
             };
-            emit_progress(progress, downloaded);
+            // Throttle progress events: only emit when at least 1 % has
+            // changed (or on the final chunk) to avoid flooding the Tauri
+            // event loop with IPC overhead on every chunk.
+            if (progress - last_reported_progress).abs() >= 0.01 || progress >= 1.0 {
+                last_reported_progress = progress;
+                emit_progress(progress, downloaded);
+            }
         }
 
         // Verify SHA-256 hash if one is known for this model.
@@ -481,6 +490,8 @@ pub async fn transcribe_audio(
     translate_to_english: bool,
     output_format: String,
     output_dir: String,
+    max_segment_len: Option<i32>,
+    split_on_word: Option<bool>,
 ) -> Result<TranscribeResult, String> {
     let input = Path::new(&input_path);
     let model_path = require_installed_model(&model_id)?;
@@ -573,6 +584,20 @@ pub async fn transcribe_audio(
     // the UI progress bar. Without `-pp` it's silent about progress and the
     // bar would sit idle until completion.
     args.push("-pp".into());
+
+    // Max segment length in characters (whisper-cli -ml).
+    // 0 = no limit (whisper.cpp default, omitted to keep args clean).
+    if let Some(max_len) = max_segment_len {
+        if max_len > 0 {
+            args.push("-ml".into());
+            args.push(max_len.to_string());
+        }
+    }
+
+    // Split on word boundaries rather than tokens (-sow).
+    if split_on_word.unwrap_or(false) {
+        args.push("-sow".into());
+    }
 
     // Run on a blocking thread so the async command stays responsive.
     let app_clone = app_handle.clone();

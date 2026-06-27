@@ -140,6 +140,10 @@ export default function SubtitlesPage() {
   const [outputDir, setOutputDir] = useState("");
   const [btnHover, setBtnHover] = useState(false);
 
+  const [maxSegmentLen, setMaxSegmentLen] = useState(0);
+  const [splitOnWord, setSplitOnWord] = useState(true);
+  const [segmentAdvanced, setSegmentAdvanced] = useState(false);
+
   // ── Burn/Embed subtitle file state ──
   const [subtitlePath, setSubtitlePath] = useState("");
   const [subIsDragOver, setSubIsDragOver] = useState(false);
@@ -442,8 +446,10 @@ export default function SubtitlesPage() {
       translateToEnglish,
       outputFormat,
       outputDir,
+      maxSegmentLen: maxSegmentLen > 0 ? maxSegmentLen : undefined,
+      splitOnWord: splitOnWord || undefined,
     });
-  }, [inputPath, modelId, modelIsInstalled, language, translateToEnglish, outputFormat, outputDir, transcribe, selectedModel]);
+  }, [inputPath, modelId, modelIsInstalled, language, translateToEnglish, outputFormat, outputDir, maxSegmentLen, splitOnWord, transcribe, selectedModel]);
 
   /* ── Burn ── */
   useEffect(() => {
@@ -881,6 +887,93 @@ export default function SubtitlesPage() {
               value={outputFormat}
               onChange={setOutputFormat}
             />
+          </div>
+
+          {/* Segment length */}
+          <div className="card">
+            <label className="label">segment length</label>
+            {!segmentAdvanced ? (
+              <div className="segment-simple">
+                <div className="segment-slider-row">
+                  <span className="segment-end-label">short</span>
+                  <input
+                    type="range"
+                    className="segment-slider"
+                    min={0}
+                    max={100}
+                    step={10}
+                    value={maxSegmentLen}
+                    onChange={(e) => setMaxSegmentLen(Number(e.target.value))}
+                  />
+                  <span className="segment-end-label">long</span>
+                  <button
+                    className="segment-toggle-btn"
+                    onClick={() => setSegmentAdvanced(true)}
+                    title="advanced settings"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="3" />
+                      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                    </svg>
+                  </button>
+                </div>
+                <div className="segment-ticks">
+                  <span className="segment-tick">0</span>
+                  <span className="segment-tick">42</span>
+                  <span className="segment-tick">84</span>
+                  <span className="segment-tick">100</span>
+                </div>
+                <div className="segment-value">
+                  {maxSegmentLen === 0 ? (
+                    <span className="segment-val-unlimited">∞ no limit</span>
+                  ) : (
+                    <span>
+                      <strong>{maxSegmentLen}</strong> chars max
+                      <span className="segment-word-est"> (~{Math.max(1, Math.round(maxSegmentLen / 5))} words)</span>
+                    </span>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="segment-advanced">
+                <div className="row" style={{ justifyContent: "flex-end", marginBottom: 8 }}>
+                  <button
+                    className="segment-toggle-btn"
+                    onClick={() => setSegmentAdvanced(false)}
+                    title="simple view"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="15 18 9 12 15 6" />
+                    </svg>
+                  </button>
+                </div>
+                <div className="row settings-toggle-row">
+                  <label className="toggle-label">
+                    max characters per segment
+                    <span className="toggle-hint"> (0 = no limit)</span>
+                  </label>
+                  <input
+                    type="number"
+                    className="input"
+                    min={0}
+                    max={100}
+                    step={10}
+                    value={maxSegmentLen}
+                    onChange={(e) => setMaxSegmentLen(Math.max(0, parseInt(e.target.value) || 0))}
+                    style={{ width: 80, textAlign: "center" }}
+                  />
+                </div>
+                <div className="row settings-toggle-row">
+                  <label className="toggle-label">split on word boundaries</label>
+                  <button
+                    className={`btn toggle-btn${splitOnWord ? " active" : ""}`}
+                    onClick={() => setSplitOnWord((v) => !v)}
+                  >
+                    {splitOnWord ? "on" : "off"}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="card" onContextMenu={handleOutputContext}>

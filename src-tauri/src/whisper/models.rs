@@ -94,11 +94,14 @@ fn catalog() -> Vec<WhisperModel> {
         custom: false,
     };
     // Distil models use a different HF repo + file naming convention.
-    let distil = |id: &str, label: &str, file: &str, size_mb: u64, class: &str, tier: &str, category: &str, desc: &str, sha256: &str| WhisperModel {
+    // `url_file` is the filename on Hugging Face (can differ from the local
+    // `file` name — some repos store the model under a generic name like
+    // `ggml-model.bin` rather than the descriptive `ggml-<id>.bin`).
+    let distil = |id: &str, label: &str, file: &str, url_file: &str, size_mb: u64, class: &str, tier: &str, category: &str, desc: &str, sha256: &str| WhisperModel {
         id: id.to_string(),
         label: label.to_string(),
         file_name: file.to_string(),
-        url: format!("https://huggingface.co/distil-whisper/{}-ggml/resolve/main/{}", id, file),
+        url: format!("https://huggingface.co/distil-whisper/{}-ggml/resolve/main/{}", id, url_file),
         size_bytes: size_mb * 1024 * 1024,
         language_class: class.to_string(),
         tier: tier.to_string(),
@@ -166,9 +169,11 @@ fn catalog() -> Vec<WhisperModel> {
             "turbo quantized to Q8 — 874 MB, closer to full turbo", ""),
 
         // --- distil-whisper ---
-        distil("distil-large-v3", "distil-large-v3", "ggml-distil-large-v3.bin", 1520, "multilingual", "best", "distil-large-v3",
+        distil("distil-large-v3", "distil-large-v3", "ggml-distil-large-v3.bin", "ggml-distil-large-v3.bin", 1520, "multilingual", "best", "distil-large-v3",
             "distilled from large-v3 — 6× faster, near-large accuracy", ""),
-        distil("distil-large-v3.5", "distil-large-v3.5", "ggml-distil-large-v3.5.bin", 1520, "multilingual", "best", "distil-large-v3.5",
+        // NB: the HF repo stores the model as "ggml-model.bin" rather than
+        // "ggml-distil-large-v3.5.bin", so url_file differs from file.
+        distil("distil-large-v3.5", "distil-large-v3.5", "ggml-distil-large-v3.5.bin", "ggml-model.bin", 1520, "multilingual", "best", "distil-large-v3.5",
             "latest distilled model — best distil-whisper quality", ""),
     ]
 }
