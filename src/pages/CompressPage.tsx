@@ -6,7 +6,6 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { useGaldrStore } from "../store";
 import { resolvePreferredEncoder } from "../utils/ffmpegBuilder";
-import CustomSelect from "../components/CustomSelect";
 import Dropdown from "../components/Dropdown";
 import ScrambleText from "../components/ScrambleText";
 import MediaPreview from "../components/MediaPreview";
@@ -893,7 +892,7 @@ export default function CompressPage({ onNavigate }: { onNavigate?: NavigateFn }
 
           <div className="card" onContextMenu={handleCompressFormatCardContext}>
             <label className="label">output format</label>
-            <CustomSelect
+            <Dropdown
               options={filteredOptions}
               value={outputFormat}
               onChange={setOutputFormat}
@@ -1028,7 +1027,7 @@ export default function CompressPage({ onNavigate }: { onNavigate?: NavigateFn }
                 </div>
                 <div className="card batch-card" onContextMenu={handleBatchFmtCardContext}>
                   <label className="label">output format</label>
-                  <CustomSelect
+                  <Dropdown
                     options={FORMAT_OPTIONS}
                     value={outputFormat}
                     onChange={setOutputFormat}

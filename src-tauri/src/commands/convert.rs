@@ -52,7 +52,17 @@ pub async fn start_conversion(
     );
     let _ = crate::queue::cancel_token::acquire(&job_id);
 
-    let result = run_single_conversion(&app_handle, params, &job_id);
+    // `run_single_conversion` blocks for the entire ffmpeg run (it reads
+    // stderr line-by-line until the child exits). Run it on a blocking thread
+    // so we don't stall Tauri's async executor — and other IPC — for the
+    // duration of the conversion.
+    let convert_app = app_handle.clone();
+    let convert_jid = job_id.clone();
+    let result = tokio::task::spawn_blocking(move || {
+        run_single_conversion(&convert_app, params, &convert_jid)
+    })
+    .await
+    .map_err(|e| format!("Conversion task panicked: {}", e))?;
 
     match &result {
         Ok(done) => {
@@ -292,102 +302,113 @@ pub async fn concat_videos(
         None,
     );
 
-    std::fs::create_dir_all(
-        std::path::Path::new(&output_path).parent().unwrap_or(std::path::Path::new(".")),
-    )
-    .map_err(|e| format!("Failed to create output dir: {}", e))?;
-
-    // Build the concat demuxer list file. Entries are single-quoted; any
-    // embedded single quotes in the path are escaped per ffmpeg's convention.
-    let list_path = std::env::temp_dir().join(format!("galdr_concat_{}.txt", uuid()));
-    let mut list = String::new();
-    for input in &inputs {
-        let escaped = input.replace('\'', "'\\''");
-        list.push_str(&format!("file '{}'\n", escaped));
-    }
-    std::fs::write(&list_path, &list)
-        .map_err(|e| format!("Failed to write concat list: {}", e))?;
-
-    // Total duration drives progress reporting.
-    let total_duration: f64 = inputs
-        .iter()
-        .map(|p| probe_file(std::path::Path::new(p)).map(|i| i.duration).unwrap_or(0.0))
-        .sum();
-
-    let file_name = std::path::Path::new(&inputs[0])
-        .file_stem()
-        .and_then(|s| s.to_str())
-        .unwrap_or("concat")
-        .to_string();
-    discord_rpc::set_converting(&file_name, 0.0, "concat", None);
-
-    let mut args: Vec<String> = vec![
-        "-f".into(),
-        "concat".into(),
-        "-safe".into(),
-        "0".into(),
-        "-i".into(),
-        list_path.to_string_lossy().to_string(),
-        "-c".into(),
-        "copy".into(),
-    ];
-    if !with_audio {
-        args.push("-an".into());
-    }
-    args.push(output_path.clone());
-
+    // The concat pipeline (list-file build + ffmpeg run + result handling) is
+    // fully blocking — run it on a blocking thread so the async executor stays
+    // free for other IPC.
     let concat_app = app_handle.clone();
-    let concat_fname = file_name.clone();
     let concat_jid = job_id.clone();
-    let events = run_conversion(&args, total_duration, move |ev| {
-        match ev {
-            crate::ffmpeg::FfmpegEvent::Progress(p) => {
-                discord_rpc::set_converting(&concat_fname, *p, "concat", None);
-                let _ = concat_app.emit(
-                    "conversion-progress",
-                    ConversionProgressPayload {
+    let payload = tokio::task::spawn_blocking(move || -> Result<ConversionDonePayload, String> {
+        std::fs::create_dir_all(
+            std::path::Path::new(&output_path).parent().unwrap_or(std::path::Path::new(".")),
+        )
+        .map_err(|e| format!("Failed to create output dir: {}", e))?;
+
+        // Build the concat demuxer list file. Entries are single-quoted; any
+        // embedded single quotes in the path are escaped per ffmpeg's convention.
+        let list_path = std::env::temp_dir().join(format!("galdr_concat_{}.txt", uuid()));
+        let mut list = String::new();
+        for input in &inputs {
+            let escaped = input.replace('\'', "'\\''");
+            list.push_str(&format!("file '{}'\n", escaped));
+        }
+        std::fs::write(&list_path, &list)
+            .map_err(|e| format!("Failed to write concat list: {}", e))?;
+
+        // Total duration drives progress reporting.
+        let total_duration: f64 = inputs
+            .iter()
+            .map(|p| probe_file(std::path::Path::new(p)).map(|i| i.duration).unwrap_or(0.0))
+            .sum();
+
+        let file_name = std::path::Path::new(&inputs[0])
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("concat")
+            .to_string();
+        discord_rpc::set_converting(&file_name, 0.0, "concat", None);
+
+        let mut args: Vec<String> = vec![
+            "-f".into(),
+            "concat".into(),
+            "-safe".into(),
+            "0".into(),
+            "-i".into(),
+            list_path.to_string_lossy().to_string(),
+            "-c".into(),
+            "copy".into(),
+        ];
+        if !with_audio {
+            args.push("-an".into());
+        }
+        args.push(output_path.clone());
+
+        let cb_app = concat_app.clone();
+        let cb_fname = file_name.clone();
+        let cb_jid = concat_jid.clone();
+        let events_res = run_conversion(&args, total_duration, move |ev| {
+            match ev {
+                crate::ffmpeg::FfmpegEvent::Progress(p) => {
+                    discord_rpc::set_converting(&cb_fname, *p, "concat", None);
+                    let _ = cb_app.emit(
+                        "conversion-progress",
+                        ConversionProgressPayload {
+                            job_id: "concat".to_string(),
+                            progress: *p,
+                        },
+                    );
+                    crate::queue::update_progress(&cb_app, &cb_jid, *p);
+                }
+                crate::ffmpeg::FfmpegEvent::Log(msg) => {
+                    let _ = cb_app.emit(
+                        "conversion-log",
+                        ConversionLogPayload { message: msg.clone() },
+                    );
+                }
+                _ => {}
+            }
+        }, &concat_jid);
+        let _ = std::fs::remove_file(&list_path);
+        let events = events_res?;
+
+        for event in &events {
+            match event {
+                crate::ffmpeg::FfmpegEvent::Done(path) => {
+                    discord_rpc::track_conversion();
+                    discord_rpc::set_idle();
+                    crate::queue::complete(&concat_app, &concat_jid, Some(path.clone()), None);
+                    return Ok(ConversionDonePayload {
                         job_id: "concat".to_string(),
-                        progress: *p,
-                    },
-                );
-                crate::queue::update_progress(&concat_app, &concat_jid, *p);
+                        output_path: path.clone(),
+                    });
+                }
+                crate::ffmpeg::FfmpegEvent::Error(msg) => {
+                    discord_rpc::set_idle();
+                    crate::queue::fail(&concat_app, &concat_jid, msg.clone());
+                    return Err(msg.clone());
+                }
+                _ => {}
             }
-            crate::ffmpeg::FfmpegEvent::Log(msg) => {
-                let _ = concat_app.emit(
-                    "conversion-log",
-                    ConversionLogPayload { message: msg.clone() },
-                );
-            }
-            _ => {}
         }
-    }, &job_id);
-    let _ = std::fs::remove_file(&list_path);
-    let events = events?;
 
-    for event in &events {
-        match event {
-            crate::ffmpeg::FfmpegEvent::Done(path) => {
-                discord_rpc::track_conversion();
-                discord_rpc::set_idle();
-                crate::queue::complete(&app_handle, &job_id, Some(path.clone()), None);
-                return Ok(ConversionDonePayload {
-                    job_id: "concat".to_string(),
-                    output_path: path.clone(),
-                });
-            }
-            crate::ffmpeg::FfmpegEvent::Error(msg) => {
-                discord_rpc::set_idle();
-                crate::queue::fail(&app_handle, &job_id, msg.clone());
-                return Err(msg.clone());
-            }
-            _ => {}
-        }
-    }
+        discord_rpc::set_idle();
+        let err = "Concatenation produced no output".to_string();
+        crate::queue::fail(&concat_app, &concat_jid, err.clone());
+        Err(err)
+    })
+    .await
+    .map_err(|e| format!("Concatenation task panicked: {}", e))?;
 
-    discord_rpc::set_idle();
-    let err = "Concatenation produced no output".to_string();
-    crate::queue::fail(&app_handle, &job_id, err.clone());
-    Err(err)
+    payload
 }
 
 /// Extract the audio track from a media file into a standalone audio file.
@@ -410,95 +431,103 @@ pub async fn extract_audio(
         None,
     );
 
-    std::fs::create_dir_all(
-        std::path::Path::new(&output_path).parent().unwrap_or(std::path::Path::new(".")),
-    )
-    .map_err(|e| format!("Failed to create output dir: {}", e))?;
-
-    let duration = probe_file(std::path::Path::new(&input_path))
-        .map(|info| info.duration)
-        .unwrap_or(0.0);
-
-    let file_name = std::path::Path::new(&input_path)
-        .file_name()
-        .and_then(|s| s.to_str())
-        .unwrap_or("unknown")
-        .to_string();
-    discord_rpc::set_converting(&file_name, 0.0, &audio_format, None);
-
-    // Pick the codec for the requested container.
-    let codec = match audio_format.to_lowercase().as_str() {
-        "mp3" => "libmp3lame",
-        "aac" | "m4a" => "aac",
-        "ogg" => "libvorbis",
-        "opus" => "libopus",
-        "flac" => "flac",
-        "wav" => "pcm_s16le",
-        _ => "libmp3lame",
-    };
-
-    let mut args: Vec<String> = vec![
-        "-vn".into(),
-        "-c:a".into(),
-        codec.into(),
-    ];
-    if let Some(br) = &bitrate {
-        args.push("-b:a".into());
-        args.push(br.clone());
-    }
-    args.push(output_path.clone());
-
+    // The audio-extraction ffmpeg run is blocking; move it off the async
+    // executor so other IPC stays responsive while it runs.
     let audio_app = app_handle.clone();
-    let audio_fname = file_name.clone();
-    let audio_fmt = audio_format.clone();
     let audio_jid = job_id.clone();
-    let events = run_conversion(&args, duration, move |ev| {
-        match ev {
-            crate::ffmpeg::FfmpegEvent::Progress(p) => {
-                discord_rpc::set_converting(&audio_fname, *p, &audio_fmt, None);
-                let _ = audio_app.emit(
-                    "conversion-progress",
-                    ConversionProgressPayload {
+    tokio::task::spawn_blocking(move || -> Result<ConversionDonePayload, String> {
+        std::fs::create_dir_all(
+            std::path::Path::new(&output_path).parent().unwrap_or(std::path::Path::new(".")),
+        )
+        .map_err(|e| format!("Failed to create output dir: {}", e))?;
+
+        let duration = probe_file(std::path::Path::new(&input_path))
+            .map(|info| info.duration)
+            .unwrap_or(0.0);
+
+        let file_name = std::path::Path::new(&input_path)
+            .file_name()
+            .and_then(|s| s.to_str())
+            .unwrap_or("unknown")
+            .to_string();
+        discord_rpc::set_converting(&file_name, 0.0, &audio_format, None);
+
+        // Pick the codec for the requested container.
+        let codec = match audio_format.to_lowercase().as_str() {
+            "mp3" => "libmp3lame",
+            "aac" | "m4a" => "aac",
+            "ogg" => "libvorbis",
+            "opus" => "libopus",
+            "flac" => "flac",
+            "wav" => "pcm_s16le",
+            _ => "libmp3lame",
+        };
+
+        let mut args: Vec<String> = vec![
+            "-vn".into(),
+            "-c:a".into(),
+            codec.into(),
+        ];
+        if let Some(br) = &bitrate {
+            args.push("-b:a".into());
+            args.push(br.clone());
+        }
+        args.push(output_path.clone());
+
+        let cb_app = audio_app.clone();
+        let cb_fname = file_name.clone();
+        let cb_fmt = audio_format.clone();
+        let cb_jid = audio_jid.clone();
+        let events = run_conversion(&args, duration, move |ev| {
+            match ev {
+                crate::ffmpeg::FfmpegEvent::Progress(p) => {
+                    discord_rpc::set_converting(&cb_fname, *p, &cb_fmt, None);
+                    let _ = cb_app.emit(
+                        "conversion-progress",
+                        ConversionProgressPayload {
+                            job_id: "extract-audio".to_string(),
+                            progress: *p,
+                        },
+                    );
+                    crate::queue::update_progress(&cb_app, &cb_jid, *p);
+                }
+                crate::ffmpeg::FfmpegEvent::Log(msg) => {
+                    let _ = cb_app.emit(
+                        "conversion-log",
+                        ConversionLogPayload { message: msg.clone() },
+                    );
+                }
+                _ => {}
+            }
+        }, &audio_jid)?;
+
+        for event in &events {
+            match event {
+                crate::ffmpeg::FfmpegEvent::Done(path) => {
+                    discord_rpc::track_conversion();
+                    discord_rpc::set_idle();
+                    crate::queue::complete(&audio_app, &audio_jid, Some(path.clone()), None);
+                    return Ok(ConversionDonePayload {
                         job_id: "extract-audio".to_string(),
-                        progress: *p,
-                    },
-                );
-                crate::queue::update_progress(&audio_app, &audio_jid, *p);
+                        output_path: path.clone(),
+                    });
+                }
+                crate::ffmpeg::FfmpegEvent::Error(msg) => {
+                    discord_rpc::set_idle();
+                    crate::queue::fail(&audio_app, &audio_jid, msg.clone());
+                    return Err(msg.clone());
+                }
+                _ => {}
             }
-            crate::ffmpeg::FfmpegEvent::Log(msg) => {
-                let _ = audio_app.emit(
-                    "conversion-log",
-                    ConversionLogPayload { message: msg.clone() },
-                );
-            }
-            _ => {}
         }
-    }, &job_id)?;
 
-    for event in &events {
-        match event {
-            crate::ffmpeg::FfmpegEvent::Done(path) => {
-                discord_rpc::track_conversion();
-                discord_rpc::set_idle();
-                crate::queue::complete(&app_handle, &job_id, Some(path.clone()), None);
-                return Ok(ConversionDonePayload {
-                    job_id: "extract-audio".to_string(),
-                    output_path: path.clone(),
-                });
-            }
-            crate::ffmpeg::FfmpegEvent::Error(msg) => {
-                discord_rpc::set_idle();
-                crate::queue::fail(&app_handle, &job_id, msg.clone());
-                return Err(msg.clone());
-            }
-            _ => {}
-        }
-    }
-
-    discord_rpc::set_idle();
-    let err = "Audio extraction produced no output".to_string();
-    crate::queue::fail(&app_handle, &job_id, err.clone());
-    Err(err)
+        discord_rpc::set_idle();
+        let err = "Audio extraction produced no output".to_string();
+        crate::queue::fail(&audio_app, &audio_jid, err.clone());
+        Err(err)
+    })
+    .await
+    .map_err(|e| format!("Audio extraction task panicked: {}", e))?
 }
 
 /// Cheap unique suffix for the temp concat list filename.
@@ -621,181 +650,193 @@ pub async fn start_batch_conversion(
     // this batch's flag instead of the old process-wide CANCELLED AtomicBool.
     let _ = crate::queue::cancel_token::acquire(&job_id);
 
-    let mut done = 0usize;
-    let mut failed = 0usize;
-    let done_offset = params.skip;
+    // The per-file ffmpeg loop blocks for the whole batch. Run it on a blocking
+    // thread so the async executor (and other IPC) stays responsive throughout.
+    let batch_app = app_handle.clone();
+    let batch_jid = job_id.clone();
+    let (done, failed) = tokio::task::spawn_blocking(move || -> Result<(usize, usize), String> {
+        let mut done = 0usize;
+        let mut failed = 0usize;
+        let done_offset = params.skip;
 
-    for input_path in entries.iter().skip(params.skip) {
-        if crate::queue::pids::is_cancelled(&job_id) {
-            break;
-        }
-        let file_name = input_path
-            .file_name()
-            .and_then(|s| s.to_str())
-            .unwrap_or("unknown")
-            .to_string();
+        for input_path in entries.iter().skip(params.skip) {
+            if crate::queue::pids::is_cancelled(&batch_jid) {
+                break;
+            }
+            let file_name = input_path
+                .file_name()
+                .and_then(|s| s.to_str())
+                .unwrap_or("unknown")
+                .to_string();
 
-        // Update queue progress for the batch job
-        let batch_progress = (done + failed) as f64 / total as f64;
-        crate::queue::update_progress(&app_handle, &job_id, batch_progress);
+            // Update queue progress for the batch job
+            let batch_progress = (done + failed) as f64 / total as f64;
+            crate::queue::update_progress(&batch_app, &batch_jid, batch_progress);
 
-        let _ = app_handle.emit(
-            "batch-progress",
-            BatchProgressPayload {
-                total,
-                done: done + done_offset,
-                failed,
-                current_file: file_name.clone(),
-                file_progress: 0.0,
-            },
-        );
+            let _ = batch_app.emit(
+                "batch-progress",
+                BatchProgressPayload {
+                    total,
+                    done: done + done_offset,
+                    failed,
+                    current_file: file_name.clone(),
+                    file_progress: 0.0,
+                },
+            );
 
-        discord_rpc::set_batch(&file_name, done + done_offset + 1, total, 0.0);
+            discord_rpc::set_batch(&file_name, done + done_offset + 1, total, 0.0);
 
-        let duration = probe_file(input_path)
-            .map(|info| info.duration)
-            .unwrap_or(0.0);
+            let duration = probe_file(input_path)
+                .map(|info| info.duration)
+                .unwrap_or(0.0);
 
-        let single_params = ConversionParams {
-            input_path: input_path.clone(),
-            output_dir: params.output_dir.clone(),
-            output_format: params.output_format.clone(),
-            target_size_bytes: params.target_size_bytes,
-            ..Default::default()
-        };
+            let single_params = ConversionParams {
+                input_path: input_path.clone(),
+                output_dir: params.output_dir.clone(),
+                output_format: params.output_format.clone(),
+                target_size_bytes: params.target_size_bytes,
+                ..Default::default()
+            };
 
-        let is_target_size = single_params.target_size_bytes.is_some();
+            let is_target_size = single_params.target_size_bytes.is_some();
 
-        let (events, _output_path) = if is_target_size {
-            // ── Target-size: two-pass per file ──
-            // Compute effective duration for this file
-            let trim_start = 0.0;
-            let trim_end = duration;
-            let eff_dur = (trim_end - trim_start).max(1.0);
+            let (events, _output_path) = if is_target_size {
+                // ── Target-size: two-pass per file ──
+                // Compute effective duration for this file
+                let trim_start = 0.0;
+                let trim_end = duration;
+                let eff_dur = (trim_end - trim_start).max(1.0);
 
-            let (pass1, pass2) = build_two_pass_args(&single_params, eff_dur)?;
+                let (pass1, pass2) = build_two_pass_args(&single_params, eff_dur)?;
 
-            if !pass1.is_empty() {
-                let _ = app_handle.emit(
-                    "batch-log",
-                    ConversionLogPayload {
-                        message: format!("  {} — pass 1/2 analysis", file_name),
-                    },
-                );
-                let pass1_result: Result<(), String> = (|| {
-                    let evts = run_conversion(&pass1, eff_dur, |_| {}, &job_id)?;
-                    for e in &evts {
-                        if let crate::ffmpeg::FfmpegEvent::Error(msg) = e {
-                            return Err(msg.clone());
+                if !pass1.is_empty() {
+                    let _ = batch_app.emit(
+                        "batch-log",
+                        ConversionLogPayload {
+                            message: format!("  {} — pass 1/2 analysis", file_name),
+                        },
+                    );
+                    let pass1_result: Result<(), String> = (|| {
+                        let evts = run_conversion(&pass1, eff_dur, |_| {}, &batch_jid)?;
+                        for e in &evts {
+                            if let crate::ffmpeg::FfmpegEvent::Error(msg) = e {
+                                return Err(msg.clone());
+                            }
                         }
+                        Ok(())
+                    })();
+                    if let Err(e) = pass1_result {
+                        // Clean up pass log files
+                        let _ = std::fs::remove_file("ffmpeg2pass-0.log");
+                        let _ = std::fs::remove_file("ffmpeg2pass-0.log.mbtree");
+                        return Err(e);
                     }
-                    Ok(())
+                }
+
+                let result: Result<(Vec<crate::ffmpeg::FfmpegEvent>, Option<String>), String> = (|| {
+                    let pass2_cb_app = batch_app.clone();
+                    let pass2_cb_fname = file_name.clone();
+                    let evts = run_conversion(&pass2, eff_dur, move |ev| {
+                        if let crate::ffmpeg::FfmpegEvent::Progress(p) = ev {
+                            let _ = pass2_cb_app.emit(
+                                "batch-progress",
+                                BatchProgressPayload {
+                                    total,
+                                    done: done + done_offset,
+                                    failed,
+                                    current_file: pass2_cb_fname.clone(),
+                                    file_progress: *p,
+                                },
+                            );
+                        }
+                    }, &batch_jid)?;
+                    let out = evts.iter().find_map(|e| {
+                        if let crate::ffmpeg::FfmpegEvent::Done(p) = e {
+                            Some(p.clone())
+                        } else {
+                            None
+                        }
+                    });
+                    Ok((evts, out))
                 })();
-                if let Err(e) = pass1_result {
-                    // Clean up pass log files
-                    let _ = std::fs::remove_file("ffmpeg2pass-0.log");
-                    let _ = std::fs::remove_file("ffmpeg2pass-0.log.mbtree");
-                    return Err(e);
-                }
-            }
 
-            let result: Result<(Vec<crate::ffmpeg::FfmpegEvent>, Option<String>), String> = (|| {
-                let pass2_cb_app = app_handle.clone();
-                let pass2_cb_fname = file_name.clone();
-                let evts = run_conversion(&pass2, eff_dur, move |ev| {
-                    if let crate::ffmpeg::FfmpegEvent::Progress(p) = ev {
-                        let _ = pass2_cb_app.emit(
-                            "batch-progress",
-                            BatchProgressPayload {
-                                total,
-                                done: done + done_offset,
-                                failed,
-                                current_file: pass2_cb_fname.clone(),
-                                file_progress: *p,
-                            },
-                        );
+                // Clean up pass log files
+                let _ = std::fs::remove_file("ffmpeg2pass-0.log");
+                let _ = std::fs::remove_file("ffmpeg2pass-0.log.mbtree");
+
+                result.unwrap_or_else(|e| (vec![crate::ffmpeg::FfmpegEvent::Error(e.clone())], None))
+            } else {
+                // ── Normal quality mode ──
+                let args = build_args(&single_params);
+                let result: Result<(Vec<crate::ffmpeg::FfmpegEvent>, Option<String>), String> = (|| {
+                    let norm_cb_app = batch_app.clone();
+                    let norm_cb_fname = file_name.clone();
+                    let evts = run_conversion(&args, duration, move |ev| {
+                        if let crate::ffmpeg::FfmpegEvent::Progress(p) = ev {
+                            let _ = norm_cb_app.emit(
+                                "batch-progress",
+                                BatchProgressPayload {
+                                    total,
+                                    done: done + done_offset,
+                                    failed,
+                                    current_file: norm_cb_fname.clone(),
+                                    file_progress: *p,
+                                },
+                            );
+                        }
+                    }, &batch_jid)?;
+                    let out = evts.iter().find_map(|e| {
+                        if let crate::ffmpeg::FfmpegEvent::Done(p) = e {
+                            Some(p.clone())
+                        } else {
+                            None
+                        }
+                    });
+                    Ok((evts, out))
+                })();
+                result.unwrap_or_else(|e| (vec![crate::ffmpeg::FfmpegEvent::Error(e.clone())], None))
+            };
+
+            let result: Result<(), String> = (|| {
+                for event in &events {
+                    match event {
+                        crate::ffmpeg::FfmpegEvent::Done(_) => return Ok(()),
+                        crate::ffmpeg::FfmpegEvent::Error(msg) => return Err(msg.clone()),
+                        _ => {}
                     }
-                }, &job_id)?;
-                let out = evts.iter().find_map(|e| {
-                    if let crate::ffmpeg::FfmpegEvent::Done(p) = e {
-                        Some(p.clone())
-                    } else {
-                        None
-                    }
-                });
-                Ok((evts, out))
+                }
+                Ok(())
             })();
 
-            // Clean up pass log files
-            let _ = std::fs::remove_file("ffmpeg2pass-0.log");
-            let _ = std::fs::remove_file("ffmpeg2pass-0.log.mbtree");
-
-            result.unwrap_or_else(|e| (vec![crate::ffmpeg::FfmpegEvent::Error(e.clone())], None))
-        } else {
-            // ── Normal quality mode ──
-            let args = build_args(&single_params);
-            let result: Result<(Vec<crate::ffmpeg::FfmpegEvent>, Option<String>), String> = (|| {
-                let norm_cb_app = app_handle.clone();
-                let norm_cb_fname = file_name.clone();
-                let evts = run_conversion(&args, duration, move |ev| {
-                    if let crate::ffmpeg::FfmpegEvent::Progress(p) = ev {
-                        let _ = norm_cb_app.emit(
-                            "batch-progress",
-                            BatchProgressPayload {
-                                total,
-                                done: done + done_offset,
-                                failed,
-                                current_file: norm_cb_fname.clone(),
-                                file_progress: *p,
-                            },
-                        );
-                    }
-                }, &job_id)?;
-                let out = evts.iter().find_map(|e| {
-                    if let crate::ffmpeg::FfmpegEvent::Done(p) = e {
-                        Some(p.clone())
-                    } else {
-                        None
-                    }
-                });
-                Ok((evts, out))
-            })();
-            result.unwrap_or_else(|e| (vec![crate::ffmpeg::FfmpegEvent::Error(e.clone())], None))
-        };
-
-        let result: Result<(), String> = (|| {
-            for event in &events {
-                match event {
-                    crate::ffmpeg::FfmpegEvent::Done(_) => return Ok(()),
-                    crate::ffmpeg::FfmpegEvent::Error(msg) => return Err(msg.clone()),
-                    _ => {}
+            match result {
+                Ok(_) => {
+                    done += 1;
+                    discord_rpc::track_conversion();
                 }
-            }
-            Ok(())
-        })();
-
-        match result {
-            Ok(_) => {
-                done += 1;
-                discord_rpc::track_conversion();
-            }
-            Err(e) => {
-                failed += 1;
-                let _ = app_handle.emit(
-                    "batch-progress",
-                    BatchProgressPayload {
-                        total,
-                        done: done + done_offset,
-                        failed,
-                        current_file: format!("{} — {}", file_name, e),
-                        file_progress: 0.0,
-                    },
-                );
+                Err(e) => {
+                    failed += 1;
+                    let _ = batch_app.emit(
+                        "batch-progress",
+                        BatchProgressPayload {
+                            total,
+                            done: done + done_offset,
+                            failed,
+                            current_file: format!("{} — {}", file_name, e),
+                            file_progress: 0.0,
+                        },
+                    );
+                }
             }
         }
-    }
 
-    discord_rpc::set_idle();
+        discord_rpc::set_idle();
+
+        Ok((done, failed))
+    })
+    .await
+    .map_err(|e| format!("Batch task panicked: {}", e))??;
+
+    let done_offset = params.skip;
 
     let _ = app_handle.emit(
         "batch-progress",

@@ -8,6 +8,7 @@ import MediaInfoCard from "../components/MediaInfoCard";
 import LogPanel from "../components/LogPanel";
 import Dropdown from "../components/Dropdown";
 import ModelManager from "../components/whisper/ModelManager";
+import TranscriptionEstimator from "../components/TranscriptionEstimator";
 import SubtitleStylePanel from "../components/SubtitleStylePanel";
 import TranscriptEditor from "../components/TranscriptEditor";
 import { useSubtitleStore, bindSubtitleEvents } from "../store/subtitleStore";
@@ -849,6 +850,11 @@ export default function SubtitlesPage() {
               </div>
             )}
           </div>
+
+          <TranscriptionEstimator
+            model={selectedModel}
+            durationSec={mediaInfo?.duration ?? 0}
+          />
 
           <ModelManager
             selectedId={modelId}

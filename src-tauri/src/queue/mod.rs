@@ -74,8 +74,23 @@ pub fn register<R: tauri::Runtime>(
     result_data: Option<serde_json::Value>,
 ) -> String {
     let id = Uuid::new_v4().to_string();
+    register_with_id(app, &id, job_type, label, input_path, result_data);
+    id
+}
+
+/// Register a new job with an explicit id (e.g. one the caller has already
+/// used for pid tracking), so queue entry, pid, and lifecycle calls share one
+/// id. Use [`register`] when you don't have a preferred id.
+pub fn register_with_id<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    id: &str,
+    job_type: JobType,
+    label: String,
+    input_path: String,
+    result_data: Option<serde_json::Value>,
+) {
     let entry = JobEntry {
-        id: id.clone(),
+        id: id.to_string(),
         job_type,
         status: JobStatus::Running,
         progress: 0.0,
@@ -95,7 +110,6 @@ pub fn register<R: tauri::Runtime>(
     }
 
     emit(app);
-    id
 }
 
 /// Update the progress of a job (0.0 – 1.0) and emit the update.

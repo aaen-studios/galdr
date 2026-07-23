@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useGaldrStore } from "../store";
+import { useHistoryStore } from "../store/historyStore";
 
-type Page = "home" | "convert" | "compress" | "settings" | "runes" | "forge" | "watch" | "subtitles" | "import";
+type Page = "home" | "convert" | "compress" | "settings" | "runes" | "forge" | "watch" | "subtitles" | "import" | "history" | "stats";
 
 interface CommandItem {
   label: string;
@@ -9,18 +11,23 @@ interface CommandItem {
   shortcut?: string;
   target?: Page;
   action?: "help";
+  /** Optional category for grouping search results. */
+  category?: string;
 }
 
 const COMMANDS: CommandItem[] = [
-  { label: "Home", rune: "ᚷ", target: "home" },
-  { label: "Quick Convert", rune: "ᛏ", shortcut: "Ctrl+2", target: "convert" },
-  { label: "Compress", rune: "ᛉ", shortcut: "Ctrl+3", target: "compress" },
-  { label: "Forge Editor", rune: "ᚲ", shortcut: "Ctrl+4", target: "forge" },
-  { label: "Subtitles", rune: "ᛊ", shortcut: "Ctrl+5", target: "subtitles" },
-  { label: "Watch Folders", rune: "ᚱ", shortcut: "Ctrl+6", target: "watch" },
-  { label: "Rune Tags", rune: "ᚠ", shortcut: "Ctrl+7", target: "runes" },
-  { label: "Settings", rune: "ᚲ", shortcut: "Ctrl+,", target: "settings" },
-  { label: "Keyboard Shortcuts", rune: "ᚷ", shortcut: "?", action: "help" },
+  { label: "Home", rune: "ᚷ", target: "home", category: "pages" },
+  { label: "Quick Convert", rune: "ᛏ", shortcut: "Ctrl+2", target: "convert", category: "pages" },
+  { label: "Compress", rune: "ᛉ", shortcut: "Ctrl+3", target: "compress", category: "pages" },
+  { label: "Forge Editor", rune: "ᚲ", shortcut: "Ctrl+4", target: "forge", category: "pages" },
+  { label: "Subtitles", rune: "ᛊ", shortcut: "Ctrl+5", target: "subtitles", category: "pages" },
+  { label: "Watch Folders", rune: "ᚱ", shortcut: "Ctrl+6", target: "watch", category: "pages" },
+  { label: "Rune Tags", rune: "ᚠ", shortcut: "Ctrl+7", target: "runes", category: "pages" },
+  { label: "Import from URL", rune: "ᛣ", target: "import", category: "pages" },
+  { label: "History", rune: "ᚷ", target: "history", category: "pages" },
+  { label: "Stats", rune: "ᛟ", target: "stats", category: "pages" },
+  { label: "Settings", rune: "ᚲ", shortcut: "Ctrl+,", target: "settings", category: "pages" },
+  { label: "Keyboard Shortcuts", rune: "ᚷ", shortcut: "?", action: "help", category: "actions" },
 ];
 
 interface Props {
@@ -34,16 +41,34 @@ export default function CommandPalette({ open, onClose, onNavigate, onShowHelp }
   const [query, setQuery] = useState("");
   const [highlightIdx, setHighlightIdx] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const runeTags = useGaldrStore((s) => s.runeTags);
+  const history = useHistoryStore((s) => s.entries);
+
+  // Build a unified search index: commands + runes + recent history.
+  const allItems = useMemo<CommandItem[]>(() => {
+    const runeItems: CommandItem[] = runeTags.map((r) => ({
+      label: `rune: ${r.name}`,
+      rune: "ᚠ",
+      target: "runes",
+      category: "runes",
+    }));
+    const historyItems: CommandItem[] = history.slice(0, 10).map((h) => ({
+      label: `history: ${h.label}`,
+      rune: "ᚷ",
+      target: "history",
+      category: "history",
+    }));
+    return [...COMMANDS, ...runeItems, ...historyItems];
+  }, [runeTags, history]);
 
   // Filter items by query
   const filtered = useMemo(() => {
     if (!query.trim()) return COMMANDS;
     const q = query.toLowerCase();
-    return COMMANDS.filter(
-      (item) =>
-        item.label.toLowerCase().includes(q)
+    return allItems.filter(
+      (item) => item.label.toLowerCase().includes(q)
     );
-  }, [query]);
+  }, [query, allItems]);
 
   // Reset state on open
   useEffect(() => {

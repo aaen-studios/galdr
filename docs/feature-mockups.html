@@ -1,0 +1,1216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ᚲ galdr — feature mockups</title>
+<style>
+  :root {
+    --bg: #000000;
+    --fg: #c8c8c8;
+    --bg-dim: #111111;
+    --fg-dim: #6a6a6a;
+    --fg-faint: #262626;
+    --accent: #c8c8c8;
+    --danger: #ff6b6b;
+    --danger-dark: #8b0000;
+    --danger-dim: #d08080;
+    --warn: #8b6914;
+    --warn-bg: #1a1500;
+    --info: #8bc8ff;
+    --success: #8bc34a;
+    --scrim: rgba(0,0,0,0.75);
+    --bg-elevated: #1a1a1a;
+    font-family: "Courier New", "Liberation Mono", "Nimbus Mono PS", monospace;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .shell { max-width: 1180px; margin: 0 auto; padding: 48px 32px 120px; }
+
+  /* ── Header / titlebar mock ── */
+  .mock-titlebar {
+    display: flex;
+    align-items: center;
+    height: 36px;
+    background: var(--bg-dim);
+    border-bottom: 1px solid var(--fg-faint);
+    padding: 0 8px;
+    margin: 12px 0 0;
+    font-size: 12px;
+    color: var(--fg-dim);
+    letter-spacing: 0.04em;
+  }
+  .mock-titlebar .logo { color: var(--fg); margin-right: auto; padding-left: 4px; }
+  .mock-titlebar .ctrls { display: flex; gap: 12px; }
+  .mock-titlebar .ctrl { width: 14px; height: 14px; display: grid; place-items: center; border: 1px solid var(--fg-faint); font-size: 9px; }
+  .mock-titlebar .ctrl.close:hover { background: var(--danger-dark); }
+
+  /* ── Path nav ── */
+  .path-nav {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    padding: 8px 16px;
+    color: var(--fg-dim);
+    font-size: 12px;
+    border-bottom: 1px solid var(--fg-faint);
+  }
+  .path-nav .seg.cur { color: var(--fg); }
+  .path-nav .sep { color: var(--fg-faint); }
+
+  /* ── Hero ── */
+  .hero { padding: 64px 0 40px; text-align: center; }
+  .hero .rune { font-size: 64px; letter-spacing: 0.3em; color: var(--fg); display: block; margin-bottom: 16px; }
+  .hero h1 { font-size: 13px; letter-spacing: 0.4em; text-transform: uppercase; color: var(--fg-dim); margin: 0 0 8px; font-weight: 400; }
+  .hero p { color: var(--fg-dim); max-width: 560px; margin: 0 auto; font-size: 13px; }
+
+  /* ── Section ── */
+  section { margin: 64px 0; }
+  .section-head { display: flex; align-items: baseline; gap: 14px; margin-bottom: 8px; border-bottom: 1px solid var(--fg-faint); padding-bottom: 12px; }
+  .section-head .glyph { font-size: 22px; color: var(--fg); }
+  .section-head h2 { font-size: 13px; letter-spacing: 0.3em; text-transform: uppercase; margin: 0; font-weight: 400; color: var(--fg); }
+  .section-head .tag { margin-left: auto; font-size: 10px; color: var(--fg-dim); letter-spacing: 0.15em; text-transform: uppercase; }
+  .section-blurb { color: var(--fg-dim); font-size: 12px; margin: 0 0 28px; }
+
+  /* ── Feature grid ── */
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 16px; }
+
+  .feature {
+    background: var(--bg-dim);
+    border: 1px solid var(--fg-faint);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .feature.mock-only { border-color: var(--fg-faint); }
+  .feature.crazy { border-color: #2a1a3a; }
+
+  .feature-body { padding: 16px; flex: 1; }
+  .feature-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+  .feature-title .g { font-size: 16px; color: var(--info); width: 20px; text-align: center; }
+  .feature.crazy .feature-title .g { color: #c8a8ff; }
+  .feature-title h3 { font-size: 13px; margin: 0; font-weight: 400; letter-spacing: 0.05em; }
+  .feature-desc { color: var(--fg-dim); font-size: 12px; line-height: 1.55; }
+  .feature-desc strong { color: var(--fg); font-weight: 400; }
+  .feature-meta { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+  .badge {
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 2px 6px;
+    border: 1px solid var(--fg-faint);
+    color: var(--fg-dim);
+  }
+  .badge.effort-s { border-color: var(--success); color: var(--success); }
+  .badge.effort-m { border-color: var(--warn); color: var(--warn); }
+  .badge.effort-l { border-color: var(--danger); color: var(--danger); }
+  .badge.impact-hi { border-color: var(--info); color: var(--info); }
+
+  /* ── Mockup canvas ── */
+  .mock {
+    background: var(--bg);
+    border-bottom: 1px solid var(--fg-faint);
+    padding: 14px;
+    min-height: 150px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    font-size: 11px;
+  }
+
+  /* shared mock widgets */
+  .m-bar { height: 4px; background: var(--fg-faint); border-radius: 0; }
+  .m-bar > i { display: block; height: 100%; background: var(--fg-dim); }
+  .m-bar > i.green { background: var(--success); }
+  .m-bar > i.blue { background: var(--info); }
+  .m-bar > i.amber { background: var(--warn); }
+
+  .m-row { display: flex; align-items: center; gap: 8px; }
+  .m-grow { flex: 1; min-width: 0; }
+  .m-pill { font-size: 9px; padding: 1px 5px; border: 1px solid var(--fg-faint); color: var(--fg-dim); letter-spacing: 0.06em; }
+  .m-pill.on { border-color: var(--success); color: var(--success); }
+  .m-pill.off { color: var(--fg-faint); }
+  .m-pill.fail { border-color: var(--danger); color: var(--danger); }
+
+  .m-card { background: var(--bg-dim); border: 1px solid var(--fg-faint); padding: 8px 10px; }
+  .m-card.sel { border-color: var(--fg); }
+  .m-card .lbl { color: var(--fg-dim); font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 4px; }
+  .m-card .val { color: var(--fg); font-size: 11px; }
+
+  .m-btn {
+    font-family: inherit;
+    font-size: 10px;
+    padding: 3px 8px;
+    background: transparent;
+    border: 1px solid var(--fg-faint);
+    color: var(--fg);
+    cursor: default;
+    letter-spacing: 0.04em;
+  }
+  .m-btn.pri { border-color: var(--fg); }
+  .m-btn.warn { border-color: var(--warn); color: var(--warn); }
+  .m-btn.danger { border-color: var(--danger); color: var(--danger); }
+
+  .m-input {
+    font-family: inherit;
+    font-size: 10px;
+    padding: 3px 6px;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--fg-faint);
+    color: var(--fg);
+    width: 100%;
+    outline: none;
+  }
+  .m-input:focus { border-bottom-color: var(--fg); }
+
+  .m-list { display: flex; flex-direction: column; gap: 4px; }
+  .m-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 6px;
+    font-size: 10px;
+    border: 1px solid transparent;
+  }
+  .m-item:hover, .m-item.active { background: var(--bg-dim); border-color: var(--fg-faint); }
+  .m-item .dot { width: 6px; height: 6px; background: var(--fg-dim); flex-shrink: 0; }
+  .m-item .dot.run { background: var(--info); animation: pulse 1.5s infinite; }
+  .m-item .dot.done { background: var(--success); }
+  .m-item .dot.fail { background: var(--danger); }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+  .m-thumb {
+    width: 100%;
+    aspect-ratio: 16/9;
+    background:
+      linear-gradient(135deg, var(--fg-faint) 0%, transparent 60%),
+      repeating-linear-gradient(45deg, var(--bg-dim) 0 6px, var(--bg) 6px 12px);
+    border: 1px solid var(--fg-faint);
+    position: relative;
+  }
+  .m-thumb-mini { width: 48px; aspect-ratio: 16/9; flex-shrink: 0; }
+
+  .m-slider {
+    appearance: none;
+    width: 100%;
+    height: 2px;
+    background: var(--fg-faint);
+    outline: none;
+  }
+  .m-slider::-webkit-slider-thumb {
+    appearance: none;
+    width: 8px;
+    height: 12px;
+    background: var(--fg);
+    cursor: default;
+  }
+
+  /* ── CRT effect (for the CRT mockup) ── */
+  .crt {
+    position: relative;
+    overflow: hidden;
+  }
+  .crt::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      rgba(0,0,0,0.25) 0px,
+      rgba(0,0,0,0.25) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+    pointer-events: none;
+  }
+  .crt::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.5) 100%);
+    pointer-events: none;
+    z-index: 1;
+  }
+  .crt .crt-glow { text-shadow: 0 0 6px rgba(200,200,200,0.6); position: relative; z-index: 2; }
+
+  /* theme swatches */
+  .theme-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .swatch {
+    flex: 1;
+    min-width: 0;
+    border: 1px solid var(--fg-faint);
+    padding: 8px;
+    text-align: center;
+    cursor: default;
+  }
+  .swatch.active { border-color: var(--fg); }
+  .swatch .chip { width: 100%; height: 24px; margin-bottom: 6px; border: 1px solid rgba(255,255,255,0.1); }
+  .swatch .name { font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--fg-dim); }
+  .swatch.active .name { color: var(--fg); }
+
+  /* timeline */
+  .timeline { display: flex; flex-direction: column; gap: 3px; }
+  .track { display: flex; gap: 2px; height: 18px; align-items: center; }
+  .track .label { width: 50px; font-size: 9px; color: var(--fg-dim); }
+  .clip { height: 100%; border: 1px solid; font-size: 8px; padding: 0 4px; display: flex; align-items: center; overflow: hidden; white-space: nowrap; }
+  .clip.v { background: rgba(139,200,255,0.12); border-color: var(--info); color: var(--info); }
+  .clip.a { background: rgba(139,195,74,0.1); border-color: var(--success); color: var(--success); }
+
+  /* footer */
+  footer { margin-top: 96px; padding-top: 32px; border-top: 1px solid var(--fg-faint); color: var(--fg-dim); font-size: 11px; text-align: center; }
+
+  .ascii { color: var(--fg-faint); font-size: 10px; line-height: 1.2; white-space: pre; text-align: center; margin: 0 0 32px; }
+
+  @media (max-width: 640px) {
+    .shell { padding: 24px 16px 80px; }
+    .grid { grid-template-columns: 1fr; }
+    .hero { padding: 32px 0 24px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- titlebar mock -->
+<div class="mock-titlebar">
+  <span class="logo">ᚲ galdr</span>
+  <span class="ctrls"><span class="ctrl">_</span><span class="ctrl">□</span><span class="ctrl close">×</span></span>
+</div>
+<div class="path-nav">
+  <span class="seg">~</span><span class="sep">/</span>
+  <span class="seg">galdr</span><span class="sep">/</span>
+  <span class="seg cur">feature-mockups</span>
+</div>
+
+<div class="shell">
+
+  <!-- ════════════════════════════ HERO ════════════════════════════ -->
+  <div class="hero">
+    <span class="rune">ᚠ ᚢ ᚦ ᚨ ᚱ ᚲ</span>
+    <h1>galdr — feature proposals</h1>
+    <p>Thirty ideas across three tiers: <strong style="color:var(--fg)">practical</strong> workflow features,
+       <strong style="color:var(--fg)">general app</strong> polish, and <strong style="color:var(--fg)">creative</strong> experiments.
+       Each card carries a mini-mockup, a description, and an effort/impact tag.</p>
+  </div>
+
+  <pre class="ascii">    .  *  .     *    .   *   .
+  *   .    casting ideas     *
+      .   *    .      *   .
+         into the void</pre>
+
+
+  <!-- ══════════════════════ TIER 1: PRACTICAL ══════════════════════ -->
+  <section>
+    <div class="section-head">
+      <span class="glyph">ᛟ</span>
+      <h2>tier i — practical</h2>
+      <span class="tag">high value · builds on what exists</span>
+    </div>
+    <p class="section-blurb">Workflow features that reduce clicks and surface information you currently have to dig for. Most extend systems already in the app (queue, runes, watch folders, ffmpeg).</p>
+
+    <div class="grid">
+
+      <!-- 1. History & re-run -->
+      <div class="feature">
+        <div class="mock">
+          <div class="m-list">
+            <div class="m-item active">
+              <span class="dot done"></span>
+              <div class="m-grow">
+                <div>vacation.mp4 → mp4 (h265, crf 23)</div>
+                <div style="color:var(--fg-dim);font-size:9px">2m ago · 48.2 MB</div>
+              </div>
+              <span class="m-pill on">rerun</span>
+            </div>
+            <div class="m-item">
+              <span class="dot done"></span>
+              <div class="m-grow">
+                <div>podcast.wav → mp3 (192k, mono)</div>
+                <div style="color:var(--fg-dim);font-size:9px">1h ago · 14.1 MB</div>
+              </div>
+              <span class="m-pill on">rerun</span>
+            </div>
+            <div class="m-item">
+              <span class="dot fail"></span>
+              <div class="m-grow">
+                <div>broken.mov → mp4</div>
+                <div style="color:var(--fg-dim);font-size:9px">3h ago · failed: no stream</div>
+              </div>
+              <span class="m-pill fail">retry</span>
+            </div>
+          </div>
+        </div>
+        <div class="feature-body">
+          <div class="feature-title"><span class="g">ᚷ</span><h3>history &amp; re-run</h3></div>
+          <p class="feature-desc">A log of every operation with its exact parameters. Click <strong>rerun</strong> to repeat it on a new file — pick a different input and keep every setting. Failed jobs get a <strong>retry</strong> that prefills the form at the point of failure.</p>
+          <div class="feature-meta">
+            <span class="badge effort-s">effort: s</span>
+            <span class="badge impact-hi">impact: high</span>
+            <span class="badge">queue store</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. Pipelines -->
+      <div class="feature">
+        <div class="mock">
+          <div class="m-row" style="color:var(--fg-dim);font-size:9px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:2px">pipeline · 3 stages</div>
+          <div class="m-row" style="gap:4px">
+            <div class="m-card m-grow" style="padding:6px 8px"><div class="val" style="font-size:10px">download</div><div style="color:var(--fg-dim);font-size:9px">yt-dlp · best</div></div>
+            <span style="color:var(--fg-dim)">→</span>
+            <div class="m-card m-grow" style="padding:6px 8px"><div class="val" style="font-size:10px">transcribe</div><div style="color:var(--fg-dim);font-size:9px">whisper · med</div></div>
+            <span style="color:var(--fg-dim)">→</span>
+            <div class="m-card m-grow" style="padding:6px 8px"><div class="val" style="font-size:10px">burn-in</div><div style="color:var(--fg-dim);font-size:9px">subs · white</div></div>
+          </div>
+          <div class="m-row" style="margin-top:6px">
+            <span class="m-pill on">stage 2/3 · transcribing</span>
+            <div class="m-grow m-bar"><i class="blue" style="width:55%"></i></div>
+          </div>
+          <div class="m-row"><button class="m-btn pri">cast pipeline</button><span class="m-pill">saves as rune</span></div>
+        </div>
+        <div class="feature-body">
+          <div class="feature-title"><span class="g">ᚱ</span><h3>pipelines</h3></div>
+          <p class="feature-desc">Chain operations: <strong>download → transcribe → burn-in → compress</strong>. The output of each stage feeds the next, all running in the background queue. Save a pipeline as a "mega-rune" and run it on a URL or file in one click.</p>
+          <div class="feature-meta">
+            <span class="badge effort-l">effort: l</span>
+            <span class="badge impact-hi">impact: high</span>
+            <span class="badge">new page</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. Queue reorder -->
+      <div class="feature">
+        <div class="mock">
+          <div class="m-list">
+            <div class="m-item active">
+              <span style="color:var(--fg-dim)">⠿</span>
+              <span class="dot run"></span>
+              <div class="m-grow"><div>convert demo.mp4</div></div>
+              <span class="m-pill on">running</span>
+            </div>
+            <div class="m-item">
+              <span style="color:var(--fg-dim)">⠿</span>
+              <span class="dot"></span>
+              <div class="m-grow"><div>transcribe lecture</div></div>
+              <span class="m-pill">2</span>
+            </div>
+            <div class="m-item">
+              <span style="color:var(--fg-dim)">⠿</span>
+              <span class="dot"></span>
+              <div class="m-grow"><div>compress batch (12)</div></div>
+              <span class="m-pill">3</span>
+            </div>
+          </div>
+          <div class="m-row" style="margin-top:6px">
+            <button class="m-btn">pause queue</button>
+            <button class="m-btn">parallel: 2</button>
+          </div>
+        </div>
+        <div class="feature-body">
+          <div class="feature-title"><span class="g">ᛁ</span><h3>queue reorder &amp; control</h3></div>
+          <p class="feature-desc">Drag jobs to reprioritize, pause the whole queue, or bump up to <strong>N parallel workers</strong>. Right now the queue is strictly serial — this adds the knobs power users expect when batching dozens of files.</p>
+          <div class="feature-meta">
+            <span class="badge effort-m">effort: m</span>
+            <span class="badge impact-hi">impact: med</span>
+            <span class="badge">queue store</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4. Thumbnail filmstrip -->
+      <div class="feature">
+        <div class="mock">
+          <div class="m-thumb" style="margin-bottom:8px"></div>
+          <div class="m-row" style="gap:4px">
+            <div class="m-thumb-mini"></div>
+            <div class="m-thumb-mini"></div>
+            <div class="m-thumb-mini"></div>
+            <div class="m-thumb-mini"></div>
+            <div class="m-thumb-mini"></div>
+            <div class="m-thumb-mini"></div>
+          </div>
+          <div class="m-row" style="color:var(--fg-dim);font-size:9px;justify-content:space-between">
+            <span>0:00</span><span>scrubber → trim start</span><span>4:12</span>
+          </div>
+        </div>
+        <div class="feature-body">
+          <div class="feature-title"><span class="g">ᚦ</span><h3>thumbnail filmstrip</h3></div>
+          <p class="feature-desc">Generate a row of thumbnails across the video and click-drag on the strip to <strong>set trim in/out</strong> visually instead of typing timestamps. Hover a frame to preview it full-size. Cheaper than a full scrubber — one ffmpeg pass.</p>
+          <div class="feature-meta">
+            <span class="badge effort-m">effort: m</span>
+            <span class="badge impact-hi">impact: high</span>
+            <span class="badge">convert page</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 5. Transcription cost/time estimator -->
+      <div class="feature">
+        <div class="mock">
+          <div class="m-card">
+            <div class="lbl">input · 2h 14m audio</div>
+          </div>
+          <div class="m-row" style="gap:8px;margin-top:6px">
+            <div class="m-grow">
+              <div style="color:var(--fg-dim);font-size:9px;margin-bottom:4px">model</div>
+              <div class="m-row"><span class="m-pill off">tiny</span><span class="m-pill off">base</span><span class="m-pill on">small</span><span class="m-pill off">medium</span></div>
+            </div>
+          </div>
+          <div class="m-card sel" style="margin-top:8px">
+            <div class="lbl">estimated</div>
+            <div class="val">~6 min · 1.2 GB RAM · gpu off</div>
+            <div class="m-bar" style="margin-top:6px"><i class="amber" style="width:30%"></i></div>
+          </div>
+        </div>
+        <div class="feature-body">
+          <div class="feature-title"><span class="g">ᛒ</span><h3>transcription estimator</h3></div>
+          <p class="feature-desc">Before committing to a transcription, show the expected <strong>duration, memory, and accuracy tier</strong> for the chosen model. No more picking "large-v3" on a 3-hour file and waiting blindly. Heuristic: <code>duration × model-factor × hardware-multiplier</code>.</p>
+          <div class="feature-meta">
+            <span class="badge effort-s">effort: s</span>
+            <span class="badge">subtitles</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 6. Smart auto-naming -->
+      <div class="feature">
+        <div class="mock">
+          <div class="lbl" style="color:var(--fg-dim);font-size:9px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:4px">output name · template</div>
+          <input class="m-input" value="{title}_{codec}_{crf}{crf}_{date}">
+          <div class="m-card" style="margin-top:8px">
+            <div class="lbl">preview</div>
+            <div class="val">vacation_h265_crf23_2026-07-23.mp4</div>
+          </div>
+          <div class="m-row" style="gap:4px;margin-top:6px;flex-wrap:wrap">
+            <span class="m-pill">{title}</span><span class="m-pill">{codec}</span><span class="m-pill">{w}×{h}</span><span class="m-pill">{fps}</span><span class="m-pill">{date}</span><span class="m-pill">{counter}</span>
+          </div>
+        </div>
+        <div class="feature-body">
+          <div class="feature-title"><span class="g">ᚲ</span><h3>smart auto-naming</h3></div>
+          <p class="feature-desc">User-editable filename templates with tokens (<code>{title}</code>, <code>{codec}</code>, <code>{resolution}</code>, <code>{date}</code>, <code>{counter}</code>). Live preview as you type. Solves the "output_3_final_FINAL.mp4" problem for batch jobs — and per-watch-folder templates.</p>
+          <div class="feature-meta">
+            <span class="badge effort-s">effort: s</span>
+            <span class="badge">convert · batch · watch</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 7. Preset conflict resolution -->
+      <div class="feature">
+        <div class="mock">
+          <div class="m-card">
+            <div class="lbl">importing rune collection</div>
+            <div class="val">3 of 8 conflict with existing runes</div>
+          </div>
+          <div class="m-row" style="gap:6px;margin-top:6px;flex-direction:column;align-items:stretch">
+            <div class="m-card" style="display:flex;align-items:center;gap:8px;padding:6px 8px">
+              <span class="dot done" style="border-radius:0"></span>
+              <div class="m-grow"><div style="font-size:10px">Fehu · h265 archive</div></div>
+              <span class="m-pill on">keep both</span>
+            </div>
+            <div class="m-card" style="display:flex;align-items:center;gap:8px;padding:6px 8px">
+              <span class="dot fail" style="border-radius:0"></span>
+              <div class="m-grow"><div style="font-size:10px">Tiwaz · youtube 1080</div></div>
+              <span class="m-pill">overwrite</span>
+            </div>
+          </div>
+        </div>
+        <div class="feature-body">
+          <div class="feature-title"><span class="g">ᛇ</span><h3>preset conflict resolution</h3></div>
+          <p class="feature-desc">When importing a <code>.galdr</code> rune collection that collides with existing names, show a per-rune merge dialog: <strong>keep both, overwrite, skip, or rename</strong>. Right now imports either silently fail or clobber — this gives the user control.</p>
+          <div class="feature-meta">
+            <span class="badge effort-s">effort: s</span>
+            <span class="badge">runes page</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 8. Watch folder actions -->
+      <div class="feature">
+        <div class="mock">
+          <div class="m-card">
+            <div class="lbl">on new file · ~/incoming</div>
+            <div class="m-row" style="gap:4px;margin-top:6px">
+              <span class="m-pill off">convert</span>
+              <span class="m-pill on">→ pipeline</span>
+              <span class="m-pill off">queue</span>
+              <span class="m-pill off">notify</span>
+            </div>
+          </div>
+          <div class="m-card" style="margin-top:6px">
+            <div class="lbl">conditional</div>
+            <div class="val" style="font-size:10px">if size &gt; 500MB → use "archive" rune</div>
+          </div>
+          <div class="m-card" style="margin-top:6px">
+            <div class="lbl">after</div>
+            <div class="val" style="font-size:10px">move original to ~/done/</div>
+          </div>
+        </div>
+        <div class="feature-body">
+          <div class="feature-title"><span class="g">ᛗ</span><h3>watch folder rules</h3></div>
+          <p class="feature-desc">Upgrade watch folders from "convert with one preset" to <strong>rules</strong>: conditional presets (by size/extension/resolution), post-actions (move/delete/email the original), and pipeline triggers. Turns galdr into a hands-off media processing server.</p>
+          <div class="feature-meta">
+            <span class="badge effort-l">effort: l</span>
+            <span class="badge impact-hi">impact: high</span>
+            <span class="badge">watch folders</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 9. Drag-drop everything -->
+      <div class="feature">
+        <div class="mock">
+          <div style="border:1px dashed var(--fg-dim);padding:24px;text-align:center;color:var(--fg-dim);font-size:10px">
+            <div style="font-size:24px;margin-bottom:8px">⤓</div>
+            drop files, folders, urls, or .galdr runes
+          </div>
+          <div class="m-row" style="margin-top:6px;gap:4px">
+            <span class="m-pill on">3 files</span>
+            <span class="m-pill">1 folder (recursive)</span>
+            <span class="m-pill">1 url</span>
+          </div>
+        </div>
+        <div class="feature-body">
+          <div class="feature-title"><span class="g">ᛚ</span><h3>universal drag-drop</h3></div>
+          <p class="feature-desc">Drop anything anywhere on the window: files go to convert, a folder triggers batch, a URL opens import, a <code>.galdr</code> file imports runes or opens a forge project. A global drop zone with smart routing — no need to be on the right page first.</p>
+          <div class="feature-meta">
+            <span class="badge effort-m">effort: m</span>
+            <span class="badge">app-wide</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 10. Command history / undo -->
+      <div class="feature">
+        <div class="mock">
+          <div class="m-list">
+            <div class="m-item active">
+              <span style="color:var(--info)">↶</span>
+              <div class="m-grow"><div style="font-size:10px">compressed archive.zip → 12MB</div></div>
+              <span class="m-pill on">undo</span>
+            </div>
+            <div class="m-item">
+              <span style="color:var(--fg-dim)">·</span>
+              <div class="m-grow"><div style="font-size:10px">burned subs into cut.mp4</div></div>
+              <span class="m-pill off">undo</span>
+            </div>
+          </div>
+          <div class="m-row" style="margin-top:6px"><span style="color:var(--fg-dim);font-size:9px">undo keeps the pre-op file for 1h</span></div>
+        </div>
+        <div class="feature-body">
+          <div class="feature-title"><span class="g">ᛜ</span><h3>safe undo</h3></div>
+          <p class="feature-desc">For destructive ops (compress, burn-in, overwrite), stash the <strong>original file in a temp cache for a window of time</strong> with a one-click undo. Nothing worse than a bad encode overwriting your only copy. Auto-purges after an hour or on quit.</p>
+          <div class="feature-meta">
+            <span class="badge effort-m">effort: m</span>
+            <span class="badge impact-hi">impact: high</span>
+            <span class="badge">safety</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+
+  <!-- ══════════════════════ TIER 2: GENERAL APP ══════════════════════ -->
+  <section>
+    <div class="section-head">
+      <span class="glyph">ᚷ</span>
+      <h2>tier ii — general app &amp; ux</h2>
+      <span class="tag">polish · settings · quality of life</span>
+    </div>
+    <p class="section-blurb">Not flashy, but these are the features that make galdr feel finished and trustworthy. Notifications, stats, themes, accessibility, and the boring-but-essential stuff.</p>
+
+    <div class="grid">
+
+      <!-- 11. Theme picker -->
+      <div class="feature">
+        <div class="mock">
+          <div class="theme-row">
+            <div class="swatch active">
+              <div class="chip" style="background:#000"></div>
+              <div class="name">void</div>
+            </div>
+            <div class="swatch">
+              <div class="chip" style="background:#1a1500;border-color:var(--warn)"></div>
+              <div class="name">ember</div>
+            </div>
+            <div class="swatch">
+              <div class="chip" style="background:#001a1a;border-color:var(--info)"></div>
+              <div class="name">frost</div>
+            </div>
+            <div class="swatch">
+              <div class="chip" style="background:#1a001a;border-color:#c8a8ff"></div>
+              <div class="name">rune</div>
+            </div>
+            <div class="swatch">
+              <div class="chip" style="background:#f5f5f5"></div>
+              <div class="name">bone</div>
+            </div>
+          </div>
+        </div>
+        <div class="feature-body">
+          <div class="feature-title"><span class="g">ᛟ</span><h3>theme picker</h3></div>
+          <p class="feature-desc">The token system we just built unlocks this. A few curated runic palettes — <strong>void</strong> (current black), <strong>ember</strong> (warm red), <strong>frost</strong> (cold blue), <strong>rune</strong> (arcane purple), <strong>bone</strong> (light mode). One-click swap, persisted, no per-component edits.</p>
+          <div class="feature-meta">
+            <span class="badge effort-s">effort: s</span>
+            <span class="badge impact-hi">impact: med</span>
+            <span class="badge">enabled by tokens ✓</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 12. Notification center -->
+      <div class="feature">
+        <div class="mock">
+          <div class="m-row" style="justify-content:space-between">
+            <span style="font-size:9px;color:var(--fg-dim);text-transform:uppercase;letter-spacing:.08em">notifications · 4</span>
+            <button class="m-btn" style="font-size:9px">clear all</button>
+          </div>
+          <div class="m-list">
+            <div class="m-item"><span class="dot done"></span><div class="m-grow"><div>convert done · vacation.mp4</div></div><span class="m-pill on">reveal</span></div>
+            <div class="m-item"><span class="dot fail"></span><div class="m-grow"><div>transcribe failed · out of mem</div></div><span class="m-pill fail">retry</span></div>
+            <div class="m-item"><span class="dot done"></span><div class="m-grow"><div>watch folder · 2 processed</div></div></div>
+            <div class="m-item"><span style="color:var(--info);font-size:10px">ᚠ</span><div class="m-grow"><div>update available · v0.4.0</div></div></div>
+          </div>
+        </div>
+        <div class="feature-body">
+          <div class="feature-title"><span class="g">ᛉ</span><h3>notification center</h3></div>
+          <p class="feature-desc">Toasts vanish after 5s — but a <strong>bell icon in the titlebar</strong> keeps a persistent log. Click to scroll back through everything: completions, failures, watch activity, updates. The toast system we built is the foundation; this adds the history layer.</p>
+          <div class="feature-meta">
+            <span class="badge effort-m">effort: m</span>
+            <span class="badge">builds on toasts ✓</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 13. Stats dashboard -->
+      <div class="feature">
+        <div class="mock">
+          <div class="m-row" style="gap:8px">
+            <div class="m-card m-grow" style="text-align:center"><div class="lbl">converted</div><div class="val" style="font-size:18px">1,247</div></div>
+            <div class="m-card m-grow" style="text-align:center"><div class="lbl">time saved</div><div class="val" style="font-size:18px">38h</div></div>
+            <div class="m-card m-grow" style="text-align:center"><div class="lbl">space freed</div><div class="val" style="font-size:18px">142GB</div></div>
+          </div>
+          <div class="m-card" style="margin-top:6px">
+            <div class="lbl">this week</div>
+            <div class="m-row" style="gap:2px;align-items:flex-end;height:32px;margin-top:4px">
+              <div style="flex:1;background:var(--fg-faint);height:40%"></div>
+              <div style="flex:1;background:var(--fg-dim);height:70%"></div>
+              <div style="flex:1;background:var(--fg-dim);height:30%"></div>
+              <div style="flex:1;background:var(--success);height:90%"></div>
+              <div style="flex:1;background:var(--fg-dim);height:55%"></div>
+              <div style="flex:1;background:var(--fg-dim);height:20%"></div>
+              <div style="flex:1;background:var(--fg-faint);height:10%"></div>
+            </div>
+          </div>
+        </div>
+        <div class="feature-body">
+          <div class="feature-title"><span class="g">ᛟ</span><h3>usage stats</h3></div>
+          <p class="feature-desc">A lightweight dashboard: files processed, total runtime, disk space saved (original vs output sizes summed), and a 7-day activity sparkline. Gated behind an opt-in toggle — some users love it, some find it naggy. Pure local data, never sent anywhere.</p>
+          <div class="feature-meta">
+            <span class="badge effort-m">effort: m</span>
+            <span class="badge">new page</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 14. Global search -->
+      <div class="feature">
+        <div class="mock">
+          <div class="m-card sel">
+            <div class="m-row">
+              <span style="color:var(--info)">⌕</span>
+              <input class="m-input" value="vacation" style="border:none">
+            </div>
+          </div>
+          <div class="m-list" style="margin-top:6px">
+            <div class="m-item active"><span style="color:var(--fg-dim);font-size:9px">file</span><div class="m-grow"><div>vacation.mp4</div><div style="color:var(--fg-dim);font-size:9px">~/videos · 2 days ago</div></div></div>
+            <div class="m-item"><span style="color:var(--fg-dim);font-size:9px">rune</span><div class="m-grow"><div>Fehu (used on vacation.mp4)</div></div></div>
+            <div class="m-item"><span style="color:var(--fg-dim);font-size:9px">hist</span><div class="m-grow"><div>convert · vacation → h265</div></div></div>
+          </div>
+        </div>
+        <div class="feature-body">
+          <div class="feature-title"><span class="g">ᛋ</span><h3>global search</h3></div>
+          <p class="feature-desc">The command palette (Ctrl+K) currently only navigates. Extend it to <strong>search files, runes, history, and settings</strong> in one fuzzy box. Type "vacation" and see the file, the rune you applied, and the history entry — jump to any.</p>
+          <div class="feature-meta">
+            <span class="badge effort-m">effort: m</span>
+            <span class="badge">extends cmd palette</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 15. Keyboard-driven everything -->
+      <div class="feature">
+        <div class="mock">
+          <div class="m-list">
+            <div class="m-item active"><kbd class="m-pill">c</kbd><div class="m-grow">convert current</div></div>
+            <div class="m-item"><kbd class="m-pill">s</kbd><div class="m-grow"> subtitles</div></div>
+            <div class="m-item"><kbd class="m-pill">⏎</kbd><div class="m-grow">start / cast</div></div>
+            <div class="m-item"><kbd class="m-pill">⌘k</kbd><div class="m-grow">command palette</div></div>
+          </div>
+          <div class="m-card" style="margin-top:6px"><div class="lbl">vim-style</div><div class="val" style="font-size:10px">j/k navigate · x delete · r rerun</div></div>
+        </div>
+        <div class="feature-body">
+          <div class="feature-title"><span class="g">ᛏ</span><h3>full keyboard mode</h3></div>
+          <p class="feature-desc">Single-key shortcuts when a list/card is focused (j/k to move, enter to act, x to delete) — Vim-style navigation across the queue, history, and runes. The help overlay already lists shortcuts; this makes them <strong>first-class, not just Ctrl+combos</strong>.</p>
+          <div class="feature-meta">
+            <span class="badge effort-m">effort: m</span>
+            <span class="badge">accessibility+</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 16. Scheduled tasks -->
+      <div class="feature">
+        <div class="mock">
+          <div class="m-card">
+            <div class="lbl">scheduled · weekly</div>
+            <div class="val" style="font-size:10px">every monday 03:00 → archive ~/incoming</div>
+          </div>
+          <div class="m-card" style="margin-top:6px">
+            <div class="lbl">scheduled · once</div>
+            <div class="val" style="font-size:10px">tonight 22:00 → download playlist</div>
+          </div>
+          <div class="m-row" style="margin-top:6px;gap:6px">
+            <span class="m-pill on">next: mon 03:00</span>
+            <button class="m-btn">+ new schedule</button>
+          </div>
+        </div>
+        <div class="feature-body">
+          <div class="feature-title"><span class="g">ᛞ</span><h3>scheduled tasks</h3></div>
+          <p class="feature-desc">Time-based triggers on top of watch folders: "every Monday at 3am, run the archive rune on ~/incoming," or "tonight, download this playlist." Uses the OS autostart + a lightweight internal scheduler. Great for overnight batch jobs.</p>
+          <div class="feature-meta">
+            <span class="badge effort-l">effort: l</span>
+            <span class="badge">cron-style</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 17. Onboarding tour -->
+      <div class="feature">
+        <div class="mock">
+          <div style="position:relative;padding:16px">
+            <div style="border:1px dashed var(--info);padding:10px;color:var(--info);font-size:10px">
+              <strong>ᚠ welcome</strong><br>this is the convert page. drop a file here, pick a format, and hit cast. your ffmpeg command builds live below.
+            </div>
+            <div class="m-row" style="justify-content:space-between;margin-top:8px">
+              <button class="m-btn">skip tour</button>
+              <div class="m-row" style="gap:3px"><span class="dot done" style="border-radius:0;width:8px;height:4px"></span><span class="dot done" style="border-radius:0;width:8px;height:4px;background:var(--info)"></span><span style="width:8px;height:4px;background:var(--fg-faint)"></span><span style="width:8px;height:4px;background:var(--fg-faint)"></span></div>
+              <button class="m-btn pri">next →</button>
+            </div>
+          </div>
+        </div>
+        <div class="feature-body">
+          <div class="feature-title"><span class="g">ᚾ</span><h3>onboarding tour</h3></div>
+          <p class="feature-desc">A 4-step first-run walkthrough highlighting convert, runes, watch folders, and the command palette. Skippable, re-triggerable from settings. galdr has a learning curve (runes, the queue, burn-in vs embed) — a 60-second tour dramatically cuts the "what does this do?" friction.</p>
+          <div class="feature-meta">
+            <span class="badge effort-s">effort: s</span>
+            <span class="badge">first-run</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 18. Plugin/extension API -->
+      <div class="feature">
+        <div class="mock">
+          <div class="m-card">
+            <div class="lbl">custom action · lua</div>
+            <pre style="margin:4px 0 0;font-size:9px;color:var(--success);font-family:inherit">on_file(path)
+  if ext(path) == "wav" then
+    cast("podcast-rune", path)
+  end</pre>
+          </div>
+          <div class="m-row" style="margin-top:6px;gap:4px">
+            <span class="m-pill on">enabled</span>
+            <span class="m-pill">watch hook</span>
+            <span class="m-pill">manual</span>
+          </div>
+        </div>
+        <div class="feature-body">
+          <div class="feature-title"><span class="g">ᛉ</span><h3>scripting hooks</h3></div>
+          <p class="feature-desc">Let power users write tiny scripts (Lua or a DSL) that hook into events: <code>on_file</code>, <code>on_convert_done</code>, <code>on_queue_empty</code>. Turns galdr into a <strong>programmable media pipeline</strong> without forking the app. Ship a few example scripts as starters.</p>
+          <div class="feature-meta">
+            <span class="badge effort-l">effort: l</span>
+            <span class="badge">power users</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 19. Progress everywhere -->
+      <div class="feature">
+        <div class="mock">
+          <div class="m-row" style="justify-content:space-between">
+            <span style="font-size:9px;color:var(--fg-dim)">background · even when minimized</span>
+          </div>
+          <div class="m-card" style="display:flex;align-items:center;gap:8px">
+            <span style="font-size:16px">Exporting Forge timeline</span>
+            <div class="m-grow m-bar"><i class="blue" style="width:67%"></i></div>
+            <span style="color:var(--fg-dim);font-size:10px">67%</span>
+          </div>
+          <div class="m-card" style="display:flex;align-items:center;gap:8px;padding:6px 8px">
+            <span style="font-size:12px">📺</span>
+            <span style="font-size:10px">taskbar · galdr · 67%</span>
+          </div>
+        </div>
+        <div class="feature-body">
+          <div class="feature-title"><span class="g">ᛟ</span><h3>progress everywhere</h3></div>
+          <p class="feature-desc">Surface job progress in <strong>every channel</strong>: taskbar badge (exists), tray icon overlay, optional desktop notification on completion, and a compact mode where the whole window shrinks to a floating progress pill. Never lose track of a long encode.</p>
+          <div class="feature-meta">
+            <span class="badge effort-m">effort: m</span>
+            <span class="badge">taskbar ✓ · tray ✓</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 20. Compact / mini mode -->
+      <div class="feature">
+        <div class="mock">
+          <div style="border:1px solid var(--fg-faint);padding:8px;width:180px;margin:0 auto">
+            <div class="m-row"><span style="font-size:10px">ᚲ galdr</span><span class="m-pill on" style="margin-left:auto">2 running</span></div>
+            <div class="m-bar" style="margin:6px 0"><i class="blue" style="width:67%"></i></div>
+            <div class="m-row" style="font-size:9px;color:var(--fg-dim);justify-content:space-between">
+              <span>timeline export</span><span>67%</span>
+            </div>
+            <div class="m-bar" style="margin:6px 0"><i class="amber" style="width:23%"></i></div>
+            <div class="m-row" style="font-size:9px;color:var(--fg-dim);justify-content:space-between">
+              <span>batch (4/12)</span><span>23%</span>
+            </div>
+          </div>
+        </div>
+        <div class="feature-body">
+          <div class="feature-title"><span class="g">ᛁ</span><h3>mini mode</h3></div>
+          <p class="feature-desc">Collapse the window to a <strong>tiny always-on-top progress widget</strong> — just the active jobs and their bars. Perfect for letting a render run while you work in another app. Click to expand back. Optional "mini on minimize" behavior.</p>
+          <div class="feature-meta">
+            <span class="badge effort-m">effort: m</span>
+            <span class="badge">window mgmt</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+
+  <!-- ══════════════════════ TIER 3: CREATIVE / CRAZY ══════════════════════ -->
+  <section>
+    <div class="section-head">
+      <span class="glyph" style="color:#c8a8ff">ᚹ</span>
+      <h2>tier iii — creative &amp; crazy</h2>
+      <span class="tag">ambitious · weird · distinctive</span>
+    </div>
+    <p class="section-blurb">The ideas that make galdr unmistakable. Some are moonshots, some are small but strange. All lean into the runic/occult aesthetic and do things no other media app does.</p>
+
+    <div class="grid">
+
+      <!-- 21. CRT mode -->
+      <div class="feature crazy">
+        <div class="mock crt">
+          <div class="crt-glow">
+            <div style="color:var(--fg);font-size:11px;margin-bottom:6px">ᚲ galdr // converting</div>
+            <div class="m-bar"><i class="green" style="width:73%"></i></div>
+            <div style="color:var(--success);font-size:9px;margin-top:6px">frame 1284/1760 · eta 00:14</div>
+            <div style="color:var(--fg-dim);font-size:9px;margin-top:4px">stream copy · crf 23 · h264</div>
+          </div>
+        </div>
+        <div class="feature-body">
+          <div class="feature-title"><span class="g">ᚹ</span><h3>CRT scanline mode</h3></div>
+          <p class="feature-desc">The <code>crtEnabled</code> flag we deleted could <strong>come back and actually do something</strong>: scanlines, phosphor glow, subtle flicker, vignette, optional green-tint phosphor. Toggle in settings. Pure CSS <code>::after</code> overlay — zero perf cost. Peak terminal aesthetic.</p>
+          <div class="feature-meta">
+            <span class="badge effort-s">effort: s</span>
+            <span class="badge">on-brand</span>
+            <span class="badge">resurrects dead code</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 22. Rune casting -->
+      <div class="feature crazy">
+        <div class="mock" style="align-items:center;justify-content:center;min-height:170px">
+          <div style="display:flex;gap:12px;font-size:36px">
+            <span style="color:var(--fg);animation:pulse 2s infinite">ᚦ</span>
+            <span style="color:var(--info)">ᚱ</span>
+            <span style="color:var(--fg-dim)">ᛟ</span>
+          </div>
+          <div style="color:var(--fg-dim);font-size:9px;margin-top:12px;text-align:center;max-width:240px">
+            the runes suggest: transcribe → compress → archive.<br>cast to accept the reading.
+          </div>
+        </div>
+        <div class="feature-body">
+          <div class="feature-title"><span class="g">ᚹ</span><h3>rune casting</h3></div>
+          <p class="feature-desc">A playful "magic 8-ball" for indecisive users. Click <strong>cast</strong> and three runes fall — each maps to a suggested operation based on the file type (ᚦ = transform, ᚱ = reduce, ᛟ = extract). Entirely cosmetic framing on smart suggestions. Lean into the theme hard.</p>
+          <div class="feature-meta">
+            <span class="badge effort-m">effort: m</span>
+            <span class="badge">delight</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 23. Custom ffmpeg filter runes -->
+      <div class="feature crazy">
+        <div class="mock">
+          <div class="lbl" style="color:var(--fg-dim);font-size:9px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:4px">filter chain · custom rune</div>
+          <pre style="margin:0;font-size:9px;color:var(--info);font-family:inherit;line-height:1.4">-vf "eq=brightness=0.06,
+  curve=preset=vintage,
+  noise=alls=8:allf=t+u,
+  format=yuv420p"</pre>
+          <div class="m-card" style="margin-top:6px"><div class="lbl">save as rune</div><div class="val" style="font-size:10px">ᚦ "aurastone" · cinematic</div></div>
+          <div class="m-thumb" style="margin-top:6px"></div>
+        </div>
+        <div class="feature-body">
+          <div class="feature-title"><span class="g">ᚦ</span><h3>custom filter runes</h3></div>
+          <p class="feature-desc">Let power users author raw ffmpeg <code>-vf</code> filter chains and save them as runes. Live preview, syntax highlighting (we have it), and a small library of community presets. <strong>Turns galdr into a visual ffmpeg IDE</strong> — the killer feature for nerds.</p>
+          <div class="feature-meta">
+            <span class="badge effort-l">effort: l</span>
+            <span class="badge impact-hi">impact: high</span>
+            <span class="badge">power users</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 24. AI auto-edit -->
+      <div class="feature crazy">
+        <div class="mock">
+          <div class="m-card">
+            <div class="lbl">silence detection · auto-cut</div>
+            <div class="m-row" style="gap:2px;height:24px;margin-top:4px">
+              <div style="flex:3;background:var(--info);opacity:.5"></div>
+              <div style="flex:1;background:var(--danger);opacity:.4"></div>
+              <div style="flex:5;background:var(--info);opacity:.5"></div>
+              <div style="flex:2;background:var(--danger);opacity:.4"></div>
+              <div style="flex:4;background:var(--info);opacity:.5"></div>
+            </div>
+            <div style="color:var(--fg-dim);font-size:9px;margin-top:4px">3 silent gaps · 47s total · remove?</div>
+          </div>
+          <div class="m-row"><button class="m-btn pri">auto-cut silence</button><button class="m-btn">jump cuts</button></div>
+        </div>
+        <div class="feature-body">
+          <div class="feature-title"><span class="g">ᛁ</span><h3>AI auto-edit</h3></div>
+          <p class="feature-desc">Use ffmpeg's <code>silencedetect</code> + scene analysis to <strong>automatically find and cut dead air, jump-cut on scene changes, or extract highlights</strong>. One-click "make this 40-min lecture watchable." Pairs with whisper timestamps to cut on sentence boundaries. Local, no cloud.</p>
+          <div class="feature-meta">
+            <span class="badge effort-l">effort: l</span>
+            <span class="badge impact-hi">impact: high</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 25. Yggdrasil file tree -->
+      <div class="feature crazy">
+        <div class="mock" style="min-height:180px;padding:8px">
+          <pre style="margin:0;font-size:9px;color:var(--fg-dim);line-height:1.5;font-family:inherit">
+        <span style="color:var(--success)">~/galdr</span>
+         │
+    ┌─────┴─────┐
+   <span style="color:var(--info)">vid</span>         <span style="color:var(--info)">aud</span>
+    │           │
+ ┌──┴──┐     ┌──┴──┐
+vac   tri   pod   mus
+.mp4  .mp4  .wav  .mp3
+ <span style="color:var(--warn)">●</span>     <span style="color:var(--success)">✓</span>   <span style="color:var(--danger)">✗</span>    <span style="color:var(--success)">✓</span></pre>
+          <div style="color:var(--fg-dim);font-size:9px;text-align:center;margin-top:4px">your media forest · 1 needs attention</div>
+        </div>
+        <div class="feature-body">
+          <div class="feature-title"><span class="g">ᛁ</span><h3>yggdrasil tree view</h3></div>
+          <p class="feature-desc">An ASCII-art <strong>tree visualization of your output folders</strong>, styled as the world tree. Folders become branches, files become leaves, and processing status glows on each (● running, ✓ done, ✗ failed). A weirdly beautiful way to browse your library. Right-click a leaf to act on it.</p>
+          <div class="feature-meta">
+            <span class="badge effort-m">effort: m</span>
+            <span class="badge">visual · weird</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 26. Ambient soundscape -->
+      <div class="feature crazy">
+        <div class="mock">
+          <div class="m-row" style="justify-content:space-between">
+            <span style="font-size:10px">ambient · while working</span>
+            <button class="m-btn pri">ᚦ forge-sounds</button>
+          </div>
+          <div class="m-card" style="margin-top:6px">
+            <div class="lbl">soundtrack</div>
+            <div class="val" style="font-size:10px">anvil strikes on cast · wind on success</div>
+          </div>
+          <div class="m-row" style="gap:4px;margin-top:6px">
+            <span class="m-pill off">none</span><span class="m-pill on">runic</span><span class="m-pill off">lofi</span><span class="m-pill off">rain</span>
+          </div>
+          <div class="m-bar"><i style="width:40%;background:var(--fg-dim)"></i></div>
+        </div>
+        <div class="feature-body">
+          <div class="feature-title"><span class="g">ᛜ</span><h3>ambient soundscape</h3></div>
+          <p class="feature-desc">Optional background audio that <strong>responds to app events</strong>: a soft anvil strike when a job starts, wind chime on success, low drone while the queue is active. Plus passive ambient tracks (rain, lofi, fireplace). Toggle-able, volume-controlled. Makes long renders feel alive.</p>
+          <div class="feature-meta">
+            <span class="badge effort-m">effort: m</span>
+            <span class="badge">delight</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 27. Galdr-script DSL -->
+      <div class="feature crazy">
+        <div class="mock">
+          <div class="lbl" style="color:var(--fg-dim);font-size:9px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:4px">galdr-script</div>
+          <pre style="margin:0;font-size:9px;color:var(--success);font-family:inherit;line-height:1.5">cast fehu on "input.mp4"
+  with trim 0:00 to 2:30
+  burn "subs.srt" white 24
+  output "clip.mp4"
+
+if size &gt; 100mb:
+  cast tiwaz</pre>
+        </div>
+        <div class="feature-body">
+          <div class="feature-title"><span class="g">ᚱ</span><h3>galdr-script DSL</h3></div>
+          <p class="feature-desc">A tiny domain-specific language for batch media work — readable, scriptable, version-controllable. <code>cast &lt;rune&gt; on &lt;file&gt; with &lt;overrides&gt;</code>. Write a <code>.galdr</code> script, double-click to run, or schedule it. <strong>The terminal aesthetic, but actually functional.</strong></p>
+          <div class="feature-meta">
+            <span class="badge effort-l">effort: l</span>
+            <span class="badge">moonshot</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 28. Collaborative runes -->
+      <div class="feature crazy">
+        <div class="mock">
+          <div class="m-card">
+            <div class="lbl">community runes · gist-synced</div>
+            <div class="m-list" style="margin-top:4px">
+              <div class="m-item active"><span style="color:var(--info)">ᚦ</span><div class="m-grow"><div style="font-size:10px">aurastone · cinematic</div><div style="color:var(--fg-dim);font-size:9px">by @nyx · 2.1k casts</div></div><span class="m-pill on">install</span></div>
+              <div class="m-item"><span style="color:var(--success)">ᛟ</span><div class="m-grow"><div style="font-size:10px">podcast-pro · voice enhance</div><div style="color:var(--fg-dim);font-size:9px">by @bard · 890 casts</div></div><span class="m-pill">install</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="feature-body">
+          <div class="feature-title"><span class="g">ᚷ</span><h3>community runes</h3></div>
+          <p class="feature-desc">A built-in browser for <strong>user-shared filter chains and presets</strong>, synced via GitHub Gists (no backend needed). Star, install, fork. Turns the rune system into a social ecosystem. The <code>.galdr</code> import/export already exists — this adds discovery.</p>
+          <div class="feature-meta">
+            <span class="badge effort-l">effort: l</span>
+            <span class="badge">serverless (gists)</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 29. Built-in player/editor -->
+      <div class="feature crazy">
+        <div class="mock">
+          <div style="position:relative">
+            <div class="m-thumb" style="aspect-ratio:16/9;margin-bottom:4px"></div>
+            <div style="position:absolute;top:4px;left:4px;background:var(--scrim);padding:1px 4px;font-size:8px;color:var(--fg)">▶ 0:42 / 4:12</div>
+          </div>
+          <div class="m-bar"><i class="blue" style="width:17%"></i></div>
+          <div class="m-row" style="gap:2px;margin-top:4px">
+            <button class="m-btn" style="font-size:8px;padding:1px 4px">⏮</button>
+            <button class="m-btn" style="font-size:8px;padding:1px 4px">▶</button>
+            <button class="m-btn" style="font-size:8px;padding:1px 4px">⏭</button>
+            <span class="m-grow"></span>
+            <button class="m-btn" style="font-size:8px;padding:1px 4px">✂ trim</button>
+            <button class="m-btn" style="font-size:8px;padding:1px 4px">ⓘ info</button>
+          </div>
+        </div>
+        <div class="feature-body">
+          <div class="feature-title"><span class="g">ᛚ</span><h3>quick player</h3></div>
+          <p class="feature-desc">A lightweight inline player for <strong>previewing output without leaving galdr</strong>. Play, scrub, mark in/out points for trimming, and re-cast with one tweak. Closes the loop: convert → preview → adjust → re-convert, all in-app. No more bouncing to VLC to check results.</p>
+          <div class="feature-meta">
+            <span class="badge effort-m">effort: m</span>
+            <span class="badge impact-hi">impact: high</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 30. ASCII waveform/spectrogram -->
+      <div class="feature crazy">
+        <div class="mock">
+          <div class="lbl" style="color:var(--fg-dim);font-size:9px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:4px">waveform · ascii</div>
+          <pre style="margin:0;font-size:9px;color:var(--success);font-family:inherit;line-height:1.3">    ▁▂▃▄▅▆▇█▇▆▅▄▃▂▁    ▁▃▅▇█▇▅▃▁
+ ▁▂▃▄▅▆▇█▇▆▅▄▃▂▁▂▃▄▅▆▇█▇▆▅▄▃▂▁▂▃▄▅▆▇█▇▆▅▄▃
+▃▄▅▆▇█▇▆▅▄▃▂▁                    ▁▂▃▄▅▆▇█▇▆▅▄▃▂▁
+   <span style="color:var(--danger)">↑ silence (3.2s)</span>           ↑ peak</pre>
+          <div class="m-row"><button class="m-btn">cut silence</button><button class="m-btn">normalize</button></div>
+        </div>
+        <div class="feature-body">
+          <div class="feature-title"><span class="g">ᛒ</span><h3>ascii waveform</h3></div>
+          <p class="feature-desc">Render audio waveforms and spectrograms as <strong>terminal-style ASCII art</strong> using block characters (▁▂▃▄▅▆▇█). On-brand, lightweight, and genuinely useful for spotting silence/clipping. Click a region to select it for trimming or normalization. Weird but practical.</p>
+          <div class="feature-meta">
+            <span class="badge effort-m">effort: m</span>
+            <span class="badge">on-brand</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+
+  <!-- ══════════════════════ QUICK-pick summary ══════════════════════ -->
+  <section>
+    <div class="section-head">
+      <span class="glyph">ᚲ</span>
+      <h2>quick-pick matrix</h2>
+      <span class="tag">effort × impact</span>
+    </div>
+    <p class="section-blurb">If you want my recommendation on what to build next, here's the shortlist ranked by payoff-per-effort.</p>
+
+    <div class="grid">
+      <div class="feature" style="border-left:3px solid var(--success)">
+        <div class="feature-body">
+          <div class="feature-title"><span class="g" style="color:var(--success)">★</span><h3>do first · high payoff, low effort</h3></div>
+          <div class="m-list">
+            <div class="m-item"><span class="dot done"></span><div class="m-grow">history &amp; re-run</div><span class="badge effort-s">s</span></div>
+            <div class="m-item"><span class="dot done"></span><div class="m-grow">smart auto-naming</div><span class="badge effort-s">s</span></div>
+            <div class="m-item"><span class="dot done"></span><div class="m-grow">theme picker</div><span class="badge effort-s">s</span></div>
+            <div class="m-item"><span class="dot done"></span><div class="m-grow">CRT scanline mode</div><span class="badge effort-s">s</span></div>
+            <div class="m-item"><span class="dot done"></span><div class="m-grow">transcription estimator</div><span class="badge effort-s">s</span></div>
+            <div class="m-item"><span class="dot done"></span><div class="m-grow">onboarding tour</div><span class="badge effort-s">s</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="feature" style="border-left:3px solid var(--info)">
+        <div class="feature-body">
+          <div class="feature-title"><span class="g" style="color:var(--info)">◆</span><h3>do next · flagship features</h3></div>
+          <div class="m-list">
+            <div class="m-item"><span class="dot run"></span><div class="m-grow">pipelines (mega-runes)</div><span class="badge effort-l">l</span></div>
+            <div class="m-item"><span class="dot run"></span><div class="m-grow">thumbnail filmstrip trim</div><span class="badge effort-m">m</span></div>
+            <div class="m-item"><span class="dot run"></span><div class="m-grow">custom ffmpeg filter runes</div><span class="badge effort-l">l</span></div>
+            <div class="m-item"><span class="dot run"></span><div class="m-grow">safe undo</div><span class="badge effort-m">m</span></div>
+            <div class="m-item"><span class="dot run"></span><div class="m-grow">watch folder rules</div><span class="badge effort-l">l</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="feature" style="border-left:3px solid #c8a8ff">
+        <div class="feature-body">
+          <div class="feature-title"><span class="g" style="color:#c8a8ff">☾</span><h3>moonshots · if you're bold</h3></div>
+          <div class="m-list">
+            <div class="m-item"><span class="dot" style="background:#c8a8ff"></span><div class="m-grow">galdr-script DSL</div></div>
+            <div class="m-item"><span class="dot" style="background:#c8a8ff"></span><div class="m-grow">AI auto-edit (silence/scene)</div></div>
+            <div class="m-item"><span class="dot" style="background:#c8a8ff"></span><div class="m-grow">scripting hooks (Lua)</div></div>
+            <div class="m-item"><span class="dot" style="background:#c8a8ff"></span><div class="m-grow">community runes (gist)</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <pre class="ascii" style="margin-bottom:16px">ᚠ ᚢ ᚦ ᚨ ᚱ ᚲ ᚷ ᚹ ᚺ ᚾ ᛁ ᛃ ᛇ ᛈ ᛉ ᛊ ᛏ ᛒ ᛖ ᛗ ᛚ ᛜ ᛞ ᛟ</pre>
+    <p>30 features · 3 tiers · generated for galdr v0.3.4<br>each card's mockup is a static approximation — open in any browser</p>
+  </footer>
+
+</div>
+</body>
+</html>

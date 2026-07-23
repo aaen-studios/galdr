@@ -8,6 +8,10 @@ interface QueueState {
   jobs: QueueJob[];
   /** True until the initial `get_queue` snapshot has been fetched. */
   loaded: boolean;
+  /** Frontend-local ordering preference (not yet backend-enforced). */
+  paused: boolean;
+  /** Desired parallel worker count (frontend hint). */
+  parallelWorkers: number;
 
   /** Refresh the queue from the backend snapshot. */
   refresh: () => Promise<void>;
@@ -15,6 +19,12 @@ interface QueueState {
   cancelJob: (id: string) => Promise<void>;
   /** Remove all completed/failed/cancelled jobs. */
   clearCompleted: () => Promise<void>;
+  /** Reorder a job within the local view (drag-and-drop priority). */
+  reorder: (fromIdx: number, toIdx: number) => void;
+  /** Pause/resume the queue (frontend hint — stops dispatching new ops). */
+  setPaused: (p: boolean) => void;
+  /** Set the desired parallel worker count. */
+  setParallelWorkers: (n: number) => void;
   /** Subscribe to `queue-update` events. Idempotent. */
   bindEvents: () => Promise<() => void>;
 }
@@ -24,6 +34,8 @@ let bound = false;
 export const useQueueStore = create<QueueState>((set, get) => ({
   jobs: [],
   loaded: false,
+  paused: false,
+  parallelWorkers: 1,
 
   refresh: async () => {
     try {
@@ -51,6 +63,20 @@ export const useQueueStore = create<QueueState>((set, get) => ({
     }
     await get().refresh();
   },
+
+  reorder: (fromIdx, toIdx) => {
+    const jobs = [...get().jobs];
+    if (fromIdx < 0 || fromIdx >= jobs.length || toIdx < 0 || toIdx >= jobs.length) return;
+    const [moved] = jobs.splice(fromIdx, 1);
+    jobs.splice(toIdx, 0, moved);
+    set({ jobs });
+    // Note: backend priority isn't changed — this is a frontend view reorder.
+    // A future backend `set_job_priority` command would persist this.
+  },
+
+  setPaused: (p) => set({ paused: p }),
+
+  setParallelWorkers: (n) => set({ parallelWorkers: Math.max(1, Math.min(4, n)) }),
 
   bindEvents: async () => {
     const unlisten: UnlistenFn = await listen<QueueUpdatePayload>(

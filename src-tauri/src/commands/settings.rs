@@ -92,7 +92,6 @@ pub fn save_settings(settings: AppSettings) -> Result<(), String> {
 pub fn save_app_preferences(
     output_dir: String,
     transition_style: String,
-    crt_enabled: bool,
     show_rune_in_titlebar: bool,
     discord_enabled: bool,
     preferred_video_encoder: Option<String>,
@@ -100,12 +99,14 @@ pub fn save_app_preferences(
     download_dir: String,
     auto_download_subtitles: bool,
     auto_embed_subtitles: bool,
+    theme: String,
+    crt_enabled: bool,
+    onboarding_seen: bool,
 ) -> Result<(), String> {
     let path = store_dir().join("settings.json");
     let mut existing = load_settings();
     existing.output_dir = output_dir;
     existing.transition_style = transition_style;
-    existing.crt_enabled = crt_enabled;
     existing.show_rune_in_titlebar = show_rune_in_titlebar;
     existing.discord_enabled = discord_enabled;
     existing.preferred_video_encoder = preferred_video_encoder;
@@ -113,6 +114,9 @@ pub fn save_app_preferences(
     existing.download_dir = download_dir;
     existing.auto_download_subtitles = auto_download_subtitles;
     existing.auto_embed_subtitles = auto_embed_subtitles;
+    existing.theme = theme;
+    existing.crt_enabled = crt_enabled;
+    existing.onboarding_seen = onboarding_seen;
     let json = serde_json::to_string_pretty(&existing).map_err(|e| e.to_string())?;
     fs::write(&path, json).map_err(|e| e.to_string())
 }

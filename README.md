@@ -62,9 +62,18 @@ galdr (Old Norse for "magical incantation") frames media work as spellcasting: r
 - **Per-folder serialization** — prevents concurrent FFmpeg processes within a single folder
 - **Background operation** — keeps running while the app is minimized to tray
 
+### Import (yt-dlp)
+
+- **URL download** — fetch video, audio, or subtitles from any yt-dlp-supported URL
+- **Auto-installs yt-dlp** — the binary is downloaded from GitHub (~15 MB) on first use and cached on your machine
+- **Metadata fetch** — preview title, duration, and available formats before downloading
+- **Playlist support** — download individual videos or entire playlists with item selection
+- **Quality & format selection** — pick resolution, container, and audio codec per download
+- **Subtitle options** — automatically download available subtitles and optionally embed them into the output file (configurable in Settings)
+
 ### Background Queue
 
-- **Unified job tracking** — all operations funnel into one queue: conversions, batch conversions, transcriptions, subtitle operations, concatenations, audio extractions, and forge exports
+- **Unified job tracking** — all operations funnel into one queue: conversions, batch conversions, transcriptions, subtitle operations, concatenations, audio extractions, forge exports, and yt-dlp downloads
 - **Scoped cancellation** — cancel individual jobs by PID without killing others
 - **Real-time progress** — live progress events, titlebar progress strip, and Windows taskbar integration
 - **Completion flash** — taskbar attention request when a job finishes
@@ -84,7 +93,6 @@ galdr (Old Norse for "magical incantation") frames media work as spellcasting: r
 - **ScrambleText** — headings and labels animate through random Elder Futhark runes before revealing text
 - **Page transitions** — 5 animated styles (rune dissolve, terminal scroll, runic portal, ink ripple, angular carve)
 - **Context menus** — right-click on cards, navigation, and files for quick actions
-- **CRT overlay** — optional scanline effect for terminal aesthetic
 - **Media preview** — in-app video/image playback
 - **Log panel** — real-time FFmpeg output
 
@@ -227,12 +235,14 @@ src/                             # Frontend (React + TypeScript)
 │   ├── ConvertPage.tsx          #   Single/batch file conversion
 │   ├── CompressPage.tsx         #   Compression with live size estimation
 │   ├── ForgePage.tsx            #   Timeline video editor
+│   ├── ImportPage.tsx           #   yt-dlp URL import (metadata, quality/format selection)
 │   ├── RunesPage.tsx             #   Saved preset management
 │   ├── SubtitlesPage.tsx         #   Transcription, burn-in, embed, extract, convert
 │   ├── WatchFoldersPage.tsx      #   Watch folder configuration
-│   └── SettingsPage.tsx         #   App settings (output dir, transitions, Discord, autostart)
+│   └── SettingsPage.tsx         #   App settings (output dir, transitions, Discord, autostart, downloads, subtitles)
 ├── store/                       # Zustand state management
 │   ├── index.ts                 #   Main store (media info, conversion, settings, updates)
+│   ├── downloadStore.ts         #   yt-dlp download state (quality/format options, progress events)
 │   ├── forgeStore.ts            #   Forge editor state (timeline, clips, undo/redo)
 │   ├── queueStore.ts            #   Background job queue state
 │   ├── watchStore.ts            #   Watch folder state
@@ -253,6 +263,7 @@ src-tauri/                       # Backend (Rust)
 │   ├── main.rs                  #   Rust entry point
 │   ├── commands/                 #   IPC command handlers
 │   │   ├── convert.rs           #     Conversion, batch, concat, audio extract, compress estimate
+│   │   ├── download.rs          #     yt-dlp URL import: metadata, download, list/delete, cancel
 │   │   ├── forge.rs             #     Timeline export, pre-render, project file I/O
 │   │   ├── info.rs              #     Media info via ffprobe
 │   │   ├── preview.rs           #     Frame extraction, image data URL generation

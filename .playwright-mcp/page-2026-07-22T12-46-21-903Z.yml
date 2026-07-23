@@ -1,0 +1,610 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e4]:
+    - banner [ref=e5]:
+      - generic [ref=e6]:
+        - link "Pixabay" [ref=e8] [cursor=pointer]:
+          - /url: /
+        - generic [ref=e15]:
+          - button "Search Pixabay" [ref=e16] [cursor=pointer]:
+            - img "Search" [ref=e17]
+          - searchbox "Search Pixabay" [ref=e21]: dark ambient cinematic
+          - button "Clear" [ref=e23] [cursor=pointer]:
+            - generic:
+              - img "Close"
+          - button "Music" [ref=e26] [cursor=pointer]
+        - generic [ref=e27]:
+          - button "Explore" [ref=e31] [cursor=pointer]
+          - button "Log in" [ref=e33] [cursor=pointer]
+          - button "Join" [ref=e34] [cursor=pointer]
+          - button "Upload" [ref=e36] [cursor=pointer]
+    - generic [ref=e38]:
+      - generic [ref=e39]:
+        - button "Music" [ref=e41] [cursor=pointer]
+        - button "Genre" [ref=e43] [cursor=pointer]
+        - button "Mood" [ref=e45] [cursor=pointer]
+        - button "Movement" [ref=e47] [cursor=pointer]
+        - button "Duration" [ref=e49] [cursor=pointer]
+        - button "Theme" [ref=e51] [cursor=pointer]
+        - button "Content type New" [ref=e53] [cursor=pointer]:
+          - generic:
+            - generic:
+              - generic: Content type
+              - generic: New
+      - generic [ref=e54]:
+        - button "Search settings" [ref=e57] [cursor=pointer]:
+          - generic:
+            - img "Settings"
+        - button "Most relevant" [ref=e59] [cursor=pointer]
+    - generic [ref=e60]:
+      - generic [ref=e61]:
+        - heading "33,132+ Dark Ambient Cinematic no copyright music" [level=1] [ref=e62]
+        - paragraph [ref=e63]: Download dark ambient cinematic royalty-free audio tracks and instrumentals for your next project.
+        - generic [ref=e67]:
+          - link "dark background" [ref=e69] [cursor=pointer]:
+            - /url: /music/search/dark%20background/
+          - link "dark ambient" [ref=e72] [cursor=pointer]:
+            - /url: /music/search/dark%20ambient/
+          - link "dark" [ref=e75] [cursor=pointer]:
+            - /url: /music/search/dark/
+          - link "dark music" [ref=e78] [cursor=pointer]:
+            - /url: /music/search/dark%20music/
+          - link "atmospheric music" [ref=e81] [cursor=pointer]:
+            - /url: /music/search/atmospheric%20music/
+          - link "ambient" [ref=e84] [cursor=pointer]:
+            - /url: /music/search/ambient/
+          - link "ambient music" [ref=e87] [cursor=pointer]:
+            - /url: /music/search/ambient%20music/
+      - link "Auto-match your soundtrack to your footage with one-click Beat Sync. Try Canva Pro for free" [ref=e89] [cursor=pointer]:
+        - /url: https://www.canva.com/features/beat-sync/?utm_medium=partner&utm_source=pixabay&utm_campaign=canva_brand&utm_content=beat_sync_v1
+        - generic [ref=e90]:
+          - generic [ref=e92]: Auto-match your soundtrack to your footage with one-click Beat Sync.
+          - button "Try Canva Pro for free" [ref=e96]
+      - separator [ref=e97]
+      - generic [ref=e98]: Royalty-free music tracks
+      - generic [ref=e101]:
+        - generic [ref=e102]:
+          - generic [ref=e103]:
+            - button [ref=e104] [cursor=pointer]:
+              - button [ref=e107]:
+                - img "Play" [ref=e108]
+            - generic [ref=e111]:
+              - link "Dark Cinematic" [ref=e112] [cursor=pointer]:
+                - /url: /music/suspense-dark-cinematic-509801/
+              - link "leberch" [ref=e113] [cursor=pointer]:
+                - /url: /users/leberch-42823964/
+          - slider [ref=e116] [cursor=pointer]
+          - generic [ref=e121]:
+            - generic [ref=e122]: 3:06
+            - img "Shield" [ref=e125]
+            - generic [ref=e128]:
+              - link "Suspense" [ref=e129] [cursor=pointer]:
+                - /url: /music/search/genre/Suspense/
+              - link "Dark Cinematic" [ref=e131] [cursor=pointer]:
+                - /url: /music/search/dark%20cinematic/
+            - button "Download" [ref=e134] [cursor=pointer]:
+              - generic:
+                - img "Download"
+        - generic [ref=e135]:
+          - generic [ref=e136]:
+            - button [ref=e137] [cursor=pointer]:
+              - button [ref=e140]:
+                - img "Play" [ref=e141]
+            - generic [ref=e144]:
+              - link "Dark Ambient" [ref=e145] [cursor=pointer]:
+                - /url: /music/suspense-dark-ambient-509934/
+              - link "The_Mountain" [ref=e146] [cursor=pointer]:
+                - /url: /users/the_mountain-3616498/
+          - slider [ref=e149] [cursor=pointer]
+          - generic [ref=e154]:
+            - generic [ref=e155]: 4:08
+            - generic [ref=e156]:
+              - img "Shield" [ref=e158]
+              - img "AI" [ref=e162]
+            - generic [ref=e165]:
+              - link "Suspense" [ref=e166] [cursor=pointer]:
+                - /url: /music/search/genre/Suspense/
+              - link "Dark Ambient" [ref=e168] [cursor=pointer]:
+                - /url: /music/search/dark%20ambient/
+            - button "Download" [ref=e171] [cursor=pointer]:
+              - generic:
+                - img "Download"
+        - generic [ref=e172]:
+          - generic [ref=e173]:
+            - button [ref=e174] [cursor=pointer]:
+              - button [ref=e177]:
+                - img "Play" [ref=e178]
+            - generic [ref=e181]:
+              - link "Dark Ambient Soundscape Dreamscape" [ref=e182] [cursor=pointer]:
+                - /url: /music/ambient-dark-ambient-soundscape-dreamscape-569591/
+              - link "SolarFLEX" [ref=e183] [cursor=pointer]:
+                - /url: /users/solarflex-54712313/
+          - slider [ref=e186] [cursor=pointer]
+          - generic [ref=e191]:
+            - generic [ref=e192]: 4:17
+            - img "Shield" [ref=e195]
+            - generic [ref=e198]:
+              - link "Ambient" [ref=e199] [cursor=pointer]:
+                - /url: /music/search/genre/Ambient/
+              - generic [ref=e200]:
+                - link "Dark Ambient," [ref=e201] [cursor=pointer]:
+                  - /url: /music/search/dark%20ambient/
+                - link "Soundscape" [ref=e202] [cursor=pointer]:
+                  - /url: /music/search/soundscape/
+            - button "Download" [ref=e205] [cursor=pointer]:
+              - generic:
+                - img "Download"
+        - generic [ref=e206]:
+          - generic [ref=e207]:
+            - button [ref=e208] [cursor=pointer]:
+              - button [ref=e211]:
+                - img "Play" [ref=e212]
+            - generic [ref=e215]:
+              - link "Dark Ambient Soundscape Dreamscape" [ref=e216] [cursor=pointer]:
+                - /url: /music/ambient-dark-ambient-soundscape-dreamscape-547901/
+              - link "Monume" [ref=e217] [cursor=pointer]:
+                - /url: /users/monume-44679891/
+          - slider [ref=e220] [cursor=pointer]
+          - generic [ref=e225]:
+            - generic [ref=e226]: 1:07
+            - img "Shield" [ref=e229]
+            - generic [ref=e232]:
+              - link "Ambient" [ref=e233] [cursor=pointer]:
+                - /url: /music/search/genre/Ambient/
+              - generic [ref=e234]:
+                - link "Dark Ambient," [ref=e235] [cursor=pointer]:
+                  - /url: /music/search/dark%20ambient/
+                - link "Soundscape" [ref=e236] [cursor=pointer]:
+                  - /url: /music/search/soundscape/
+            - button "Download" [ref=e239] [cursor=pointer]:
+              - generic:
+                - img "Download"
+        - generic [ref=e240]:
+          - generic [ref=e241]:
+            - button [ref=e242] [cursor=pointer]:
+              - button [ref=e245]:
+                - img "Play" [ref=e246]
+            - generic [ref=e249]:
+              - link "Dark Cinematic" [ref=e250] [cursor=pointer]:
+                - /url: /music/orchestral-dark-cinematic-558265/
+              - link "SolarFLEX" [ref=e251] [cursor=pointer]:
+                - /url: /users/solarflex-54712313/
+          - slider [ref=e254] [cursor=pointer]
+          - generic [ref=e259]:
+            - generic [ref=e260]: 2:17
+            - img "Shield" [ref=e263]
+            - generic [ref=e266]:
+              - link "Orchestral" [ref=e267] [cursor=pointer]:
+                - /url: /music/search/genre/Orchestral/
+              - link "Dark Cinematic" [ref=e269] [cursor=pointer]:
+                - /url: /music/search/dark%20cinematic/
+            - button "Download" [ref=e272] [cursor=pointer]:
+              - generic:
+                - img "Download"
+        - generic [ref=e273]:
+          - generic [ref=e274]:
+            - button [ref=e275] [cursor=pointer]:
+              - button [ref=e278]:
+                - img "Play" [ref=e279]
+            - generic [ref=e282]:
+              - link "Cinematic Dark Ambient" [ref=e283] [cursor=pointer]:
+                - /url: /music/horror-scene-cinematic-dark-ambient-503450/
+              - link "everything_is_dead" [ref=e284] [cursor=pointer]:
+                - /url: /users/everything_is_dead-54651617/
+          - slider [ref=e287] [cursor=pointer]
+          - generic [ref=e292]:
+            - generic [ref=e293]: 7:24
+            - generic [ref=e294]:
+              - link "Horror Scene" [ref=e295] [cursor=pointer]:
+                - /url: /music/search/genre/Horror Scene/
+              - link "Dark Ambient Soundscape" [ref=e297] [cursor=pointer]:
+                - /url: /music/search/dark%20ambient%20soundscape/
+            - button "Download" [ref=e300] [cursor=pointer]:
+              - generic:
+                - img "Download"
+        - generic [ref=e301]:
+          - generic [ref=e302]:
+            - button [ref=e303] [cursor=pointer]:
+              - button [ref=e306]:
+                - img "Play" [ref=e307]
+            - generic [ref=e310]:
+              - link "Dark Ambient Soundscape Dreamscape" [ref=e311] [cursor=pointer]:
+                - /url: /music/ambient-dark-ambient-soundscape-dreamscape-524032/
+              - link "FreeMusicForVideo" [ref=e312] [cursor=pointer]:
+                - /url: /users/freemusicforvideo-52198157/
+          - slider [ref=e315] [cursor=pointer]
+          - generic [ref=e320]:
+            - generic [ref=e321]: 1:38
+            - img "Shield" [ref=e324]
+            - generic [ref=e327]:
+              - link "Ambient" [ref=e328] [cursor=pointer]:
+                - /url: /music/search/genre/Ambient/
+              - generic [ref=e329]:
+                - link "Dark Ambient," [ref=e330] [cursor=pointer]:
+                  - /url: /music/search/dark%20ambient/
+                - link "Soundscape" [ref=e331] [cursor=pointer]:
+                  - /url: /music/search/soundscape/
+            - button "Download" [ref=e334] [cursor=pointer]:
+              - generic:
+                - img "Download"
+        - generic [ref=e335]:
+          - generic [ref=e336]:
+            - button [ref=e337] [cursor=pointer]:
+              - button [ref=e340]:
+                - img "Play" [ref=e341]
+            - generic [ref=e344]:
+              - link "Dark Cinematic Thriller" [ref=e345] [cursor=pointer]:
+                - /url: /music/main-title-dark-cinematic-thriller-249485/
+              - link "leberch" [ref=e346] [cursor=pointer]:
+                - /url: /users/leberch-42823964/
+          - slider [ref=e349] [cursor=pointer]
+          - generic [ref=e354]:
+            - generic [ref=e355]: 1:40
+            - img "Shield" [ref=e358]
+            - generic [ref=e361]:
+              - link "Main Title" [ref=e362] [cursor=pointer]:
+                - /url: /music/search/genre/Main Title/
+              - link "Dark Cinematic" [ref=e364] [cursor=pointer]:
+                - /url: /music/search/dark%20cinematic/
+            - button "Download" [ref=e367] [cursor=pointer]:
+              - generic:
+                - img "Download"
+        - generic [ref=e368]:
+          - generic [ref=e369]:
+            - button [ref=e370] [cursor=pointer]:
+              - button [ref=e373]:
+                - img "Play" [ref=e374]
+            - generic [ref=e377]:
+              - link "Dark Ambient Atmosphere" [ref=e378] [cursor=pointer]:
+                - /url: /music/ambient-dark-ambient-atmosphere-566701/
+              - link "everything_is_dead" [ref=e379] [cursor=pointer]:
+                - /url: /users/everything_is_dead-54651617/
+          - slider [ref=e382] [cursor=pointer]
+          - generic [ref=e387]:
+            - generic [ref=e388]: 2:40
+            - generic [ref=e389]:
+              - link "Ambient" [ref=e390] [cursor=pointer]:
+                - /url: /music/search/genre/Ambient/
+              - link "Dark Ambient" [ref=e392] [cursor=pointer]:
+                - /url: /music/search/dark%20ambient/
+            - button "Download" [ref=e395] [cursor=pointer]:
+              - generic:
+                - img "Download"
+        - generic [ref=e396]:
+          - generic [ref=e397]:
+            - button [ref=e398] [cursor=pointer]:
+              - button [ref=e401]:
+                - img "Play" [ref=e402]
+            - generic [ref=e405]:
+              - link "Dark Cinematic" [ref=e406] [cursor=pointer]:
+                - /url: /music/orchestral-dark-cinematic-566684/
+              - link "APALONBeats" [ref=e407] [cursor=pointer]:
+                - /url: /users/apalonbeats-54803662/
+          - slider [ref=e410] [cursor=pointer]
+          - generic [ref=e415]:
+            - generic [ref=e416]: 2:21
+            - img "Shield" [ref=e419]
+            - generic [ref=e422]:
+              - link "Orchestral" [ref=e423] [cursor=pointer]:
+                - /url: /music/search/genre/Orchestral/
+              - link "Dark Cinematic" [ref=e425] [cursor=pointer]:
+                - /url: /music/search/dark%20cinematic/
+            - button "Download" [ref=e428] [cursor=pointer]:
+              - generic:
+                - img "Download"
+        - generic [ref=e429]:
+          - generic [ref=e430]:
+            - button [ref=e431] [cursor=pointer]:
+              - button [ref=e434]:
+                - img "Play" [ref=e435]
+            - generic [ref=e438]:
+              - link "Dark Scary Ambience" [ref=e439] [cursor=pointer]:
+                - /url: /music/ambient-dark-scary-ambience-567213/
+              - link "SimpleSound" [ref=e440] [cursor=pointer]:
+                - /url: /users/simplesound-53070346/
+          - slider [ref=e443] [cursor=pointer]
+          - generic [ref=e445]:
+            - generic [ref=e446]: 4:50
+            - img "Shield" [ref=e449]
+            - generic [ref=e452]:
+              - link "Ambient" [ref=e453] [cursor=pointer]:
+                - /url: /music/search/genre/Ambient/
+              - link "Dark Ambient" [ref=e455] [cursor=pointer]:
+                - /url: /music/search/dark%20ambient/
+            - button "Download" [ref=e458] [cursor=pointer]:
+              - generic:
+                - img "Download"
+        - generic [ref=e459]:
+          - generic [ref=e460]:
+            - button [ref=e461] [cursor=pointer]:
+              - button [ref=e464]:
+                - img "Play" [ref=e465]
+            - generic [ref=e468]:
+              - link "Cinematic Ambient" [ref=e469] [cursor=pointer]:
+                - /url: /music/epic-classical-cinematic-ambient-507940/
+              - link "NastelBom" [ref=e470] [cursor=pointer]:
+                - /url: /users/nastelbom-48128234/
+          - slider [ref=e473] [cursor=pointer]
+          - generic [ref=e475]:
+            - generic [ref=e476]: 2:27
+            - img "Shield" [ref=e479]
+            - generic [ref=e482]:
+              - link "Epic Classical" [ref=e483] [cursor=pointer]:
+                - /url: /music/search/genre/Epic Classical/
+              - link "Cinematic Ambient Music" [ref=e485] [cursor=pointer]:
+                - /url: /music/search/cinematic%20ambient%20music/
+            - button "Download" [ref=e488] [cursor=pointer]:
+              - generic:
+                - img "Download"
+        - generic [ref=e489]:
+          - generic [ref=e490]:
+            - button [ref=e491] [cursor=pointer]:
+              - button [ref=e494]:
+                - img "Play" [ref=e495]
+            - generic [ref=e498]:
+              - link "Dark Ambient" [ref=e499] [cursor=pointer]:
+                - /url: /music/horror-scene-dark-ambient-493699/
+              - link "everything_is_dead" [ref=e500] [cursor=pointer]:
+                - /url: /users/everything_is_dead-54651617/
+          - slider [ref=e503] [cursor=pointer]
+          - generic [ref=e505]:
+            - generic [ref=e506]: 4:13
+            - generic [ref=e507]:
+              - link "Horror Scene" [ref=e508] [cursor=pointer]:
+                - /url: /music/search/genre/Horror Scene/
+              - generic [ref=e509]:
+                - link "Dark," [ref=e510] [cursor=pointer]:
+                  - /url: /music/search/dark/
+                - link "Ambient" [ref=e511] [cursor=pointer]:
+                  - /url: /music/search/ambient/
+            - button "Download" [ref=e514] [cursor=pointer]:
+              - generic:
+                - img "Download"
+        - generic [ref=e515]:
+          - generic [ref=e516]:
+            - button [ref=e517] [cursor=pointer]:
+              - button [ref=e520]:
+                - img "Play" [ref=e521]
+            - generic [ref=e524]:
+              - link "Dark Scary Ambient" [ref=e525] [cursor=pointer]:
+                - /url: /music/horror-scene-dark-scary-ambient-549981/
+              - link "everything_is_dead" [ref=e526] [cursor=pointer]:
+                - /url: /users/everything_is_dead-54651617/
+          - slider [ref=e529] [cursor=pointer]
+          - generic [ref=e531]:
+            - generic [ref=e532]: 4:34
+            - generic [ref=e533]:
+              - link "Horror Scene" [ref=e534] [cursor=pointer]:
+                - /url: /music/search/genre/Horror Scene/
+              - link "Dark Ambient Soundscape" [ref=e536] [cursor=pointer]:
+                - /url: /music/search/dark%20ambient%20soundscape/
+            - button "Download" [ref=e539] [cursor=pointer]:
+              - generic:
+                - img "Download"
+        - generic [ref=e540]:
+          - generic [ref=e541]:
+            - button [ref=e542] [cursor=pointer]:
+              - button [ref=e545]:
+                - img "Play" [ref=e546]
+            - generic [ref=e549]:
+              - link "Dark Background" [ref=e550] [cursor=pointer]:
+                - /url: /music/ambient-dark-background-569589/
+              - link "SolarFLEX" [ref=e551] [cursor=pointer]:
+                - /url: /users/solarflex-54712313/
+          - slider [ref=e554] [cursor=pointer]
+          - generic [ref=e556]:
+            - generic [ref=e557]: 2:51
+            - img "Shield" [ref=e560]
+            - generic [ref=e563]:
+              - link "Ambient" [ref=e564] [cursor=pointer]:
+                - /url: /music/search/genre/Ambient/
+              - link "Dark Background" [ref=e566] [cursor=pointer]:
+                - /url: /music/search/dark%20background/
+            - button "Download" [ref=e569] [cursor=pointer]:
+              - generic:
+                - img "Download"
+        - generic [ref=e570]:
+          - generic [ref=e571]:
+            - button [ref=e572] [cursor=pointer]:
+              - button [ref=e575]:
+                - img "Play" [ref=e576]
+            - generic [ref=e579]:
+              - link "Dark Atmospheric Ambient" [ref=e580] [cursor=pointer]:
+                - /url: /music/ambient-dark-atmospheric-ambient-535978/
+              - link "everything_is_dead" [ref=e581] [cursor=pointer]:
+                - /url: /users/everything_is_dead-54651617/
+          - slider [ref=e584] [cursor=pointer]
+          - generic [ref=e586]:
+            - generic [ref=e587]: 4:26
+            - img "Shield" [ref=e590]
+            - generic [ref=e593]:
+              - link "Ambient" [ref=e594] [cursor=pointer]:
+                - /url: /music/search/genre/Ambient/
+              - link "Dark Ambient Soundscape" [ref=e596] [cursor=pointer]:
+                - /url: /music/search/dark%20ambient%20soundscape/
+            - button "Download" [ref=e599] [cursor=pointer]:
+              - generic:
+                - img "Download"
+        - generic [ref=e600]:
+          - generic [ref=e601]:
+            - button [ref=e602] [cursor=pointer]:
+              - button [ref=e605]:
+                - img "Play" [ref=e606]
+            - generic [ref=e609]:
+              - link "Dark Ambient Soundscape" [ref=e610] [cursor=pointer]:
+                - /url: /music/mystery-dark-ambient-soundscape-505384/
+              - link "LemonMusicLab" [ref=e611] [cursor=pointer]:
+                - /url: /users/lemonmusiclab-54958493/
+          - slider [ref=e614] [cursor=pointer]
+          - generic [ref=e616]:
+            - generic [ref=e617]: 3:09
+            - generic [ref=e618]:
+              - link "Mystery" [ref=e619] [cursor=pointer]:
+                - /url: /music/search/genre/Mystery/
+              - link "Dark Ambient Soundscape" [ref=e621] [cursor=pointer]:
+                - /url: /music/search/dark%20ambient%20soundscape/
+            - button "Download" [ref=e624] [cursor=pointer]:
+              - generic:
+                - img "Download"
+        - generic [ref=e625]:
+          - generic [ref=e626]:
+            - button [ref=e627] [cursor=pointer]:
+              - button [ref=e630]:
+                - img "Play" [ref=e631]
+            - generic [ref=e634]:
+              - link "Dark Ambient Cinematic" [ref=e635] [cursor=pointer]:
+                - /url: /music/orchestral-dark-ambient-cinematic-566702/
+              - link "everything_is_dead" [ref=e636] [cursor=pointer]:
+                - /url: /users/everything_is_dead-54651617/
+          - slider [ref=e639] [cursor=pointer]
+          - generic [ref=e641]:
+            - generic [ref=e642]: 1:56
+            - img "Shield" [ref=e645]
+            - generic [ref=e648]:
+              - link "Orchestral" [ref=e649] [cursor=pointer]:
+                - /url: /music/search/genre/Orchestral/
+              - link "Dark Ambient" [ref=e651] [cursor=pointer]:
+                - /url: /music/search/dark%20ambient/
+            - button "Download" [ref=e654] [cursor=pointer]:
+              - generic:
+                - img "Download"
+        - generic [ref=e655]:
+          - generic [ref=e656]:
+            - button [ref=e657] [cursor=pointer]:
+              - button [ref=e660]:
+                - img "Play" [ref=e661]
+            - generic [ref=e664]:
+              - link "Dark" [ref=e665] [cursor=pointer]:
+                - /url: /music/ambient-dark-509787/
+              - link "leberch" [ref=e666] [cursor=pointer]:
+                - /url: /users/leberch-42823964/
+          - slider [ref=e669] [cursor=pointer]
+          - generic [ref=e671]:
+            - generic [ref=e672]: 3:42
+            - img "Shield" [ref=e675]
+            - generic [ref=e678]:
+              - link "Ambient" [ref=e679] [cursor=pointer]:
+                - /url: /music/search/genre/Ambient/
+              - generic [ref=e680]:
+                - link "Dark," [ref=e681] [cursor=pointer]:
+                  - /url: /music/search/dark/
+                - link "Dark Music" [ref=e682] [cursor=pointer]:
+                  - /url: /music/search/dark%20music/
+            - button "Download" [ref=e685] [cursor=pointer]:
+              - generic:
+                - img "Download"
+        - generic [ref=e686]:
+          - generic [ref=e687]:
+            - button [ref=e688] [cursor=pointer]:
+              - button [ref=e691]:
+                - img "Play" [ref=e692]
+            - generic [ref=e695]:
+              - link "Dark Soundscape" [ref=e696] [cursor=pointer]:
+                - /url: /music/ambient-dark-soundscape-535979/
+              - link "everything_is_dead" [ref=e697] [cursor=pointer]:
+                - /url: /users/everything_is_dead-54651617/
+          - slider [ref=e700] [cursor=pointer]
+          - generic [ref=e702]:
+            - generic [ref=e703]: 5:08
+            - generic [ref=e704]:
+              - link "Ambient" [ref=e705] [cursor=pointer]:
+                - /url: /music/search/genre/Ambient/
+              - link "Dark Ambient Soundscape" [ref=e707] [cursor=pointer]:
+                - /url: /music/search/dark%20ambient%20soundscape/
+            - button "Download" [ref=e710] [cursor=pointer]:
+              - generic:
+                - img "Download"
+      - generic [ref=e711]:
+        - link "Next page" [ref=e713] [cursor=pointer]:
+          - /url: /music/search/dark%20ambient%20cinematic/?pagi=2
+        - generic [ref=e714]: Page 1 of 1657
+    - contentinfo [ref=e715]:
+      - generic [ref=e716]:
+        - generic [ref=e717]:
+          - generic [ref=e722]: Over 6.2 million+ high quality stock images, videos and music shared by our talented community.
+          - generic [ref=e723]:
+            - link "Instagram" [ref=e724] [cursor=pointer]:
+              - /url: https://www.instagram.com/pixabay/
+              - img "Instagram" [ref=e725]
+            - link "Facebook" [ref=e728] [cursor=pointer]:
+              - /url: https://www.facebook.com/pixabay
+              - img "Facebook" [ref=e729]
+            - link "TikTok" [ref=e732] [cursor=pointer]:
+              - /url: https://www.tiktok.com/@pixabaymedia
+              - img "TikTokBrand" [ref=e733]
+            - link "Twitter" [ref=e744] [cursor=pointer]:
+              - /url: https://x.com/pixabay
+              - img "TwitterX" [ref=e745]
+            - link "LinkedIn" [ref=e751] [cursor=pointer]:
+              - /url: https://www.linkedin.com/company/pixabay/
+              - img "Linkedin" [ref=e752]
+            - link "YouTube" [ref=e755] [cursor=pointer]:
+              - /url: https://www.youtube.com/@pixabaymedia
+              - img "Youtube" [ref=e756]
+            - link "Pinterest" [ref=e759] [cursor=pointer]:
+              - /url: https://pinterest.com/pixabay/
+              - img "Pinterest" [ref=e760]
+        - generic [ref=e763]:
+          - generic [ref=e764]: Discover
+          - generic [ref=e765]:
+            - link "Editor's Choice" [ref=e766] [cursor=pointer]:
+              - /url: /editors_choice/
+            - link "Curated Collections" [ref=e768] [cursor=pointer]:
+              - /url: /collections/
+            - link "Pixabay Radio" [ref=e770] [cursor=pointer]:
+              - /url: /playlists/
+            - link "Popular Images" [ref=e772] [cursor=pointer]:
+              - /url: /images/search/
+            - link "Popular Videos" [ref=e774] [cursor=pointer]:
+              - /url: /videos/search/
+            - link "Popular Music" [ref=e776] [cursor=pointer]:
+              - /url: /music/search/
+            - link "Popular Searches" [ref=e778] [cursor=pointer]:
+              - /url: /popular-searches/
+        - generic [ref=e780]:
+          - generic [ref=e781]: Community
+          - generic [ref=e782]:
+            - link "Contests Live" [ref=e783] [cursor=pointer]:
+              - /url: /contests/
+              - generic [ref=e784]: Contests
+              - generic [ref=e785]: Live
+            - link "Creators" [ref=e788] [cursor=pointer]:
+              - /url: /users/
+            - link "Ambassadors New" [ref=e790] [cursor=pointer]:
+              - /url: /service/ambassador/
+              - generic [ref=e791]: Ambassadors
+              - generic [ref=e792]: New
+            - link "Forum" [ref=e794] [cursor=pointer]:
+              - /url: /forum/
+            - link "Blog" [ref=e796] [cursor=pointer]:
+              - /url: /blog/
+        - generic [ref=e798]:
+          - generic [ref=e799]: About
+          - generic [ref=e800]:
+            - link "About Us" [ref=e801] [cursor=pointer]:
+              - /url: /service/about/
+            - link "FAQ" [ref=e803] [cursor=pointer]:
+              - /url: /service/faq/
+            - link "License Summary" [ref=e805] [cursor=pointer]:
+              - /url: /service/license-summary/
+            - link "Terms of Service" [ref=e807] [cursor=pointer]:
+              - /url: /service/terms/
+            - link "Privacy Policy" [ref=e809] [cursor=pointer]:
+              - /url: /service/privacy/
+            - link "Cookies Policy" [ref=e811] [cursor=pointer]:
+              - /url: /service/cookies/
+            - link "Digital Services Act" [ref=e813] [cursor=pointer]:
+              - /url: /service/digital-services-act/
+            - link "Report Content" [ref=e815] [cursor=pointer]:
+              - /url: /content-reports/
+            - link "API" [ref=e817] [cursor=pointer]:
+              - /url: /service/about/api/
+  - generic:
+    - dialog "Privacy" [ref=e820]:
+      - generic [ref=e822]:
+        - generic [ref=e823]: By clicking “Accept All Cookies”, you agree to the storing of cookies on your device to enhance site navigation, analyze site usage, and assist in our marketing efforts.
+        - generic [ref=e827]:
+          - button "Cookies Settings, Opens the preference center dialog" [ref=e828] [cursor=pointer]: Cookies Settings
+          - button "Reject All" [ref=e829] [cursor=pointer]
+          - button "Accept All Cookies" [ref=e830] [cursor=pointer]
+      - button "Close" [ref=e832] [cursor=pointer]
+    - text: Cookies Settings

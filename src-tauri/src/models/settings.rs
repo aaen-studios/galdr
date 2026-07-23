@@ -7,7 +7,6 @@ use crate::models::watch_folder::WatchFolderConfig;
 pub struct AppSettings {
     pub output_dir: String,
     pub transition_style: String,
-    pub crt_enabled: bool,
     pub show_rune_in_titlebar: bool,
     pub discord_enabled: bool,
     /// Watch-folder configs. Each entry is monitored by the watcher daemon.
@@ -36,6 +35,15 @@ pub struct AppSettings {
     /// Automatically embed downloaded subtitles into the media file (mkv/mp4).
     #[serde(default)]
     pub auto_embed_subtitles: bool,
+    /// Active color theme name ("void", "ember", "frost", "rune", "bone").
+    #[serde(default)]
+    pub theme: String,
+    /// CRT scanline overlay toggle.
+    #[serde(default)]
+    pub crt_enabled: bool,
+    /// Whether the first-run onboarding tour has been dismissed.
+    #[serde(default)]
+    pub onboarding_seen: bool,
 }
 
 fn default_true() -> bool {
@@ -47,7 +55,6 @@ impl Default for AppSettings {
         Self {
             output_dir: String::new(),
             transition_style: "none".into(),
-            crt_enabled: false,
             show_rune_in_titlebar: true,
             discord_enabled: true,
             watch_folders: Vec::new(),
@@ -57,6 +64,9 @@ impl Default for AppSettings {
             download_dir: String::new(),
             auto_download_subtitles: false,
             auto_embed_subtitles: false,
+            theme: "void".into(),
+            crt_enabled: false,
+            onboarding_seen: false,
         }
     }
 }

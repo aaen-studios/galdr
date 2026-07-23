@@ -4,14 +4,14 @@ import { useGaldrStore } from "../store";
 import { useContextMenu } from "../components/ContextMenu";
 
 interface Props {
-  onNavigate: (page: "convert" | "compress" | "runes" | "forge" | "watch" | "subtitles" | "import") => void;
+  onNavigate: (page: "convert" | "compress" | "runes" | "forge" | "watch" | "subtitles" | "import" | "history" | "stats") => void;
 }
 
 interface ToolCard {
   rune: string;
   label: string;
   desc: string;
-  target: "convert" | "compress" | "runes" | "forge" | "watch" | "subtitles" | "import";
+  target: "convert" | "compress" | "runes" | "forge" | "watch" | "subtitles" | "import" | "history" | "stats";
 }
 
 const TOOLS: ToolCard[] = [
@@ -22,6 +22,8 @@ const TOOLS: ToolCard[] = [
   { rune: "ᚱ", label: "watch", desc: "auto-convert folders", target: "watch" },
   { rune: "ᚠ", label: "rune tags", desc: "saved presets", target: "runes" },
   { rune: "ᛣ", label: "import", desc: "download from url", target: "import" },
+  { rune: "ᚷ", label: "history", desc: "re-run past operations", target: "history" },
+  { rune: "ᛟ", label: "stats", desc: "usage dashboard", target: "stats" },
 ];
 
 export default function HomePage({ onNavigate }: Props) {

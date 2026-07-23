@@ -1,0 +1,645 @@
+- generic [active] [ref=f7e1]:
+  - generic [ref=f7e4]:
+    - banner [ref=f7e5]:
+      - generic [ref=f7e6]:
+        - link "Pixabay" [ref=f7e8] [cursor=pointer]:
+          - /url: /
+        - generic [ref=f7e15]:
+          - button "Search Pixabay" [ref=f7e16] [cursor=pointer]:
+            - img "Search" [ref=f7e17]
+          - searchbox "Search Pixabay" [ref=f7e21]: synthwave retro 80s
+          - button "Clear" [ref=f7e23] [cursor=pointer]:
+            - generic:
+              - img "Close"
+          - button "Music" [ref=f7e26] [cursor=pointer]
+        - generic [ref=f7e27]:
+          - button "Explore" [ref=f7e31] [cursor=pointer]
+          - button "Log in" [ref=f7e33] [cursor=pointer]
+          - button "Join" [ref=f7e34] [cursor=pointer]
+          - button "Upload" [ref=f7e36] [cursor=pointer]
+    - generic [ref=f7e38]:
+      - generic [ref=f7e39]:
+        - button "Music" [ref=f7e41] [cursor=pointer]
+        - button "Genre" [ref=f7e43] [cursor=pointer]
+        - button "Mood" [ref=f7e45] [cursor=pointer]
+        - button "Movement" [ref=f7e47] [cursor=pointer]
+        - button "Duration" [ref=f7e49] [cursor=pointer]
+        - button "Theme" [ref=f7e51] [cursor=pointer]
+        - button "Content type New" [ref=f7e53] [cursor=pointer]:
+          - generic:
+            - generic:
+              - generic: Content type
+              - generic: New
+      - generic [ref=f7e54]:
+        - button "Search settings" [ref=f7e56] [cursor=pointer]:
+          - generic:
+            - img "Settings"
+        - button "Most relevant" [ref=f7e58] [cursor=pointer]
+    - generic [ref=f7e59]:
+      - generic [ref=f7e60]:
+        - heading "11,298+ Synthwave Retro 80S no copyright music" [level=1] [ref=f7e61]
+        - paragraph [ref=f7e62]: Download synthwave retro 80s royalty-free audio tracks and instrumentals for your next project.
+        - generic [ref=f7e66]:
+          - link "synthwave" [ref=f7e68] [cursor=pointer]:
+            - /url: /music/search/synthwave/
+          - link "synthwave music" [ref=f7e71] [cursor=pointer]:
+            - /url: /music/search/synthwave%20music/
+          - link "synthwave retro" [ref=f7e74] [cursor=pointer]:
+            - /url: /music/search/synthwave%20retro/
+          - link "synthwave 80s" [ref=f7e77] [cursor=pointer]:
+            - /url: /music/search/synthwave%2080s/
+          - link "synthwave upbeat" [ref=f7e80] [cursor=pointer]:
+            - /url: /music/search/synthwave%20upbeat/
+          - link "synth pop" [ref=f7e83] [cursor=pointer]:
+            - /url: /music/search/synth%20pop/
+          - link "synthpop" [ref=f7e86] [cursor=pointer]:
+            - /url: /music/search/synthpop/
+          - link "neon" [ref=f7e89] [cursor=pointer]:
+            - /url: /music/search/neon/
+          - link "night" [ref=f7e92] [cursor=pointer]:
+            - /url: /music/search/night/
+          - link "dark" [ref=f7e95] [cursor=pointer]:
+            - /url: /music/search/dark/
+      - link "Auto-match your soundtrack to your footage with one-click Beat Sync. Try Canva Pro for free" [ref=f7e97] [cursor=pointer]:
+        - /url: https://www.canva.com/features/beat-sync/?utm_medium=partner&utm_source=pixabay&utm_campaign=canva_brand&utm_content=beat_sync_v1
+        - generic [ref=f7e98]:
+          - generic [ref=f7e100]: Auto-match your soundtrack to your footage with one-click Beat Sync.
+          - button "Try Canva Pro for free" [ref=f7e104]
+      - separator [ref=f7e105]
+      - generic [ref=f7e106]: Royalty-free music tracks
+      - generic [ref=f7e109]:
+        - generic [ref=f7e110]:
+          - generic [ref=f7e111]:
+            - button [ref=f7e112] [cursor=pointer]:
+              - button [ref=f7e115]:
+                - img "Play" [ref=f7e116]
+            - generic [ref=f7e119]:
+              - link "Synthwave Retro 80s" [ref=f7e120] [cursor=pointer]:
+                - /url: /music/synthwave-synthwave-retro-80s-569468/
+              - link "ARPMedia" [ref=f7e121] [cursor=pointer]:
+                - /url: /users/arpmedia-56546950/
+          - slider [ref=f7e124] [cursor=pointer]
+          - generic [ref=f7e126]:
+            - generic [ref=f7e127]: 2:43
+            - img "Shield" [ref=f7e129]
+            - generic [ref=f7e132]:
+              - link "Synthwave" [ref=f7e133] [cursor=pointer]:
+                - /url: /music/search/genre/Synthwave/
+              - generic [ref=f7e134]:
+                - link "Synthwave," [ref=f7e135] [cursor=pointer]:
+                  - /url: /music/search/synthwave/
+                - link "Retro 80s" [ref=f7e136] [cursor=pointer]:
+                  - /url: /music/search/retro%2080s/
+            - button "Download" [ref=f7e138] [cursor=pointer]:
+              - generic:
+                - img "Download"
+        - generic [ref=f7e139]:
+          - generic [ref=f7e140]:
+            - button [ref=f7e141] [cursor=pointer]:
+              - button [ref=f7e144]:
+                - img "Play" [ref=f7e145]
+            - generic [ref=f7e148]:
+              - link "Synthwave Retro 80s" [ref=f7e149] [cursor=pointer]:
+                - /url: /music/synthwave-synthwave-retro-80s-529570/
+              - link "MondaMusic" [ref=f7e150] [cursor=pointer]:
+                - /url: /users/mondamusic-54713575/
+          - slider [ref=f7e153] [cursor=pointer]
+          - generic [ref=f7e155]:
+            - generic [ref=f7e156]: 3:28
+            - img "Shield" [ref=f7e158]
+            - generic [ref=f7e161]:
+              - link "Synthwave" [ref=f7e162] [cursor=pointer]:
+                - /url: /music/search/genre/Synthwave/
+              - generic [ref=f7e163]:
+                - link "Synthwave," [ref=f7e164] [cursor=pointer]:
+                  - /url: /music/search/synthwave/
+                - link "Retro 80s" [ref=f7e165] [cursor=pointer]:
+                  - /url: /music/search/retro%2080s/
+            - button "Download" [ref=f7e167] [cursor=pointer]:
+              - generic:
+                - img "Download"
+        - generic [ref=f7e168]:
+          - generic [ref=f7e169]:
+            - button [ref=f7e170] [cursor=pointer]:
+              - button [ref=f7e173]:
+                - img "Play" [ref=f7e174]
+            - generic [ref=f7e177]:
+              - link "Synthwave Retro 80s" [ref=f7e178] [cursor=pointer]:
+                - /url: /music/synthwave-synthwave-retro-80s-519247/
+              - link "Monume" [ref=f7e179] [cursor=pointer]:
+                - /url: /users/monume-44679891/
+          - slider [ref=f7e182] [cursor=pointer]
+          - generic [ref=f7e184]:
+            - generic [ref=f7e185]: 1:58
+            - img "Shield" [ref=f7e187]
+            - generic [ref=f7e190]:
+              - link "Synthwave" [ref=f7e191] [cursor=pointer]:
+                - /url: /music/search/genre/Synthwave/
+              - generic [ref=f7e192]:
+                - link "Synthwave," [ref=f7e193] [cursor=pointer]:
+                  - /url: /music/search/synthwave/
+                - link "Retro 80s" [ref=f7e194] [cursor=pointer]:
+                  - /url: /music/search/retro%2080s/
+            - button "Download" [ref=f7e196] [cursor=pointer]:
+              - generic:
+                - img "Download"
+        - generic [ref=f7e197]:
+          - generic [ref=f7e198]:
+            - button [ref=f7e199] [cursor=pointer]:
+              - button [ref=f7e202]:
+                - img "Play" [ref=f7e203]
+            - generic [ref=f7e206]:
+              - link "Synthwave Retro 80s" [ref=f7e207] [cursor=pointer]:
+                - /url: /music/synthwave-synthwave-retro-80s-491697/
+              - link "MondaMusic" [ref=f7e208] [cursor=pointer]:
+                - /url: /users/mondamusic-54713575/
+          - slider [ref=f7e211] [cursor=pointer]
+          - generic [ref=f7e213]:
+            - generic [ref=f7e214]: 2:30
+            - img "Shield" [ref=f7e216]
+            - generic [ref=f7e219]:
+              - link "Synthwave" [ref=f7e220] [cursor=pointer]:
+                - /url: /music/search/genre/Synthwave/
+              - generic [ref=f7e221]:
+                - link "Synthwave," [ref=f7e222] [cursor=pointer]:
+                  - /url: /music/search/synthwave/
+                - link "Retro 80s" [ref=f7e223] [cursor=pointer]:
+                  - /url: /music/search/retro%2080s/
+            - button "Download" [ref=f7e225] [cursor=pointer]:
+              - generic:
+                - img "Download"
+        - generic [ref=f7e226]:
+          - generic [ref=f7e227]:
+            - button [ref=f7e228] [cursor=pointer]:
+              - button [ref=f7e231]:
+                - img "Play" [ref=f7e232]
+            - generic [ref=f7e235]:
+              - link "Synthwave Retro 80s" [ref=f7e236] [cursor=pointer]:
+                - /url: /music/synthwave-synthwave-retro-80s-498055/
+              - link "Monume" [ref=f7e237] [cursor=pointer]:
+                - /url: /users/monume-44679891/
+          - slider [ref=f7e240] [cursor=pointer]
+          - generic [ref=f7e242]:
+            - generic [ref=f7e243]: 2:24
+            - img "Shield" [ref=f7e245]
+            - generic [ref=f7e248]:
+              - link "Synthwave" [ref=f7e249] [cursor=pointer]:
+                - /url: /music/search/genre/Synthwave/
+              - generic [ref=f7e250]:
+                - link "Synthwave," [ref=f7e251] [cursor=pointer]:
+                  - /url: /music/search/synthwave/
+                - link "Retro 80s" [ref=f7e252] [cursor=pointer]:
+                  - /url: /music/search/retro%2080s/
+            - button "Download" [ref=f7e254] [cursor=pointer]:
+              - generic:
+                - img "Download"
+        - generic [ref=f7e255]:
+          - generic [ref=f7e256]:
+            - button [ref=f7e257] [cursor=pointer]:
+              - button [ref=f7e260]:
+                - img "Play" [ref=f7e261]
+            - generic [ref=f7e264]:
+              - link "Synthwave Retro 80s" [ref=f7e265] [cursor=pointer]:
+                - /url: /music/synthwave-synthwave-retro-80s-442850/
+              - link "DELOSound" [ref=f7e266] [cursor=pointer]:
+                - /url: /users/delosound-46524562/
+          - slider [ref=f7e269] [cursor=pointer]
+          - generic [ref=f7e271]:
+            - generic [ref=f7e272]: 1:39
+            - img "Shield" [ref=f7e274]
+            - generic [ref=f7e277]:
+              - link "Synthwave" [ref=f7e278] [cursor=pointer]:
+                - /url: /music/search/genre/Synthwave/
+              - link "Synthwave Retro 80s" [ref=f7e280] [cursor=pointer]:
+                - /url: /music/search/synthwave%20retro%2080s/
+            - button "Download" [ref=f7e282] [cursor=pointer]:
+              - generic:
+                - img "Download"
+        - generic [ref=f7e283]:
+          - generic [ref=f7e284]:
+            - button [ref=f7e285] [cursor=pointer]:
+              - button [ref=f7e288]:
+                - img "Play" [ref=f7e289]
+            - generic [ref=f7e292]:
+              - link "Synthwave Retro 80s" [ref=f7e293] [cursor=pointer]:
+                - /url: /music/synthwave-synthwave-retro-80s-321106/
+              - link "DELOSound" [ref=f7e294] [cursor=pointer]:
+                - /url: /users/delosound-46524562/
+          - slider [ref=f7e297] [cursor=pointer]
+          - generic [ref=f7e299]:
+            - generic [ref=f7e300]: 2:17
+            - img "Shield" [ref=f7e302]
+            - generic [ref=f7e305]:
+              - link "Synthwave" [ref=f7e306] [cursor=pointer]:
+                - /url: /music/search/genre/Synthwave/
+              - link "Synthwave Retro 80s" [ref=f7e308] [cursor=pointer]:
+                - /url: /music/search/synthwave%20retro%2080s/
+            - button "Download" [ref=f7e310] [cursor=pointer]:
+              - generic:
+                - img "Download"
+        - generic [ref=f7e311]:
+          - generic [ref=f7e312]:
+            - button [ref=f7e313] [cursor=pointer]:
+              - button [ref=f7e316]:
+                - img "Play" [ref=f7e317]
+            - generic [ref=f7e320]:
+              - link "Synthwave" [ref=f7e321] [cursor=pointer]:
+                - /url: /music/synthwave-synthwave-569472/
+              - link "ARPMedia" [ref=f7e322] [cursor=pointer]:
+                - /url: /users/arpmedia-56546950/
+          - slider [ref=f7e325] [cursor=pointer]
+          - generic [ref=f7e327]:
+            - generic [ref=f7e328]: 2:50
+            - img "Shield" [ref=f7e330]
+            - generic [ref=f7e333]:
+              - link "Synthwave" [ref=f7e334] [cursor=pointer]:
+                - /url: /music/search/genre/Synthwave/
+              - link "Synthwave" [ref=f7e336] [cursor=pointer]:
+                - /url: /music/search/synthwave/
+            - button "Download" [ref=f7e338] [cursor=pointer]:
+              - generic:
+                - img "Download"
+        - generic [ref=f7e339]:
+          - generic [ref=f7e340]:
+            - button [ref=f7e341] [cursor=pointer]:
+              - button [ref=f7e344]:
+                - img "Play" [ref=f7e345]
+            - generic [ref=f7e348]:
+              - link "Dark Synthwave Retro 80s" [ref=f7e349] [cursor=pointer]:
+                - /url: /music/dance-dark-synthwave-retro-80s-453292/
+              - link "DELOSound" [ref=f7e350] [cursor=pointer]:
+                - /url: /users/delosound-46524562/
+          - slider [ref=f7e353] [cursor=pointer]
+          - generic [ref=f7e355]:
+            - generic [ref=f7e356]: 3:24
+            - img "Shield" [ref=f7e358]
+            - generic [ref=f7e361]:
+              - link "Dance" [ref=f7e362] [cursor=pointer]:
+                - /url: /music/search/genre/Dance/
+              - link "Synthwave Retro 80s" [ref=f7e364] [cursor=pointer]:
+                - /url: /music/search/synthwave%20retro%2080s/
+            - button "Download" [ref=f7e366] [cursor=pointer]:
+              - generic:
+                - img "Download"
+        - generic [ref=f7e367]:
+          - generic [ref=f7e368]:
+            - button [ref=f7e369] [cursor=pointer]:
+              - button [ref=f7e372]:
+                - img "Play" [ref=f7e373]
+            - generic [ref=f7e376]:
+              - link "Synthwave Retro Pop 80s" [ref=f7e377] [cursor=pointer]:
+                - /url: /music/video-games-synthwave-retro-pop-80s-491693/
+              - link "MondaMusic" [ref=f7e378] [cursor=pointer]:
+                - /url: /users/mondamusic-54713575/
+          - slider [ref=f7e381] [cursor=pointer]
+          - generic [ref=f7e383]:
+            - generic [ref=f7e384]: 2:16
+            - img "Shield" [ref=f7e386]
+            - generic [ref=f7e389]:
+              - link "Video Games" [ref=f7e390] [cursor=pointer]:
+                - /url: /music/search/genre/Video Games/
+              - generic [ref=f7e391]:
+                - link "Synthwave," [ref=f7e392] [cursor=pointer]:
+                  - /url: /music/search/synthwave/
+                - link "Retro 80s" [ref=f7e393] [cursor=pointer]:
+                  - /url: /music/search/retro%2080s/
+            - button "Download" [ref=f7e395] [cursor=pointer]:
+              - generic:
+                - img "Download"
+        - generic [ref=f7e396]:
+          - generic [ref=f7e397]:
+            - button [ref=f7e398] [cursor=pointer]:
+              - button [ref=f7e401]:
+                - img "Play" [ref=f7e402]
+            - generic [ref=f7e405]:
+              - link "Synthwave" [ref=f7e406] [cursor=pointer]:
+                - /url: /music/synthwave-synthwave-526520/
+              - link "prettyjohn1" [ref=f7e407] [cursor=pointer]:
+                - /url: /users/prettyjohn1-54616349/
+          - slider [ref=f7e410] [cursor=pointer]
+          - generic [ref=f7e412]:
+            - generic [ref=f7e413]: 1:56
+            - generic [ref=f7e414]:
+              - link "Synthwave" [ref=f7e415] [cursor=pointer]:
+                - /url: /music/search/genre/Synthwave/
+              - link "Synthwave" [ref=f7e417] [cursor=pointer]:
+                - /url: /music/search/synthwave/
+            - button "Download" [ref=f7e419] [cursor=pointer]:
+              - generic:
+                - img "Download"
+        - generic [ref=f7e420]:
+          - generic [ref=f7e421]:
+            - button [ref=f7e422] [cursor=pointer]:
+              - button [ref=f7e425]:
+                - img "Play" [ref=f7e426]
+            - generic [ref=f7e429]:
+              - link "Synthwave Retro 80s Music" [ref=f7e430] [cursor=pointer]:
+                - /url: /music/video-games-synthwave-retro-80s-music-349182/
+              - link "Tunetank" [ref=f7e431] [cursor=pointer]:
+                - /url: /users/tunetank-50201703/
+          - slider [ref=f7e434] [cursor=pointer]
+          - generic [ref=f7e436]:
+            - generic [ref=f7e437]: 2:32
+            - img "Shield" [ref=f7e439]
+            - generic [ref=f7e442]:
+              - link "Video Games" [ref=f7e443] [cursor=pointer]:
+                - /url: /music/search/genre/Video Games/
+              - link "Synthwave" [ref=f7e445] [cursor=pointer]:
+                - /url: /music/search/synthwave/
+            - button "Download" [ref=f7e447] [cursor=pointer]:
+              - generic:
+                - img "Download"
+        - generic [ref=f7e448]:
+          - generic [ref=f7e449]:
+            - button [ref=f7e450] [cursor=pointer]:
+              - button [ref=f7e453]:
+                - img "Play" [ref=f7e454]
+            - generic [ref=f7e457]:
+              - link "Synthwave 80s Retro Background Music" [ref=f7e458] [cursor=pointer]:
+                - /url: /music/synthwave-synthwave-80s-retro-background-music-400483/
+              - link "lNPLUSMUSIC" [ref=f7e459] [cursor=pointer]:
+                - /url: /users/lnplusmusic-47631836/
+          - slider [ref=f7e462] [cursor=pointer]
+          - generic [ref=f7e464]:
+            - generic [ref=f7e465]: 2:10
+            - img "Shield" [ref=f7e467]
+            - generic [ref=f7e470]:
+              - link "Synthwave" [ref=f7e471] [cursor=pointer]:
+                - /url: /music/search/genre/Synthwave/
+              - generic [ref=f7e472]:
+                - link "Synthwave," [ref=f7e473] [cursor=pointer]:
+                  - /url: /music/search/synthwave/
+                - link "80s," [ref=f7e474] [cursor=pointer]:
+                  - /url: /music/search/80s/
+                - link "Retro" [ref=f7e475] [cursor=pointer]:
+                  - /url: /music/search/retro/
+            - button "Download" [ref=f7e477] [cursor=pointer]:
+              - generic:
+                - img "Download"
+        - generic [ref=f7e478]:
+          - generic [ref=f7e479]:
+            - button [ref=f7e480] [cursor=pointer]:
+              - button [ref=f7e483]:
+                - img "Play" [ref=f7e484]
+            - generic [ref=f7e487]:
+              - link "Neon Synthwave Vibe" [ref=f7e488] [cursor=pointer]:
+                - /url: /music/synthwave-neon-synthwave-vibe-554114/
+              - link "echoes_of_lumen" [ref=f7e489] [cursor=pointer]:
+                - /url: /users/echoes_of_lumen-56361169/
+          - slider [ref=f7e492] [cursor=pointer]
+          - generic [ref=f7e494]:
+            - generic [ref=f7e495]: 2:07
+            - generic [ref=f7e496]:
+              - img "Shield" [ref=f7e497]
+              - img "AI" [ref=f7e500]
+            - generic [ref=f7e503]:
+              - link "Synthwave" [ref=f7e504] [cursor=pointer]:
+                - /url: /music/search/genre/Synthwave/
+              - link "Synthwave" [ref=f7e506] [cursor=pointer]:
+                - /url: /music/search/synthwave/
+            - button "Download" [ref=f7e508] [cursor=pointer]:
+              - generic:
+                - img "Download"
+        - generic [ref=f7e509]:
+          - generic [ref=f7e510]:
+            - button [ref=f7e511] [cursor=pointer]:
+              - button [ref=f7e514]:
+                - img "Play" [ref=f7e515]
+            - generic [ref=f7e518]:
+              - link "Synthwave 80s Retro Background Music" [ref=f7e519] [cursor=pointer]:
+                - /url: /music/synth-pop-synthwave-80s-retro-background-music-348239/
+              - link "Tunetank" [ref=f7e520] [cursor=pointer]:
+                - /url: /users/tunetank-50201703/
+          - slider [ref=f7e523] [cursor=pointer]
+          - generic [ref=f7e525]:
+            - generic [ref=f7e526]: 2:32
+            - img "Shield" [ref=f7e528]
+            - generic [ref=f7e531]:
+              - link "Synth Pop" [ref=f7e532] [cursor=pointer]:
+                - /url: /music/search/genre/Synth Pop/
+              - link "Synthwave" [ref=f7e534] [cursor=pointer]:
+                - /url: /music/search/synthwave/
+            - button "Download" [ref=f7e536] [cursor=pointer]:
+              - generic:
+                - img "Download"
+        - generic [ref=f7e537]:
+          - generic [ref=f7e538]:
+            - button [ref=f7e539] [cursor=pointer]:
+              - button [ref=f7e542]:
+                - img "Play" [ref=f7e543]
+            - generic [ref=f7e546]:
+              - link "Synthwave 80s Retro Background Music" [ref=f7e547] [cursor=pointer]:
+                - /url: /music/synthwave-synthwave-80s-retro-background-music-347701/
+              - link "Tunetank" [ref=f7e548] [cursor=pointer]:
+                - /url: /users/tunetank-50201703/
+          - slider [ref=f7e551] [cursor=pointer]
+          - generic [ref=f7e553]:
+            - generic [ref=f7e554]: 2:32
+            - img "Shield" [ref=f7e556]
+            - generic [ref=f7e559]:
+              - link "Synthwave" [ref=f7e560] [cursor=pointer]:
+                - /url: /music/search/genre/Synthwave/
+              - link "Synthwave" [ref=f7e562] [cursor=pointer]:
+                - /url: /music/search/synthwave/
+            - button "Download" [ref=f7e564] [cursor=pointer]:
+              - generic:
+                - img "Download"
+        - generic [ref=f7e565]:
+          - generic [ref=f7e566]:
+            - button [ref=f7e567] [cursor=pointer]:
+              - button [ref=f7e570]:
+                - img "Play" [ref=f7e571]
+            - generic [ref=f7e574]:
+              - link "Synthwave 80s Retro Background Music" [ref=f7e575] [cursor=pointer]:
+                - /url: /music/synthwave-synthwave-80s-retro-background-music-329439/
+              - link "HitsLab" [ref=f7e576] [cursor=pointer]:
+                - /url: /users/hitslab-47305729/
+          - slider [ref=f7e579] [cursor=pointer]
+          - generic [ref=f7e581]:
+            - generic [ref=f7e582]: 2:13
+            - img "Shield" [ref=f7e584]
+            - generic [ref=f7e587]:
+              - link "Synthwave" [ref=f7e588] [cursor=pointer]:
+                - /url: /music/search/genre/Synthwave/
+              - generic [ref=f7e589]:
+                - link "Synthwave," [ref=f7e590] [cursor=pointer]:
+                  - /url: /music/search/synthwave/
+                - link "80s," [ref=f7e591] [cursor=pointer]:
+                  - /url: /music/search/80s/
+                - link "Retro" [ref=f7e592] [cursor=pointer]:
+                  - /url: /music/search/retro/
+            - button "Download" [ref=f7e594] [cursor=pointer]:
+              - generic:
+                - img "Download"
+        - generic [ref=f7e595]:
+          - generic [ref=f7e596]:
+            - button [ref=f7e597] [cursor=pointer]:
+              - button [ref=f7e600]:
+                - img "Play" [ref=f7e601]
+            - generic [ref=f7e604]:
+              - link "Synthwave Background" [ref=f7e605] [cursor=pointer]:
+                - /url: /music/synthwave-synthwave-background-560002/
+              - link "SOULFULJAMTRACKS" [ref=f7e606] [cursor=pointer]:
+                - /url: /users/soulfuljamtracks-46363515/
+          - slider [ref=f7e609] [cursor=pointer]
+          - generic [ref=f7e611]:
+            - generic [ref=f7e612]: 1:53
+            - img "AI" [ref=f7e614]
+            - generic [ref=f7e617]:
+              - link "Synthwave" [ref=f7e618] [cursor=pointer]:
+                - /url: /music/search/genre/Synthwave/
+              - link "Synthwave" [ref=f7e620] [cursor=pointer]:
+                - /url: /music/search/synthwave/
+            - button "Download" [ref=f7e622] [cursor=pointer]:
+              - generic:
+                - img "Download"
+        - generic [ref=f7e623]:
+          - generic [ref=f7e624]:
+            - button [ref=f7e625] [cursor=pointer]:
+              - button [ref=f7e628]:
+                - img "Play" [ref=f7e629]
+            - generic [ref=f7e632]:
+              - link "80s Retro Synthwave" [ref=f7e633] [cursor=pointer]:
+                - /url: /music/synthwave-80s-retro-synthwave-186631/
+              - link "Playsound" [ref=f7e634] [cursor=pointer]:
+                - /url: /users/playsound-24686998/
+          - slider [ref=f7e637] [cursor=pointer]
+          - generic [ref=f7e639]:
+            - generic [ref=f7e640]: 4:28
+            - generic [ref=f7e641]:
+              - link "Synthwave" [ref=f7e642] [cursor=pointer]:
+                - /url: /music/search/genre/Synthwave/
+              - generic [ref=f7e643]:
+                - link "Background," [ref=f7e644] [cursor=pointer]:
+                  - /url: /music/search/background/
+                - link "Car," [ref=f7e645] [cursor=pointer]:
+                  - /url: /music/search/car/
+                - link "Electro" [ref=f7e646] [cursor=pointer]:
+                  - /url: /music/search/electro/
+            - button "Download" [ref=f7e648] [cursor=pointer]:
+              - generic:
+                - img "Download"
+        - generic [ref=f7e649]:
+          - generic [ref=f7e650]:
+            - button [ref=f7e651] [cursor=pointer]:
+              - button [ref=f7e654]:
+                - img "Play" [ref=f7e655]
+            - generic [ref=f7e658]:
+              - link "Neon Synthwave Drive" [ref=f7e659] [cursor=pointer]:
+                - /url: /music/synthwave-neon-synthwave-drive-537447/
+              - link "alex-morgan" [ref=f7e660] [cursor=pointer]:
+                - /url: /users/alex-morgan-54692529/
+          - slider [ref=f7e663] [cursor=pointer]
+          - generic [ref=f7e665]:
+            - generic [ref=f7e666]: 2:47
+            - generic [ref=f7e667]:
+              - img "Shield" [ref=f7e668]
+              - img "AI" [ref=f7e671]
+            - generic [ref=f7e674]:
+              - link "Synthwave" [ref=f7e675] [cursor=pointer]:
+                - /url: /music/search/genre/Synthwave/
+              - generic [ref=f7e676]:
+                - link "Synthwave," [ref=f7e677] [cursor=pointer]:
+                  - /url: /music/search/synthwave/
+                - link "Neon," [ref=f7e678] [cursor=pointer]:
+                  - /url: /music/search/neon/
+                - link "Retro" [ref=f7e679] [cursor=pointer]:
+                  - /url: /music/search/retro/
+            - button "Download" [ref=f7e681] [cursor=pointer]:
+              - generic:
+                - img "Download"
+      - generic [ref=f7e682]:
+        - link "Next page" [ref=f7e684] [cursor=pointer]:
+          - /url: /music/search/synthwave%20retro%2080s/?pagi=2
+        - generic [ref=f7e685]: Page 1 of 565
+    - contentinfo [ref=f7e686]:
+      - generic [ref=f7e687]:
+        - generic [ref=f7e688]:
+          - generic [ref=f7e693]: Over 6.2 million+ high quality stock images, videos and music shared by our talented community.
+          - generic [ref=f7e694]:
+            - link "Instagram" [ref=f7e695] [cursor=pointer]:
+              - /url: https://www.instagram.com/pixabay/
+              - img "Instagram" [ref=f7e696]
+            - link "Facebook" [ref=f7e699] [cursor=pointer]:
+              - /url: https://www.facebook.com/pixabay
+              - img "Facebook" [ref=f7e700]
+            - link "TikTok" [ref=f7e703] [cursor=pointer]:
+              - /url: https://www.tiktok.com/@pixabaymedia
+              - img "TikTokBrand" [ref=f7e704]
+            - link "Twitter" [ref=f7e715] [cursor=pointer]:
+              - /url: https://x.com/pixabay
+              - img "TwitterX" [ref=f7e716]
+            - link "LinkedIn" [ref=f7e722] [cursor=pointer]:
+              - /url: https://www.linkedin.com/company/pixabay/
+              - img "Linkedin" [ref=f7e723]
+            - link "YouTube" [ref=f7e726] [cursor=pointer]:
+              - /url: https://www.youtube.com/@pixabaymedia
+              - img "Youtube" [ref=f7e727]
+            - link "Pinterest" [ref=f7e730] [cursor=pointer]:
+              - /url: https://pinterest.com/pixabay/
+              - img "Pinterest" [ref=f7e731]
+        - generic [ref=f7e734]:
+          - generic [ref=f7e735]: Discover
+          - generic [ref=f7e736]:
+            - link "Editor's Choice" [ref=f7e737] [cursor=pointer]:
+              - /url: /editors_choice/
+            - link "Curated Collections" [ref=f7e739] [cursor=pointer]:
+              - /url: /collections/
+            - link "Pixabay Radio" [ref=f7e741] [cursor=pointer]:
+              - /url: /playlists/
+            - link "Popular Images" [ref=f7e743] [cursor=pointer]:
+              - /url: /images/search/
+            - link "Popular Videos" [ref=f7e745] [cursor=pointer]:
+              - /url: /videos/search/
+            - link "Popular Music" [ref=f7e747] [cursor=pointer]:
+              - /url: /music/search/
+            - link "Popular Searches" [ref=f7e749] [cursor=pointer]:
+              - /url: /popular-searches/
+        - generic [ref=f7e751]:
+          - generic [ref=f7e752]: Community
+          - generic [ref=f7e753]:
+            - link "Contests Live" [ref=f7e754] [cursor=pointer]:
+              - /url: /contests/
+              - generic [ref=f7e755]: Contests
+              - generic [ref=f7e756]: Live
+            - link "Creators" [ref=f7e759] [cursor=pointer]:
+              - /url: /users/
+            - link "Ambassadors New" [ref=f7e761] [cursor=pointer]:
+              - /url: /service/ambassador/
+              - generic [ref=f7e762]: Ambassadors
+              - generic [ref=f7e763]: New
+            - link "Forum" [ref=f7e765] [cursor=pointer]:
+              - /url: /forum/
+            - link "Blog" [ref=f7e767] [cursor=pointer]:
+              - /url: /blog/
+        - generic [ref=f7e769]:
+          - generic [ref=f7e770]: About
+          - generic [ref=f7e771]:
+            - link "About Us" [ref=f7e772] [cursor=pointer]:
+              - /url: /service/about/
+            - link "FAQ" [ref=f7e774] [cursor=pointer]:
+              - /url: /service/faq/
+            - link "License Summary" [ref=f7e776] [cursor=pointer]:
+              - /url: /service/license-summary/
+            - link "Terms of Service" [ref=f7e778] [cursor=pointer]:
+              - /url: /service/terms/
+            - link "Privacy Policy" [ref=f7e780] [cursor=pointer]:
+              - /url: /service/privacy/
+            - link "Cookies Policy" [ref=f7e782] [cursor=pointer]:
+              - /url: /service/cookies/
+            - link "Digital Services Act" [ref=f7e784] [cursor=pointer]:
+              - /url: /service/digital-services-act/
+            - link "Report Content" [ref=f7e786] [cursor=pointer]:
+              - /url: /content-reports/
+            - link "API" [ref=f7e788] [cursor=pointer]:
+              - /url: /service/about/api/
+  - generic:
+    - dialog "Privacy" [ref=f7e791]:
+      - generic [ref=f7e793]:
+        - generic [ref=f7e794]: By clicking “Accept All Cookies”, you agree to the storing of cookies on your device to enhance site navigation, analyze site usage, and assist in our marketing efforts.
+        - generic [ref=f7e798]:
+          - button "Cookies Settings, Opens the preference center dialog" [ref=f7e799] [cursor=pointer]: Cookies Settings
+          - button "Reject All" [ref=f7e800] [cursor=pointer]
+          - button "Accept All Cookies" [ref=f7e801] [cursor=pointer]
+      - button "Close" [ref=f7e803] [cursor=pointer]
+    - text: Cookies Settings

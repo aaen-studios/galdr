@@ -498,24 +498,18 @@ pub async fn start_download(
     let args = build_download_args(&options, &output_template);
 
     // Register the job in the queue immediately so it shows up in the UI
-    // before the process even spawns.
+    // before the process even spawns. Register with our own job_id so the
+    // queue entry, pid registration, and progress/complete/fail calls all
+    // share one id (and cancel-from-queue kills the right pid).
     let label = format!("Downloading {}", options.url);
-    queue::register(
+    queue::register_with_id(
         &app_handle,
+        &job_id,
         JobType::Download,
         label,
         options.url.clone(),
         None,
     );
-    // The queue::register returns the id it generated; we want our own job_id
-    // for pid tracking, so we unregister the auto one and re-register with ours.
-    // Actually, queue::register generates its own UUID. We'll use a separate
-    // tracking approach: store our job_id in the result_data.
-    // Simpler: just use the queue's id. But we need our job_id for pid
-    // registration. Let's reconcile by registering with our own id via a
-    // direct queue call. Since queue::register auto-generates, we'll instead
-    // register the pid under our job_id and accept the queue has a different id.
-    // To keep things consistent, we'll emit our own events keyed by job_id.
 
     let app_for_thread = app_handle.clone();
     let job_id_for_thread = job_id.clone();

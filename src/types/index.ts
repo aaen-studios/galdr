@@ -431,6 +431,31 @@ export interface QueueUpdatePayload {
   jobs: QueueJob[];
 }
 
+// ── Operation history ──
+
+/** A single entry in the persistent operation history. Mirrors Rust `HistoryEntry`. */
+export interface HistoryEntry {
+  id: string;
+  op: string;
+  label: string;
+  inputPath: string;
+  outputPath?: string;
+  params?: Record<string, unknown>;
+  status: "completed" | "failed";
+  createdAt: string;
+  outputSize?: number;
+}
+
+/** Aggregate usage stats derived from history. Mirrors Rust `UsageStats`. */
+export interface UsageStats {
+  totalOps: number;
+  completed: number;
+  failed: number;
+  totalOutputBytes: number;
+  byOp: Record<string, number>;
+  recent: [string, number][];
+}
+
 // ── URL / Download (yt-dlp import) ──
 
 /** Metadata fetched from a URL via `yt-dlp --dump-json`. */

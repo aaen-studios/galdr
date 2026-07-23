@@ -14,24 +14,31 @@ import ForgePage from "./pages/ForgePage";
 import WatchFoldersPage from "./pages/WatchFoldersPage";
 import SubtitlesPage from "./pages/SubtitlesPage";
 import ImportPage from "./pages/ImportPage";
+import HistoryPage from "./pages/HistoryPage";
+import StatsPage from "./pages/StatsPage";
 import ScrambleText from "./components/ScrambleText";
 import UpdateBanner from "./components/UpdateBanner";
 import HelpOverlay from "./components/HelpOverlay";
 import CommandPalette from "./components/CommandPalette";
 import QueueDropdown from "./components/QueueDropdown";
+import NotificationCenter from "./components/NotificationCenter";
+import DropZone from "./components/DropZone";
+import Toaster from "./components/Toaster";
+import OnboardingTour from "./components/OnboardingTour";
 import PageTransition from "./transitions";
 import { useGaldrStore } from "./store";
 import { useForgeStore } from "./store/forgeStore";
 import { bindQueueEvents, useQueueStore, selectOverallProgress } from "./store/queueStore";
 import { bindDownloadEvents } from "./store/downloadStore";
+import { useToastStore } from "./store/toastStore";
+import { useHistoryStore } from "./store/historyStore";
 import { ContextMenuProvider, useContextMenu } from "./components/ContextMenu";
-import type { GaldrProjectFile } from "./types";
+import type { GaldrProjectFile, JobStatus } from "./types";
 import "./App.css";
 
 interface AppSettings {
   outputDir: string;
   transitionStyle: string;
-  crtEnabled: boolean;
   showRuneInTitlebar: boolean;
   discordEnabled: boolean;
   preferredVideoEncoder: string | null;
@@ -39,15 +46,18 @@ interface AppSettings {
   downloadDir: string;
   autoDownloadSubtitles: boolean;
   autoEmbedSubtitles: boolean;
+  theme: string;
+  crtEnabled: boolean;
+  onboardingSeen: boolean;
 }
 
 const PERSIST_FIELDS: (keyof AppSettings)[] = [
-  "outputDir", "transitionStyle", "crtEnabled", "showRuneInTitlebar", "discordEnabled",
+  "outputDir", "transitionStyle", "showRuneInTitlebar", "discordEnabled",
   "preferredVideoEncoder", "autoFallbackHw", "downloadDir", "autoDownloadSubtitles",
-  "autoEmbedSubtitles",
+  "autoEmbedSubtitles", "theme", "crtEnabled", "onboardingSeen",
 ];
 
-type Page = "home" | "convert" | "compress" | "settings" | "runes" | "forge" | "watch" | "subtitles" | "import";
+type Page = "home" | "convert" | "compress" | "settings" | "runes" | "forge" | "watch" | "subtitles" | "import" | "history" | "stats";
 
 function AppShell() {
   const [page, setPage] = useState<Page>("home");
@@ -61,6 +71,10 @@ function AppShell() {
   const taskbarFlash = useGaldrStore((s) => s.taskbarFlash);
   const setTaskbarFlash = useGaldrStore((s) => s.setTaskbarFlash);
   const showRuneInTitlebar = useGaldrStore((s) => s.showRuneInTitlebar);
+  const theme = useGaldrStore((s) => s.theme);
+  const crtEnabled = useGaldrStore((s) => s.crtEnabled);
+  const onboardingSeen = useGaldrStore((s) => s.onboardingSeen);
+  const setOnboardingSeen = useGaldrStore((s) => s.setOnboardingSeen);
   const queueJobs = useQueueStore((s) => s.jobs);
   const queueProgress = selectOverallProgress(queueJobs);
   const win = getCurrentWindow();
@@ -122,7 +136,6 @@ function AppShell() {
     invoke<AppSettings>("load_settings").then((s) => {
       store.setOutputDir(s.outputDir);
       store.setTransitionStyle(s.transitionStyle as any);
-      store.setCrtEnabled(s.crtEnabled);
       store.setShowRuneInTitlebar(s.showRuneInTitlebar);
       store.setDiscordEnabled(s.discordEnabled);
       if (s.preferredVideoEncoder != null) {
@@ -132,8 +145,25 @@ function AppShell() {
       store.setDownloadDir(s.downloadDir);
       store.setAutoDownloadSubtitles(s.autoDownloadSubtitles);
       store.setAutoEmbedSubtitles(s.autoEmbedSubtitles);
-    }).catch(() => {});
+      if (s.theme) store.setTheme(s.theme);
+      store.setCrtEnabled(s.crtEnabled);
+      store.setOnboardingSeen(s.onboardingSeen);
+    }).catch(() => {
+      useToastStore.getState().push({
+        kind: "warn",
+        title: "couldn't load saved settings",
+        message: "using defaults — your preferences may not have persisted last session",
+      });
+    });
   }, []);
+
+  // Apply the active theme + CRT overlay to the document root whenever they change.
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+  }, [theme]);
+  useEffect(() => {
+    document.documentElement.setAttribute("data-crt", crtEnabled ? "on" : "off");
+  }, [crtEnabled]);
 
   // Hydrate rune tags once so every page can offer preset pick / save-as-rune.
   useEffect(() => {
@@ -144,6 +174,56 @@ function AppShell() {
   useEffect(() => {
     bindQueueEvents();
   }, []);
+
+  // Toast on background job completion/failure. The queue only surfaces
+  // status through the QueueDropdown (which the user may not have open), so
+  // we diff the jobs array here and fire a toast whenever a job transitions
+  // out of running into a terminal state. Covers convert/compress/concat/
+  // extract/transcription/subtitle/forge/batch/watch conversions in one place.
+  const jobs = useQueueStore((s) => s.jobs);
+  const prevStatusRef = useRef<Record<string, JobStatus>>({});
+  useEffect(() => {
+    const prev = prevStatusRef.current;
+    const next: Record<string, JobStatus> = {};
+    const toast = useToastStore.getState().push;
+
+    for (const job of jobs) {
+      next[job.id] = job.status;
+      const before = prev[job.id];
+      // Only toast on a transition FROM running INTO a terminal state —
+      // this avoids firing on the initial snapshot load (where jobs may
+      // already be completed) and on re-renders.
+      if (before === "running" && job.status === "completed") {
+        toast({
+          kind: "success",
+          title: job.label,
+          action: job.outputPath
+            ? { label: "reveal", onClick: () => invoke("reveal_in_folder", { path: job.outputPath }).catch(() => {}) }
+            : undefined,
+        });
+      } else if (before === "running" && job.status === "failed") {
+        toast({
+          kind: "error",
+          title: `${job.label} failed`,
+          message: job.error,
+        });
+      }
+
+      // Record completed/failed jobs into the persistent history (for re-run + stats).
+      if (before === "running" && (job.status === "completed" || job.status === "failed")) {
+        useHistoryStore.getState().add({
+          id: job.id,
+          op: job.jobType,
+          label: job.label,
+          inputPath: job.inputPath,
+          outputPath: job.outputPath,
+          status: job.status === "completed" ? "completed" : "failed",
+          createdAt: job.completedAt ?? new Date().toISOString(),
+        });
+      }
+    }
+    prevStatusRef.current = next;
+  }, [jobs]);
 
   // Bind the download event listener on mount.
   useEffect(() => {
@@ -185,7 +265,6 @@ function AppShell() {
         invoke("save_app_preferences", {
           outputDir: s.outputDir,
           transitionStyle: s.transitionStyle,
-          crtEnabled: s.crtEnabled,
           showRuneInTitlebar: s.showRuneInTitlebar,
           discordEnabled: s.discordEnabled,
           preferredVideoEncoder: s.preferredVideoEncoder === "software" ? null : s.preferredVideoEncoder,
@@ -193,7 +272,16 @@ function AppShell() {
           downloadDir: s.downloadDir,
           autoDownloadSubtitles: s.autoDownloadSubtitles,
           autoEmbedSubtitles: s.autoEmbedSubtitles,
-        }).catch(() => {});
+          theme: s.theme,
+          crtEnabled: s.crtEnabled,
+          onboardingSeen: s.onboardingSeen,
+        }).catch(() => {
+          useToastStore.getState().push({
+            kind: "error",
+            title: "couldn't save settings",
+            message: "your changes may not have persisted to disk",
+          });
+        });
       }, 300);
     });
     return () => {
@@ -393,6 +481,27 @@ function AppShell() {
 
   return (
     <div className="app-shell" onContextMenu={handleGlobalContextMenu}>
+      <DropZone
+        onFiles={(paths) => {
+          // Route dropped files to the convert page. A full smart-routing
+          // implementation would sniff extension/folder, but convert is the
+          // safest default landing zone for arbitrary media files.
+          setPage("convert");
+          useToastStore.getState().push({
+            kind: "info",
+            title: `${paths.length} file${paths.length === 1 ? "" : "s"} dropped`,
+            message: "routed to convert — pick a format and cast",
+          });
+        }}
+        onUrl={(url) => {
+          setPage("import");
+          useToastStore.getState().push({
+            kind: "info",
+            title: "url dropped",
+            message: url.length > 60 ? url.slice(0, 60) + "…" : url,
+          });
+        }}
+      />
       <header className="titlebar" data-tauri-drag-region>
         <div
           className={`titlebar-queue-bar${queueProgress === null ? " idle" : ""}`}
@@ -405,6 +514,7 @@ function AppShell() {
             </button>
           )}
           <QueueDropdown />
+          <NotificationCenter />
           <button
             className="titlebar-btn titlebar-help"
             onClick={() => setHelpOverlayOpen(true)}
@@ -450,6 +560,10 @@ function AppShell() {
 
       <main className="main-content">
         <UpdateBanner />
+        <Toaster />
+        {!onboardingSeen && (
+          <OnboardingTour onComplete={() => setOnboardingSeen(true)} />
+        )}
         <HelpOverlay open={helpOverlayOpen} onClose={() => setHelpOverlayOpen(false)} />
         <CommandPalette open={commandPaletteOpen} onClose={() => setCommandPaletteOpen(false)} onNavigate={setPage} onShowHelp={() => setHelpOverlayOpen(true)} />
         <PageTransition style={transitionStyle} pageKey={page}>
@@ -462,6 +576,8 @@ function AppShell() {
           {page === "watch" && <WatchFoldersPage />}
           {page === "subtitles" && <SubtitlesPage />}
           {page === "import" && <ImportPage />}
+          {page === "history" && <HistoryPage onNavigate={setPage} />}
+          {page === "stats" && <StatsPage />}
         </PageTransition>
       </main>
     </div>

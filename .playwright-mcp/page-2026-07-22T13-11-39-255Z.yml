@@ -1,0 +1,366 @@
+- generic [active] [ref=f3e1]:
+  - generic [ref=f3e4]:
+    - banner [ref=f3e5]:
+      - generic [ref=f3e6]:
+        - link "Pixabay" [ref=f3e8] [cursor=pointer]:
+          - /url: /
+        - generic [ref=f3e15]:
+          - button "Search Pixabay" [ref=f3e16] [cursor=pointer]:
+            - img "Search" [ref=f3e17]
+          - searchbox "Search Pixabay" [ref=f3e21]
+          - button "Music" [ref=f3e24] [cursor=pointer]
+        - generic [ref=f3e25]:
+          - button "Explore" [ref=f3e29] [cursor=pointer]
+          - button "Log in" [ref=f3e31] [cursor=pointer]
+          - button "Join" [ref=f3e32] [cursor=pointer]
+          - button "Upload" [ref=f3e34] [cursor=pointer]
+    - generic [ref=f3e35]:
+      - generic [ref=f3e36]:
+        - generic [ref=f3e39]:
+          - generic [ref=f3e49]:
+            - generic [ref=f3e50]: Neon Synthwave Vibe
+            - link "echoes_of_lumen" [ref=f3e51] [cursor=pointer]:
+              - /url: /users/echoes_of_lumen-56361169/
+          - generic [ref=f3e52]:
+            - generic [ref=f3e53]: 0:00
+            - slider [ref=f3e55] [cursor=pointer]
+            - generic [ref=f3e60]: 2:08
+          - button "paused" [ref=f3e63] [cursor=pointer]:
+            - img "Play" [ref=f3e64]
+          - generic [ref=f3e67]:
+            - generic [ref=f3e68]:
+              - img "Shield" [ref=f3e69]
+              - generic [ref=f3e72]: Content ID Registered
+              - img "Question" [ref=f3e74]
+            - generic [ref=f3e77]:
+              - button "volume" [ref=f3e78] [cursor=pointer]:
+                - img "Volume" [ref=f3e79]
+              - slider "volume" [ref=f3e86]: "1"
+        - generic [ref=f3e87]:
+          - link "Auto-match your soundtrack to your footage with one-click Beat Sync. Try Canva Pro for free" [ref=f3e89] [cursor=pointer]:
+            - /url: https://www.canva.com/features/beat-sync/?utm_medium=partner&utm_source=pixabay&utm_campaign=canva_brand&utm_content=beat_sync_v1
+            - generic [ref=f3e90]:
+              - generic [ref=f3e92]: Auto-match your soundtrack to your footage with one-click Beat Sync.
+              - button "Try Canva Pro for free" [ref=f3e96]
+          - generic [ref=f3e97]:
+            - generic [ref=f3e99]:
+              - img "AI" [ref=f3e100]
+              - generic [ref=f3e103]: AI modified or generated
+            - generic [ref=f3e104]:
+              - heading "Synthwave, Synthwave music, Synthwave background music. Free for use." [level=1] [ref=f3e105]
+              - generic [ref=f3e107]: Synthwave, Synthwave Music, Synthwave Background
+          - generic [ref=f3e108]:
+            - generic [ref=f3e109]: 1 comment
+            - generic [ref=f3e110]:
+              - img "CommentFilled" [ref=f3e111]
+              - generic [ref=f3e114]: The community are waiting to hear from you!
+              - generic [ref=f3e115]: Log in or Join Pixabay to view comments
+              - generic [ref=f3e116]:
+                - button "Log in" [ref=f3e117] [cursor=pointer]
+                - button "Join Pixabay" [ref=f3e118] [cursor=pointer]
+          - generic [ref=f3e119]:
+            - link "Synthwave" [ref=f3e120] [cursor=pointer]:
+              - /url: /music/search/synthwave/
+            - link "Synthwave Music" [ref=f3e122] [cursor=pointer]:
+              - /url: /music/search/synthwave%20music/
+            - link "Synthwave Background" [ref=f3e124] [cursor=pointer]:
+              - /url: /music/search/synthwave%20background/
+            - link "Synthwave Retro" [ref=f3e126] [cursor=pointer]:
+              - /url: /music/search/synthwave%20retro/
+            - link "Synthwave 80s" [ref=f3e128] [cursor=pointer]:
+              - /url: /music/search/synthwave%2080s/
+            - link "Synthwave Electronic" [ref=f3e130] [cursor=pointer]:
+              - /url: /music/search/synthwave%20electronic/
+            - link "Synthwave Modern" [ref=f3e132] [cursor=pointer]:
+              - /url: /music/search/synthwave%20modern/
+            - link "Synthwave Ambient" [ref=f3e134] [cursor=pointer]:
+              - /url: /music/search/synthwave%20ambient/
+            - link "Synthwave Cinematic" [ref=f3e136] [cursor=pointer]:
+              - /url: /music/search/synthwave%20cinematic/
+            - link "Synthwave Nostalgic" [ref=f3e138] [cursor=pointer]:
+              - /url: /music/search/synthwave%20nostalgic/
+            - link "Synthwave Digital" [ref=f3e140] [cursor=pointer]:
+              - /url: /music/search/synthwave%20digital/
+            - link "Synthwave Futuristic" [ref=f3e142] [cursor=pointer]:
+              - /url: /music/search/synthwave%20futuristic/
+            - link "Synthwave Energetic" [ref=f3e144] [cursor=pointer]:
+              - /url: /music/search/synthwave%20energetic/
+            - link "Synthwave Chill" [ref=f3e146] [cursor=pointer]:
+              - /url: /music/search/synthwave%20chill/
+            - link "Synthwave Aesthetic" [ref=f3e148] [cursor=pointer]:
+              - /url: /music/search/synthwave%20aesthetic/
+            - link "Synthwave Atmosphere" [ref=f3e150] [cursor=pointer]:
+              - /url: /music/search/synthwave%20atmosphere/
+            - link "Synthwave Neon" [ref=f3e152] [cursor=pointer]:
+              - /url: /music/search/synthwave%20neon/
+            - link "Synthwave Pop" [ref=f3e154] [cursor=pointer]:
+              - /url: /music/search/synthwave%20pop/
+            - link "Synthwave Upbeat" [ref=f3e156] [cursor=pointer]:
+              - /url: /music/search/synthwave%20upbeat/
+            - link "Synthwave Retro Wave" [ref=f3e158] [cursor=pointer]:
+              - /url: /music/search/synthwave%20retro%20wave/
+            - link "Synthwave Drive" [ref=f3e160] [cursor=pointer]:
+              - /url: /music/search/synthwave%20drive/
+            - link "Synthwave Motion" [ref=f3e162] [cursor=pointer]:
+              - /url: /music/search/synthwave%20motion/
+            - link "Synthwave Dark" [ref=f3e164] [cursor=pointer]:
+              - /url: /music/search/synthwave%20dark/
+            - link "Synthwave Soundtrack" [ref=f3e166] [cursor=pointer]:
+              - /url: /music/search/synthwave%20soundtrack/
+            - link "Synthwave Vibe" [ref=f3e168] [cursor=pointer]:
+              - /url: /music/search/synthwave%20vibe/
+        - generic [ref=f3e170]:
+          - generic [ref=f3e172]:
+            - heading "Related free music" [level=2] [ref=f3e173]
+            - generic [ref=f3e175]:
+              - generic [ref=f3e176]:
+                - generic [ref=f3e177]:
+                  - button [ref=f3e178] [cursor=pointer]:
+                    - button [ref=f3e181]:
+                      - img "Play" [ref=f3e182]
+                  - generic [ref=f3e185]:
+                    - link "Synthwave Retro 80s" [ref=f3e186] [cursor=pointer]:
+                      - /url: /music/synthwave-synthwave-retro-80s-569468/
+                    - link "ARPMedia" [ref=f3e187] [cursor=pointer]:
+                      - /url: /users/arpmedia-56546950/
+                - slider [ref=f3e190] [cursor=pointer]
+                - generic [ref=f3e195]:
+                  - generic [ref=f3e196]: 2:43
+                  - img "Shield" [ref=f3e199]
+                  - generic [ref=f3e202]:
+                    - link "Synthwave" [ref=f3e203] [cursor=pointer]:
+                      - /url: /music/search/genre/Synthwave/
+                    - generic [ref=f3e204]:
+                      - link "Synthwave," [ref=f3e205] [cursor=pointer]:
+                        - /url: /music/search/synthwave/
+                      - link "Retro 80s" [ref=f3e206] [cursor=pointer]:
+                        - /url: /music/search/retro%2080s/
+                  - button "Download" [ref=f3e209] [cursor=pointer]:
+                    - generic:
+                      - img "Download"
+              - generic [ref=f3e210]:
+                - generic [ref=f3e211]:
+                  - button [ref=f3e212] [cursor=pointer]:
+                    - button [ref=f3e215]:
+                      - img "Play" [ref=f3e216]
+                  - generic [ref=f3e219]:
+                    - link "Synthwave" [ref=f3e220] [cursor=pointer]:
+                      - /url: /music/synthwave-synthwave-569472/
+                    - link "ARPMedia" [ref=f3e221] [cursor=pointer]:
+                      - /url: /users/arpmedia-56546950/
+                - slider [ref=f3e224] [cursor=pointer]
+                - generic [ref=f3e229]:
+                  - generic [ref=f3e230]: 2:50
+                  - img "Shield" [ref=f3e233]
+                  - generic [ref=f3e236]:
+                    - link "Synthwave" [ref=f3e237] [cursor=pointer]:
+                      - /url: /music/search/genre/Synthwave/
+                    - link "Synthwave" [ref=f3e239] [cursor=pointer]:
+                      - /url: /music/search/synthwave/
+                  - button "Download" [ref=f3e242] [cursor=pointer]:
+                    - generic:
+                      - img "Download"
+              - generic [ref=f3e243]:
+                - generic [ref=f3e244]:
+                  - button [ref=f3e245] [cursor=pointer]:
+                    - button [ref=f3e248]:
+                      - img "Play" [ref=f3e249]
+                  - generic [ref=f3e252]:
+                    - link "Tokyo Night Walk" [ref=f3e253] [cursor=pointer]:
+                      - /url: /music/synthwave-tokyo-night-walk-537446/
+                    - link "alex-morgan" [ref=f3e254] [cursor=pointer]:
+                      - /url: /users/alex-morgan-54692529/
+                - slider [ref=f3e257] [cursor=pointer]
+                - generic [ref=f3e259]:
+                  - generic [ref=f3e260]: 2:43
+                  - generic [ref=f3e261]:
+                    - img "Shield" [ref=f3e263]
+                    - img "AI" [ref=f3e267]
+                  - generic [ref=f3e270]:
+                    - link "Synthwave" [ref=f3e271] [cursor=pointer]:
+                      - /url: /music/search/genre/Synthwave/
+                    - generic [ref=f3e272]:
+                      - link "Tokyo," [ref=f3e273] [cursor=pointer]:
+                        - /url: /music/search/tokyo/
+                      - link "Night," [ref=f3e274] [cursor=pointer]:
+                        - /url: /music/search/night/
+                      - link "Japan," [ref=f3e275] [cursor=pointer]:
+                        - /url: /music/search/japan/
+                      - link "City" [ref=f3e276] [cursor=pointer]:
+                        - /url: /music/search/city/
+                  - button "Download" [ref=f3e279] [cursor=pointer]:
+                    - generic:
+                      - img "Download"
+            - button "Load more" [ref=f3e281] [cursor=pointer]
+          - generic [ref=f3e283]:
+            - generic [ref=f3e284]:
+              - generic [ref=f3e285]:
+                - generic [ref=f3e286]: Genre
+                - generic [ref=f3e287]:
+                  - link "Synthwave" [ref=f3e288] [cursor=pointer]:
+                    - /url: /music/search/genre/synthwave/
+                  - link "Synth Pop" [ref=f3e290] [cursor=pointer]:
+                    - /url: /music/search/genre/synth%20pop/
+              - generic [ref=f3e292]:
+                - generic [ref=f3e293]: Mood
+                - generic [ref=f3e294]:
+                  - link "Uplifting" [ref=f3e295] [cursor=pointer]:
+                    - /url: /music/search/mood/uplifting/
+                  - link "Bright" [ref=f3e297] [cursor=pointer]:
+                    - /url: /music/search/mood/bright/
+            - generic [ref=f3e299]:
+              - generic [ref=f3e300]:
+                - generic [ref=f3e301]: Movement
+                - generic [ref=f3e302]:
+                  - link "Medium" [ref=f3e303] [cursor=pointer]:
+                    - /url: /music/search/movement/medium/
+                  - link "Medium Fast" [ref=f3e305] [cursor=pointer]:
+                    - /url: /music/search/movement/medium%20fast/
+              - generic [ref=f3e307]: Theme
+      - generic [ref=f3e312]:
+        - generic [ref=f3e313]:
+          - generic [ref=f3e314]:
+            - img "Check" [ref=f3e316]
+            - generic [ref=f3e319]:
+              - text: Free for use under the Pixabay
+              - link "Content License" [ref=f3e320] [cursor=pointer]:
+                - /url: /service/license-summary/
+          - generic [ref=f3e323]:
+            - button "Free download" [ref=f3e324] [cursor=pointer]
+            - button [ref=f3e325] [cursor=pointer]
+        - separator [ref=f3e326]
+        - generic [ref=f3e327]:
+          - generic [ref=f3e328]:
+            - button "HeartOutline 2k" [ref=f3e331] [cursor=pointer]:
+              - generic:
+                - img "HeartOutline"
+              - generic: 2k
+            - button "Save" [ref=f3e334] [cursor=pointer]
+            - button "CommentOutline" [ref=f3e336] [cursor=pointer]:
+              - generic:
+                - img "CommentOutline"
+            - button "Share" [ref=f3e338] [cursor=pointer]:
+              - generic:
+                - img "Share"
+            - button "Flag" [ref=f3e341] [cursor=pointer]:
+              - generic:
+                - img "Flag"
+          - generic [ref=f3e343]:
+            - generic [ref=f3e344]:
+              - generic [ref=f3e345]: Plays
+              - generic [ref=f3e346]: 10,142
+            - generic [ref=f3e347]:
+              - generic [ref=f3e348]: Downloads
+              - generic [ref=f3e349]: 2,752
+            - button "Show details ChevronDown" [ref=f3e350] [cursor=pointer]:
+              - generic [ref=f3e351]: Show details
+              - img "ChevronDown" [ref=f3e353]
+        - separator [ref=f3e356]
+        - generic [ref=f3e359]:
+          - generic [ref=f3e360]:
+            - link [ref=f3e363] [cursor=pointer]:
+              - /url: /users/echoes_of_lumen-56361169/
+              - img "echoes_of_lumen" [ref=f3e364]
+            - generic [ref=f3e365]:
+              - link "echoes_of_lumen" [ref=f3e367] [cursor=pointer]:
+                - /url: /users/echoes_of_lumen-56361169/
+              - generic [ref=f3e368]: 3 followers
+            - button "Follow" [ref=f3e369] [cursor=pointer]
+          - generic [ref=f3e370]:
+            - paragraph [ref=f3e372]: Composer and music producer. I've been creating music for over a decade — from atmospheric soundscapes to melodies that stay with you. I believe sound can tell stories without words. Looking for listeners who feel music with their heart. Open to collaboration and new projects. 🎵
+            - button "Show more ChevronDown" [ref=f3e374] [cursor=pointer]:
+              - generic [ref=f3e375]: Show more
+              - img "ChevronDown" [ref=f3e377]
+    - contentinfo [ref=f3e380]:
+      - generic [ref=f3e381]:
+        - generic [ref=f3e382]:
+          - generic [ref=f3e387]: Over 6.2 million+ high quality stock images, videos and music shared by our talented community.
+          - generic [ref=f3e388]:
+            - link "Instagram" [ref=f3e389] [cursor=pointer]:
+              - /url: https://www.instagram.com/pixabay/
+              - img "Instagram" [ref=f3e390]
+            - link "Facebook" [ref=f3e393] [cursor=pointer]:
+              - /url: https://www.facebook.com/pixabay
+              - img "Facebook" [ref=f3e394]
+            - link "TikTok" [ref=f3e397] [cursor=pointer]:
+              - /url: https://www.tiktok.com/@pixabaymedia
+              - img "TikTokBrand" [ref=f3e398]
+            - link "Twitter" [ref=f3e409] [cursor=pointer]:
+              - /url: https://x.com/pixabay
+              - img "TwitterX" [ref=f3e410]
+            - link "LinkedIn" [ref=f3e416] [cursor=pointer]:
+              - /url: https://www.linkedin.com/company/pixabay/
+              - img "Linkedin" [ref=f3e417]
+            - link "YouTube" [ref=f3e420] [cursor=pointer]:
+              - /url: https://www.youtube.com/@pixabaymedia
+              - img "Youtube" [ref=f3e421]
+            - link "Pinterest" [ref=f3e424] [cursor=pointer]:
+              - /url: https://pinterest.com/pixabay/
+              - img "Pinterest" [ref=f3e425]
+        - generic [ref=f3e428]:
+          - generic [ref=f3e429]: Discover
+          - generic [ref=f3e430]:
+            - link "Editor's Choice" [ref=f3e431] [cursor=pointer]:
+              - /url: /editors_choice/
+            - link "Curated Collections" [ref=f3e433] [cursor=pointer]:
+              - /url: /collections/
+            - link "Pixabay Radio" [ref=f3e435] [cursor=pointer]:
+              - /url: /playlists/
+            - link "Popular Images" [ref=f3e437] [cursor=pointer]:
+              - /url: /images/search/
+            - link "Popular Videos" [ref=f3e439] [cursor=pointer]:
+              - /url: /videos/search/
+            - link "Popular Music" [ref=f3e441] [cursor=pointer]:
+              - /url: /music/search/
+            - link "Popular Searches" [ref=f3e443] [cursor=pointer]:
+              - /url: /popular-searches/
+        - generic [ref=f3e445]:
+          - generic [ref=f3e446]: Community
+          - generic [ref=f3e447]:
+            - link "Contests Live" [ref=f3e448] [cursor=pointer]:
+              - /url: /contests/
+              - generic [ref=f3e449]: Contests
+              - generic [ref=f3e450]: Live
+            - link "Creators" [ref=f3e453] [cursor=pointer]:
+              - /url: /users/
+            - link "Ambassadors New" [ref=f3e455] [cursor=pointer]:
+              - /url: /service/ambassador/
+              - generic [ref=f3e456]: Ambassadors
+              - generic [ref=f3e457]: New
+            - link "Forum" [ref=f3e459] [cursor=pointer]:
+              - /url: /forum/
+            - link "Blog" [ref=f3e461] [cursor=pointer]:
+              - /url: /blog/
+        - generic [ref=f3e463]:
+          - generic [ref=f3e464]: About
+          - generic [ref=f3e465]:
+            - link "About Us" [ref=f3e466] [cursor=pointer]:
+              - /url: /service/about/
+            - link "FAQ" [ref=f3e468] [cursor=pointer]:
+              - /url: /service/faq/
+            - link "License Summary" [ref=f3e470] [cursor=pointer]:
+              - /url: /service/license-summary/
+            - link "Terms of Service" [ref=f3e472] [cursor=pointer]:
+              - /url: /service/terms/
+            - link "Privacy Policy" [ref=f3e474] [cursor=pointer]:
+              - /url: /service/privacy/
+            - link "Cookies Policy" [ref=f3e476] [cursor=pointer]:
+              - /url: /service/cookies/
+            - link "Digital Services Act" [ref=f3e478] [cursor=pointer]:
+              - /url: /service/digital-services-act/
+            - link "Report Content" [ref=f3e480] [cursor=pointer]:
+              - /url: /content-reports/
+            - link "API" [ref=f3e482] [cursor=pointer]:
+              - /url: /service/about/api/
+  - generic:
+    - dialog "Privacy" [ref=f3e485]:
+      - generic [ref=f3e487]:
+        - generic [ref=f3e488]: By clicking “Accept All Cookies”, you agree to the storing of cookies on your device to enhance site navigation, analyze site usage, and assist in our marketing efforts.
+        - generic [ref=f3e492]:
+          - button "Cookies Settings, Opens the preference center dialog" [ref=f3e493] [cursor=pointer]: Cookies Settings
+          - button "Reject All" [ref=f3e494] [cursor=pointer]
+          - button "Accept All Cookies" [ref=f3e495] [cursor=pointer]
+      - button "Close" [ref=f3e497] [cursor=pointer]
+    - text: Cookies Settings
+  - generic: 
+  - generic: 

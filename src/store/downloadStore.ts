@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { useToastStore } from "./toastStore";
 import type {
   UrlMetadata,
   DownloadOptions,
@@ -218,6 +219,14 @@ export const useDownloadStore = create<DownloadState>((set) => ({
           downloadLog: [...s.downloadLog, "> download complete"],
         }));
         useDownloadStore.getState().loadRecentDownloads();
+        const out = e.payload.outputPath;
+        useToastStore.getState().push({
+          kind: "success",
+          title: "download complete",
+          action: out
+            ? { label: "reveal", onClick: () => invoke("reveal_in_folder", { path: out }).catch(() => {}) }
+            : undefined,
+        });
       }),
     );
 

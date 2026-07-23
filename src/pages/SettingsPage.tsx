@@ -9,10 +9,18 @@ import Dropdown from "../components/Dropdown";
 import { TRANSITION_OPTIONS } from "../transitions";
 import { useContextMenu } from "../components/ContextMenu";
 import { resolvePreferredEncoder } from "../utils/ffmpegBuilder";
-import type { HardwareEncoderInfo } from "../types";
 import { getEncoderTier, TIER_RANK } from "../utils/encoderTiers";
 
 const SUBFOLDERS = ["video", "audio", "image"];
+
+/** Theme palettes — names mirror the [data-theme] CSS blocks in App.css. */
+const THEMES: { value: string; label: string; swatch: string }[] = [
+  { value: "void", label: "void", swatch: "#000000" },
+  { value: "ember", label: "ember", swatch: "#1a1100" },
+  { value: "frost", label: "frost", swatch: "#00111a" },
+  { value: "rune", label: "rune", swatch: "#15001a" },
+  { value: "bone", label: "bone", swatch: "#e8e6e0" },
+];
 
 /** Human-readable vendor label. */
 const VENDOR_LABEL: Record<string, string> = {
@@ -35,27 +43,41 @@ export default function SettingsPage({ onNavigate }: Props) {
     setUpdateDismissed,
     discordEnabled, setDiscordEnabled,
     autostartEnabled, setAutostartEnabled,
-    availableEncoders, setAvailableEncoders,
+    availableEncoders,
     preferredVideoEncoder, setPreferredVideoEncoder,
     autoFallbackHw, setAutoFallbackHw,
     downloadDir, setDownloadDir,
+    showRuneInTitlebar, setShowRuneInTitlebar,
     autoDownloadSubtitles, setAutoDownloadSubtitles,
     autoEmbedSubtitles, setAutoEmbedSubtitles,
+    theme, setTheme,
+    crtEnabled, setCrtEnabled,
+    loadHardwareEncoders,
   } = useGaldrStore();
   const [version, setVersion] = useState("");
   const [subsOpen, setSubsOpen] = useState(false);
+  const [encodersLoading, setEncodersLoading] = useState(availableEncoders.length === 0);
   const { show } = useContextMenu();
 
   useEffect(() => {
     getVersion().then(setVersion).catch(() => setVersion("0.1.0"));
   }, []);
 
-  // Detect hardware encoders on mount
+  // Load hardware encoders if the store doesn't have them yet (the app
+  // startup call in App.tsx may still be in-flight, or the Rust cache is
+  // already populated). Never freeze — the skeleton state keeps the page
+  // interactive while detection runs.
   useEffect(() => {
-    invoke<HardwareEncoderInfo[]>("detect_hardware_encoders")
-      .then(setAvailableEncoders)
-      .catch(() => { /* ffmpeg not available */ });
-  }, [setAvailableEncoders]);
+    let cancelled = false;
+    if (availableEncoders.length === 0 && encodersLoading) {
+      loadHardwareEncoders().finally(() => {
+        if (!cancelled) setEncodersLoading(false);
+      });
+    } else {
+      setEncodersLoading(false);
+    }
+    return () => { cancelled = true; };
+  }, [availableEncoders, encodersLoading, loadHardwareEncoders]);
 
   // Build categorized dropdown options from detected encoders.
   // The "auto" option's label dynamically shows which encoder it resolves to.
@@ -234,6 +256,50 @@ export default function SettingsPage({ onNavigate }: Props) {
             ᛟ test
           </button>
         </div>
+        <div className="row settings-toggle-row" style={{ marginTop: 12 }}>
+          <label className="toggle-label">show rune cards on home</label>
+          <button
+            className={`btn toggle-btn${showRuneInTitlebar ? " active" : ""}`}
+            onClick={() => setShowRuneInTitlebar(!showRuneInTitlebar)}
+          >
+            {showRuneInTitlebar ? "on" : "off"}
+          </button>
+        </div>
+        <p className="settings-hint">
+          when off, the home page hides the runic tool cards for a minimal view
+        </p>
+      </div>
+
+      {/* ── Appearance: theme + CRT ── */}
+      <div className="card">
+        <label className="label">ᚦ appearance</label>
+        <div className="theme-swatches">
+          {THEMES.map((t) => (
+            <button
+              key={t.value}
+              className={`theme-swatch${theme === t.value ? " active" : ""}`}
+              onClick={() => setTheme(t.value)}
+              onContextMenu={(e) => show(e, [
+                { label: `use ${t.label}`, rune: "ᚨ", action: () => setTheme(t.value) },
+              ])}
+            >
+              <span className="theme-swatch-chip" style={{ background: t.swatch }} />
+              <span className="theme-swatch-name">{t.label}</span>
+            </button>
+          ))}
+        </div>
+        <div className="row settings-toggle-row" style={{ marginTop: 12 }}>
+          <label className="toggle-label">CRT scanlines</label>
+          <button
+            className={`btn toggle-btn${crtEnabled ? " active" : ""}`}
+            onClick={() => setCrtEnabled(!crtEnabled)}
+          >
+            {crtEnabled ? "on" : "off"}
+          </button>
+        </div>
+        <p className="settings-hint">
+          overlay scanlines, phosphor glow, and vignette for a CRT terminal aesthetic
+        </p>
       </div>
 
       <div className="card" onContextMenu={(e) => show(e, [
@@ -259,16 +325,20 @@ export default function SettingsPage({ onNavigate }: Props) {
 
         <div className="row" style={{ marginBottom: 8 }}>
           <div className="row-grow">
-            <Dropdown
-              options={encoderDropdownOptions}
-              value={preferredVideoEncoder}
-              showCategories={availableEncoders.length > 0}
-              onChange={(v) => setPreferredVideoEncoder(v as string)}
-            />
+            {encodersLoading ? (
+              <div className="skeleton-bar" />
+            ) : (
+              <Dropdown
+                options={encoderDropdownOptions}
+                value={preferredVideoEncoder}
+                showCategories={availableEncoders.length > 0}
+                onChange={(v) => setPreferredVideoEncoder(v as string)}
+              />
+            )}
           </div>
         </div>
 
-        {availableEncoders.length === 0 && (
+        {!encodersLoading && availableEncoders.length === 0 && (
           <p className="settings-hint" style={{ marginTop: 8 }}>
             no hardware encoders detected — encoding will use software codecs
           </p>
@@ -296,15 +366,15 @@ export default function SettingsPage({ onNavigate }: Props) {
         ...(downloadDir ? [{ label: "clear", rune: "ᛏ", action: () => setDownloadDir("") }] : []),
       ])}>
         <label className="label">ᛣ downloads folder</label>
-        <p className="settings-hint flush">
-          where media imported from URLs (YouTube, Vimeo, etc.) is saved.
-          leave empty to use the default app-managed folder.
-        </p>
         <div className="row">
           <input className="input" value={downloadDir} placeholder="default: app-managed downloads folder" readOnly />
           <button className="btn" onClick={pickDownloadFolder}>browse</button>
         </div>
-        <div className="row settings-toggle-row" style={{ marginTop: 10 }}>
+        <p className="settings-hint">
+          yt-dlp is downloaded on first use from GitHub (~15 MB) and cached on your machine.
+        </p>
+
+        <div className="row settings-toggle-row" style={{ marginTop: 12 }}>
           <label className="toggle-label">auto-download subtitles</label>
           <button
             className={`btn toggle-btn${autoDownloadSubtitles ? " active" : ""}`}
@@ -313,7 +383,11 @@ export default function SettingsPage({ onNavigate }: Props) {
             {autoDownloadSubtitles ? "on" : "off"}
           </button>
         </div>
-        <div className="row settings-toggle-row">
+        <p className="settings-hint">
+          fetch available subtitle tracks alongside media when importing from a URL
+        </p>
+
+        <div className="row settings-toggle-row" style={{ marginTop: 12 }}>
           <label className="toggle-label">auto-embed subtitles</label>
           <button
             className={`btn toggle-btn${autoEmbedSubtitles ? " active" : ""}`}
@@ -323,7 +397,8 @@ export default function SettingsPage({ onNavigate }: Props) {
           </button>
         </div>
         <p className="settings-hint">
-          yt-dlp is downloaded on first use from GitHub (~15 MB) and cached on your machine.
+          mux downloaded subtitles directly into the output file (mkv/mp4) so they
+          ship with the video
         </p>
       </div>
     </div>

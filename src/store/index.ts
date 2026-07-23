@@ -7,6 +7,9 @@ import { DEFAULT_TRANSITION } from "../transitions";
 /** Convenience: get the concrete encoder that "auto" would pick for a format. */
 import { resolvePreferredEncoder } from "../utils/ffmpegBuilder";
 
+/** Promise cache: ensures concurrent loadHardwareEncoders callers share one in-flight invoke. */
+let hardwareEncodersPromise: Promise<void> | null = null;
+
 export type UpdateStatus = "idle" | "checking" | "available" | "downloading" | "downloaded" | "installing" | "error";
 
 interface GaldrState {
@@ -20,7 +23,6 @@ interface GaldrState {
   outputDir: string;
   transitionStyle: TransitionStyle;
   testTransitionSignal: number;
-  crtEnabled: boolean;
 
   taskbarAction: string;
   taskbarProgress: number | null;
@@ -50,8 +52,14 @@ interface GaldrState {
   downloadDir: string;
   /** Automatically download available subtitles when importing from a URL. */
   autoDownloadSubtitles: boolean;
-  /** Automatically embed downloaded subtitles into the media file. */
+  /** Automatically embed downloaded subtitles into the media file (mkv/mp4). */
   autoEmbedSubtitles: boolean;
+  /** Active color theme. "void" is the default monochrome dark. */
+  theme: string;
+  /** CRT scanline overlay toggle. */
+  crtEnabled: boolean;
+  /** Whether the first-run onboarding tour has been dismissed. */
+  onboardingSeen: boolean;
 
   setMediaInfo: (info: MediaInfo | null) => void;
   setConversionParams: (params: Partial<ConversionParams>) => void;
@@ -62,7 +70,6 @@ interface GaldrState {
   setFfmpegFound: (v: boolean) => void;
   setOutputDir: (v: string) => void;
   setTransitionStyle: (v: TransitionStyle) => void;
-  setCrtEnabled: (v: boolean) => void;
   triggerTransitionTest: () => void;
   reset: () => void;
 
@@ -89,6 +96,9 @@ interface GaldrState {
   setDownloadDir: (v: string) => void;
   setAutoDownloadSubtitles: (v: boolean) => void;
   setAutoEmbedSubtitles: (v: boolean) => void;
+  setTheme: (v: string) => void;
+  setCrtEnabled: (v: boolean) => void;
+  setOnboardingSeen: (v: boolean) => void;
   loadHardwareEncoders: () => Promise<void>;
 	  /** Return the HardwareEncoderInfo that "auto" would resolve to for a given output format, or undefined. */
 		  getAutoSelectedEncoder: (outputFormat?: string) => HardwareEncoderInfo | undefined;
@@ -137,7 +147,6 @@ export const useGaldrStore = create<GaldrState>((set, get) => ({
   outputDir: "",
   transitionStyle: DEFAULT_TRANSITION,
   testTransitionSignal: 0,
-  crtEnabled: false,
 
   taskbarAction: "",
   taskbarProgress: null,
@@ -160,6 +169,9 @@ export const useGaldrStore = create<GaldrState>((set, get) => ({
 		  downloadDir: "",
 		  autoDownloadSubtitles: false,
 		  autoEmbedSubtitles: false,
+		  theme: "void",
+		  crtEnabled: false,
+		  onboardingSeen: false,
 
   setMediaInfo: (info) => set({ mediaInfo: info }),
   setConversionParams: (params) =>
@@ -173,7 +185,6 @@ export const useGaldrStore = create<GaldrState>((set, get) => ({
   setFfmpegFound: (v) => set({ ffmpegFound: v }),
   setOutputDir: (v) => set({ outputDir: v }),
   setTransitionStyle: (v) => set({ transitionStyle: v }),
-  setCrtEnabled: (v) => set({ crtEnabled: v }),
   triggerTransitionTest: () => set((s) => ({ testTransitionSignal: s.testTransitionSignal + 1 })),
   setTaskbarAction: (v) => set({ taskbarAction: v }),
   setTaskbarProgress: (v) => set({ taskbarProgress: v }),
@@ -203,13 +214,10 @@ export const useGaldrStore = create<GaldrState>((set, get) => ({
       // persistence unavailable — leave store as-is
     }
   },
+  // Alias of `loadRuneTags`, kept for call-site readability: the runes pages
+  // "refresh" after a mutation, while startup "loads". Same operation.
   refreshRuneTags: async () => {
-    try {
-      const tags = await invoke<RuneTag[]>("list_rune_tags");
-      set({ runeTags: tags });
-    } catch {
-      // persistence unavailable — leave store as-is
-    }
+    await useGaldrStore.getState().loadRuneTags();
   },
   setShowRuneInTitlebar: (v) => set({ showRuneInTitlebar: v }),
   setDiscordEnabled: (v) => set({ discordEnabled: v }),
@@ -221,14 +229,28 @@ export const useGaldrStore = create<GaldrState>((set, get) => ({
 		  setDownloadDir: (v) => set({ downloadDir: v }),
 		  setAutoDownloadSubtitles: (v) => set({ autoDownloadSubtitles: v }),
 		  setAutoEmbedSubtitles: (v) => set({ autoEmbedSubtitles: v }),
+		  setTheme: (v) => set({ theme: v }),
+		  setCrtEnabled: (v) => set({ crtEnabled: v }),
+		  setOnboardingSeen: (v) => set({ onboardingSeen: v }),
 		  loadHardwareEncoders: async () => {
-	    try {
-	      const encoders = await invoke<HardwareEncoderInfo[]>("detect_hardware_encoders");
-	      set({ availableEncoders: encoders });
-	    } catch {
-	      // ffmpeg not available — leave empty
-	    }
-	  },
+		    if (hardwareEncodersPromise) {
+		      await hardwareEncodersPromise;
+		      return;
+		    }
+		    hardwareEncodersPromise = (async () => {
+		      try {
+		        const encoders = await invoke<HardwareEncoderInfo[]>("detect_hardware_encoders");
+		        set({ availableEncoders: encoders });
+		      } catch {
+		        // ffmpeg not available — leave empty
+		      }
+		    })();
+		    try {
+		      await hardwareEncodersPromise;
+		    } finally {
+		      hardwareEncodersPromise = null;
+		    }
+		  },
 	  getAutoSelectedEncoder: (outputFormat = "mp4") => {
 	    const { preferredVideoEncoder, availableEncoders } = get();
 	    const resolved = resolvePreferredEncoder(
