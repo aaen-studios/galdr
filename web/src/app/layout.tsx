@@ -26,7 +26,7 @@ const plexMono = IBM_Plex_Mono({
 
 /* ── Meta ── */
 export const metadata: Metadata = {
-  metadataBase: new URL("https://galdr.app"),
+  metadataBase: new URL("https://galdr.aaenz.no"),
   title: "galdr",
   description:
     "A desktop GUI wrapper around FFmpeg for converting and manipulating video, audio, and image files.",
@@ -34,7 +34,7 @@ export const metadata: Metadata = {
     title: "galdr",
     description:
       "A desktop GUI wrapper around FFmpeg for converting and manipulating media files.",
-    url: "https://galdr.app",
+    url: "https://galdr.aaenz.no",
     siteName: "galdr",
   },
   twitter: {
@@ -58,7 +58,7 @@ const jsonLd = {
   applicationCategory: "Multimedia",
   description:
     "A desktop GUI wrapper around FFmpeg for converting and manipulating media files.",
-  url: "https://galdr.app",
+  url: "https://galdr.aaenz.no",
   downloadUrl: "https://github.com/aaen-studios/galdr/releases/latest",
 };
 

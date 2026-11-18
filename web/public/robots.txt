@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://galdr.app/sitemap.xml
+Sitemap: https://galdr.aaenz.no/sitemap.xml
