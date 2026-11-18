@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>galdr — design mockups</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    background: #17181a; color: #e6e4df;
+    font-family: "Segoe UI", system-ui, sans-serif; padding: 32px;
+  }
+  .wrap { width: min(880px, 100%); }
+  h1 { font-size: 15px; letter-spacing: .14em; text-transform: uppercase; color: #9a978f; margin: 0 0 24px; }
+  ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+  a.card {
+    display: block; text-decoration: none; color: inherit;
+    background: #202225; border: 1px solid #34363a; border-radius: 8px;
+    padding: 18px 22px; transition: border-color .15s, transform .15s;
+  }
+  a.card:hover { border-color: #7d7f85; transform: translateX(4px); }
+  a.card .no { color: #8b8e93; font-size: 12px; letter-spacing: .1em; }
+  a.card h2 { margin: 4px 0 6px; font-size: 17px; font-weight: 600; }
+  a.card p { margin: 0; color: #9a978f; font-size: 13.5px; line-height: 1.55; }
+  .tokens { margin-top: 10px; display: flex; gap: 6px; align-items: center; }
+  .swatch { width: 14px; height: 14px; border-radius: 3px; border: 1px solid rgba(255,255,255,.18); }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>galdr — four design directions · click to preview</h1>
+    <ol>
+      <li><a class="card" href="./proposal-1-grimoire.html">
+        <span class="no">PROPOSAL 01</span>
+        <h2>The Grimoire Index — archival dark academia</h2>
+        <p>Parchment folios, oxblood drop caps, marginalia. The spellbook as a printed catalog.</p>
+        <div class="tokens"><span class="swatch" style="background:#F4EDE0"></span><span class="swatch" style="background:#E9DFC8"></span><span class="swatch" style="background:#1B1512"></span><span class="swatch" style="background:#7A2E1F"></span><span class="swatch" style="background:#8C7B69"></span></div>
+      </a></li>
+      <li><a class="card" href="./proposal-2-console.html">
+        <span class="no">PROPOSAL 02</span>
+        <h2>Field Console — technical instrument panel</h2>
+        <p>Slate faceplates, condensed labels, one phosphor-green readout. The site as a control rack.</p>
+        <div class="tokens"><span class="swatch" style="background:#2B2F36"></span><span class="swatch" style="background:#3A4049"></span><span class="swatch" style="background:#C8FF5E"></span><span class="swatch" style="background:#9AA3AD"></span><span class="swatch" style="background:#171A1F"></span></div>
+      </a></li>
+      <li><a class="card" href="./proposal-3-forge.html">
+        <span class="no">PROPOSAL 03</span>
+        <h2>The Forge — molten industrial</h2>
+        <p>Warm-black furnace, heat-orange accents, Anton display type. Media thrown on the anvil.</p>
+        <div class="tokens"><span class="swatch" style="background:#100D0B"></span><span class="swatch" style="background:#3E3630"></span><span class="swatch" style="background:#FF6B1A"></span><span class="swatch" style="background:#C9B8A8"></span><span class="swatch" style="background:#57483D"></span></div>
+      </a></li>
+      <li><a class="card" href="./proposal-4-index.html">
+        <span class="no">PROPOSAL 04</span>
+        <h2>The Index — Swiss brutalist catalog</h2>
+        <p>Exposed grid, signal red index numbers, feature table. The spec sheet as brand.</p>
+        <div class="tokens"><span class="swatch" style="background:#FAFAF8"></span><span class="swatch" style="background:#141412"></span><span class="swatch" style="background:#D92300"></span><span class="swatch" style="background:#E5E3DE"></span><span class="swatch" style="background:#6B6963"></span></div>
+      </a></li>
+    </ol>
+  </div>
+</body>
+</html>

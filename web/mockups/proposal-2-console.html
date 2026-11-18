@@ -1,0 +1,461 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>galdr — Proposal 02 · Field Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --panel: #2B2F36;
+    --faceplate: #3A4049;
+    --readout: #C8FF5E;
+    --screwhead: #9AA3AD;
+    --bezel: #171A1F;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0; background: var(--panel); color: #DDE2E8;
+    font-family: "IBM Plex Sans", system-ui, sans-serif; font-size: 15.5px; line-height: 1.6;
+  }
+
+  ::selection { background: var(--readout); color: var(--bezel); }
+
+  /* ── scope-trace bar (sticky) ─────────────────── */
+  .scope-bar {
+    position: sticky; top: 0; z-index: 20;
+    display: flex; align-items: center; gap: 18px;
+    background: var(--bezel); border-bottom: 1px solid #333942;
+    padding: 0 20px; height: 56px;
+    font-family: "IBM Plex Mono", monospace; font-size: 12.5px; letter-spacing: .08em;
+    background-image: repeating-linear-gradient(0deg, rgba(0,0,0,.14) 0 1px, transparent 1px 3px);
+  }
+  .scope-bar .brand { color: var(--readout); font-weight: 500; text-shadow: 0 0 12px rgba(200,255,94,.45); white-space: nowrap; }
+  .scope-bar .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--readout); box-shadow: 0 0 8px var(--readout), 0 0 2px var(--readout) inset; animation: blink 2.4s infinite; flex: none; }
+  @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+  .scope-bar canvas.trace { width: 130px; height: 30px; flex: none; display: block; border: 1px solid #2A2F36; background: rgba(0,0,0,.25); }
+  .scope-bar .trace-label { color: #5A6470; font-size: 10.5px; letter-spacing: .2em; white-space: nowrap; }
+  #section-readout { color: var(--readout); min-width: 19ch; text-shadow: 0 0 10px rgba(200,255,94,.35); }
+  .scope-bar .sep { color: #5A6470; }
+
+  /* ── shell layout: rail + content ─────────────── */
+  .shell { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
+
+  aside.rail {
+    background: var(--faceplate); border-right: 1px solid #333942;
+    padding: 26px 0; position: sticky; top: 56px; height: calc(100vh - 56px); overflow-y: auto;
+  }
+  .rail-block { padding: 0 20px 4px; border-bottom: 1px solid #333942; }
+  .rail-label { font-family: "IBM Plex Mono", monospace; font-size: 10.5px; letter-spacing: .22em; color: var(--screwhead); text-transform: uppercase; margin-bottom: 14px; }
+  a.rail-link, button.rail-link {
+    display: block; width: 100%; text-align: left; background: none; border: none; cursor: pointer;
+    color: #C7CED6; font-family: "IBM Plex Mono", monospace; font-size: 12.5px; letter-spacing: .08em;
+    padding: 9px 4px; transition: all .15s ease;
+  }
+  a.rail-link:hover, button.rail-link:hover { color: var(--readout); }
+  a.rail-link.active, button.rail-link.active { color: var(--readout); background: rgba(200,255,94,.07); border-left: 2px solid var(--readout); padding-left: 6px; text-shadow: 0 0 10px rgba(200,255,94,.3); }
+  a.rail-link:focus-visible { outline: 1px dashed var(--readout); outline-offset: -4px; color: var(--readout); }
+  .rail-foot { padding: 18px 20px 0; font-family: "IBM Plex Mono", monospace; font-size: 10.5px; color: #7C8590; letter-spacing: .1em; line-height: 2; }
+
+  main { padding: 46px clamp(24px, 4vw, 56px) 80px; max-width: 1080px; }
+
+  /* ── sine divider ─────────────────────────────── */
+  .sine-divider { display: block; width: 100%; height: 26px; margin: 40px 0; opacity: .55; color: var(--readout); filter: drop-shadow(0 0 3px rgba(200,255,94,.35)); }
+
+  /* ── hero ─────────────────────────────────────── */
+  header.hero { padding: 30px 0 10px; }
+  .hero-kicker { font-family: "IBM Plex Mono", monospace; font-size: 12px; letter-spacing: .3em; color: var(--screwhead); text-transform: uppercase; }
+  h1.hero-title {
+    font-family: "Saira Condensed", sans-serif; font-weight: 600; text-transform: uppercase;
+    font-size: clamp(52px, 7vw, 84px); line-height: .95; margin: 14px 0 0; color: #F2F5F8; letter-spacing: .01em;
+  }
+  h1.hero-title span { color: var(--readout); text-shadow: 0 0 18px rgba(200,255,94,.35); }
+  .hero-sub { max-width: 52ch; color: #AEB6BF; font-size: 17px; margin-top: 18px; }
+
+  /* hero status cells — bezel readouts */
+  .status-strip { display: grid; gap: 1px; background: #333942; border: 1px solid #333942; margin-top: 30px; max-width: 780px; }
+  @media (min-width: 760px) { .status-strip { grid-template-columns: repeat(4, 1fr); } }
+  .status-cell { background: var(--bezel); padding: 12px 16px; font-family: "IBM Plex Mono", monospace; }
+  .status-cell b { display: block; font-weight: 400; font-size: 10.5px; letter-spacing: .2em; color: var(--screwhead); margin-bottom: 5px; }
+  .status-cell span { font-size: 13px; letter-spacing: .06em; color: var(--readout); text-shadow: 0 0 8px rgba(200,255,94,.3); }
+
+  .hero-actions { display: flex; gap: 14px; margin-top: 30px; flex-wrap: wrap; }
+  a.btn-console { text-decoration: none; }
+  .btn-console {
+    background: var(--bezel); border: 1px solid #454C56; color: #E8ECF0;
+    font-family: "IBM Plex Mono", monospace; font-size: 13px; letter-spacing: .1em; text-transform: uppercase;
+    padding: 12px 22px; cursor: pointer; transition: all .15s ease; display: inline-block;
+  }
+  .btn-console.primary { border-color: var(--readout); color: var(--readout); }
+  .btn-console:hover { box-shadow: 0 0 0 1px var(--readout), 0 0 24px -6px var(--readout); }
+  .btn-console:focus-visible, a:focus-visible { outline: 1px dashed var(--readout); outline-offset: 3px; }
+
+  /* ── instrument module cards ──────────────────── */
+  section.module-grid { display: grid; gap: 22px; }
+  @media (min-width: 860px) { section.module-grid.two-col { grid-template-columns: 1fr 1fr; } }
+
+  .module {
+    position: relative; background: var(--faceplate); border: 1px solid #454C56;
+    padding: 22px 22px 18px; box-shadow: inset 0 1px 0 rgba(255,255,255,.04), 0 10px 30px -18px #000;
+  }
+  .module::before, .module::after {
+    content: ""; position: absolute; width: 9px; height: 9px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #C6CBD2, var(--screwhead) 55%, #6E7681);
+    box-shadow: inset 0 0 3px rgba(0,0,0,.5);
+  }
+  .module::before { top: 9px; left: 9px; }
+  .module::after { bottom: 9px; right: 9px; }
+
+  .plate-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+  .plate {
+    display: inline-block; background: var(--bezel); border: 1px solid #454C56;
+    font-family: "IBM Plex Mono", monospace; font-size: 10.5px; letter-spacing: .2em; text-transform: uppercase;
+    color: #DDE2E8; padding: 6px 12px;
+  }
+  .led { width: 9px; height: 9px; border-radius: 50%; flex: none; background: var(--readout); box-shadow: 0 0 6px var(--readout), 0 0 14px rgba(200,255,94,.4); animation: ledPulse 3.2s ease-in-out infinite; }
+  @keyframes ledPulse { 0%,100% { opacity: 1; } 50% { opacity: .5; } }
+
+  h3.module-title { font-family: "Saira Condensed", sans-serif; font-weight: 600; text-transform: uppercase; font-size: 25px; letter-spacing: .03em; color: #F2F5F8; margin: 0 0 8px; }
+  .module p { margin: 0; color: #AEB6BF; font-size: 14.5px; max-width: 46ch; }
+  .spec-line {
+    display: flex; gap: 20px; flex-wrap: wrap;
+    margin-top: 16px; padding-top: 12px; border-top: 1px solid #454C56;
+    font-family: "IBM Plex Mono", monospace; font-size: 11.5px; color: var(--readout); letter-spacing: .04em;
+  }
+
+  /* ── section headers w/ legend ────────────────── */
+  .sec-head { display: flex; align-items: baseline; gap: 16px; margin-bottom: 26px; }
+  .sec-legend { font-family: "IBM Plex Mono", monospace; font-size: 11px; letter-spacing: .3em; color: var(--screwhead); text-transform: uppercase; white-space: nowrap; }
+  h2.sec-title { font-family: "Saira Condensed", sans-serif; font-weight: 600; text-transform: uppercase; font-size: clamp(34px, 4vw, 46px); color: #F2F5F8; margin: 0; letter-spacing: .02em; }
+
+  /* ── download control cluster ─────────────────── */
+  .cluster { display: grid; gap: 18px; max-width: 760px; }
+  .switch-row {
+    position: relative; display: flex; align-items: center; gap: 18px;
+    background: var(--faceplate); border: 1px solid #454C56; padding: 14px 20px; cursor: pointer;
+    transition: all .15s ease; user-select: none;
+  }
+  .switch-row input { position: absolute; opacity: 0; pointer-events: none; }
+  .switch-key { font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--screwhead); width: 6ch; flex: none; }
+  .switch-name { font-family: "Saira Condensed", sans-serif; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; font-size: 21px; color: #DDE2E8; width: 13ch; flex: none; }
+  .switch-readout {
+    margin-left: auto; font-family: "IBM Plex Mono", monospace; font-size: 12.5px; letter-spacing: .04em;
+    color: #6C7580; transition: all .2s ease; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 42ch;
+  }
+  .switch-row:hover { border-color: var(--readout); }
+  .switch-row.active { border-color: var(--readout); box-shadow: 0 0 0 1px var(--readout), 0 0 30px -8px var(--readout) inset, 0 0 26px -10px var(--readout); }
+  .switch-row.active .switch-name { color: var(--readout); text-shadow: 0 0 10px rgba(200,255,94,.3); }
+  .switch-row.active .switch-readout { color: var(--readout); }
+  .switch-row:focus-within { outline: 1px dashed var(--readout); outline-offset: 3px; }
+
+  .dl-detail {
+    margin-top: 4px; background: var(--bezel); border: 1px solid #333942; padding: 20px 22px;
+    font-family: "IBM Plex Mono", monospace; min-height: 15ch; transition: all .2s ease;
+    background-image: repeating-linear-gradient(0deg, rgba(200,255,94,.02) 0 1px, transparent 1px 3px);
+  }
+  .dl-detail .row { display: flex; gap: 18px; font-size: 12.5px; letter-spacing: .04em; color: #9AA3AD; padding: 3px 0; }
+  .dl-detail .row b { color: var(--readout); font-weight: 400; min-width: 8ch; text-shadow: 0 0 6px rgba(200,255,94,.25); }
+
+  /* ── changelog log feed ───────────────────────── */
+  .log-feed { background: var(--bezel); border: 1px solid #333942; padding: 20px 22px; font-family: "IBM Plex Mono", monospace; }
+  .log-entry { padding: 10px 0; border-bottom: 1px solid #2A2F36; }
+  .log-entry:last-child { border-bottom: none; }
+  .log-head { display: flex; gap: 14px; font-size: 12.5px; letter-spacing: .05em; color: var(--readout); text-shadow: 0 0 8px rgba(200,255,94,.3); }
+  .log-head time { margin-left: auto; color: #7C8590; }
+  .log-body { margin: 6px 0 0; font-family: "IBM Plex Sans", sans-serif; font-size: 14px; color: #AEB6BF; }
+
+  footer.foot {
+    display: flex; gap: 24px; flex-wrap: wrap; align-items: center; justify-content: space-between;
+    margin-top: 70px; padding-top: 24px; border-top: 1px solid #333942;
+    font-family: "IBM Plex Mono", monospace; font-size: 11.5px; color: #7C8590; letter-spacing: .06em;
+  }
+  footer.foot a { color: #AEB6BF; text-decoration: none; }
+  footer.foot a:hover { color: var(--readout); }
+
+  @media (max-width: 900px) {
+    .shell { grid-template-columns: 1fr; }
+    aside.rail { position: static; height: auto; display: flex; gap: 24px; overflow-x: auto; border-right: none; border-bottom: 1px solid #333942; padding: 0; }
+    .rail-block, .rail-foot { border-bottom: none; padding-left: 20px; }
+    .switch-readout { display: none; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    .scope-bar .dot, .led { animation: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══ SCOPE-TRACE BAR ═══ -->
+<div class="scope-bar" role="banner">
+  <span class="dot" aria-hidden="true"></span>
+  <span class="brand">GALDR</span>
+  <canvas class="trace" id="trace" width="260" height="30" aria-hidden="true"></canvas>
+  <span class="trace-label" aria-hidden="true">TRACE&nbsp;01</span>
+  <span class="sep">·</span>
+  <span>v1.4.2</span>
+  <span class="sep">·</span>
+  <span id="section-readout">SYS · STANDBY</span>
+  <span class="sep" aria-hidden="true">·</span>
+  <span id="size-readout">47.3 MB</span>
+</div>
+
+<div class="shell">
+  <!-- ═══ LEFT RAIL ═══ -->
+  <aside class="rail" aria-label="Panel legend">
+    <nav class="rail-block">
+      <div class="rail-label">SYS · NAVIGATION</div>
+      <a href="#hero" data-sec="sys · standby" class="rail-link active">01 — Overview</a>
+      <a href="#features" data-sec="feat · modules" class="rail-link">02 — Feature Modules</a>
+      <a href="#downloads" data-sec="dl · control cluster" class="rail-link">03 — Downloads</a>
+      <a href="#changelog" data-sec="log · release feed" class="rail-link">04 — Changelog Feed</a>
+    </nav>
+    <div class="rail-foot">
+      BUILD 1.4.2<br/>
+      TAURI · REACT · RUST<br/>
+      WIN / MACOS / LINUX
+    </div>
+  </aside>
+
+  <!-- ═══ CONTENT ═══ -->
+  <main id="hero">
+    <header class="hero">
+      <div class="hero-kicker">SYS · MEDIA TRANSMUTATION UNIT</div>
+      <h1 class="hero-title">gal<span>dr</span></h1>
+      <p class="hero-sub">A desktop GUI wrapper around FFmpeg. Convert, compress and manipulate video, audio and image files — every control on the panel maps to a command you can inspect.</p>
+
+      <div class="status-strip" aria-label="System status">
+        <div class="status-cell"><b>ENGINE</b><span>FFMPEG · BUNDLED</span></div>
+        <div class="status-cell"><b>BUILD</b><span>1.4.2 · SIGNED</span></div>
+        <div class="status-cell"><b>RUNTIME</b><span>TAURI / REACT / RUST</span></div>
+        <div class="status-cell"><b>STATE</b><span>READY — 3 PLATFORMS</span></div>
+      </div>
+
+      <div class="hero-actions">
+        <button class="btn-console primary" onclick="document.getElementById('downloads').scrollIntoView({behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'})">INITIALIZE DOWNLOAD</button>
+        <a class="btn-console" href="#">REPOSITORY</a>
+      </div>
+    </header>
+
+    <svg class="sine-divider" viewBox="0 0 600 26" preserveAspectRatio="none" aria-hidden="true"><path d="" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+
+    <!-- ═══ FEATURES ═══ -->
+    <section id="features">
+      <div class="sec-head">
+        <span class="sec-legend">SYS · FEATURES</span>
+        <h2 class="sec-title">Feature Modules</h2>
+      </div>
+
+      <section class="module-grid two-col">
+        <article class="module">
+          <div class="plate-row"><span class="plate">MOD 01 · TRANSMUTATION</span><span class="led" aria-hidden="true"></span></div>
+          <h3 class="module-title">Conversion Engine</h3>
+          <p>Hurl any file into the crucible and name its new form — mp4, mkv, webm, avi. Every codec FFmpeg ships is wired to a control.</p>
+          <div class="spec-line"><span>CPU: AUTO</span><span>PASSTHRU: ON</span><span>CODECS: 60+</span></div>
+        </article>
+        <article class="module">
+          <div class="plate-row"><span class="plate">MOD 02 · COMPRESSION</span><span class="led" aria-hidden="true"></span></div>
+          <h3 class="module-title">CRF Governor</h3>
+          <p>Set the grain and watch the weight fall away. Constant quality, target size, or full manual control of each pass.</p>
+          <div class="spec-line"><span>MODE: CRF 18–51</span><span>TARGET: ANY</span></div>
+        </article>
+        <article class="module">
+          <div class="plate-row"><span class="plate">MOD 03 · SUBTITLE BURN</span><span class="led" aria-hidden="true"></span></div>
+          <h3 class="module-title">Subtitles</h3>
+          <p>Burn inscriptions into the frame, or bind them softly so they travel with the file. SRT, ASS and VTT accepted.</p>
+          <div class="spec-line"><span>FORMAT: SRT / ASS / VTT</span></div>
+        </article>
+        <article class="module">
+          <div class="plate-row"><span class="plate">MOD 04 · EXTRACTION</span><span class="led" aria-hidden="true"></span></div>
+          <h3 class="module-title">Audio Pull</h3>
+          <p>Pull the voice from the moving image — mp3, flac or ogg out — without re-encoding what you didn't touch.</p>
+          <div class="spec-line"><span>LATENCY: 0 (STREAM COPY)</span></div>
+        </article>
+      </section>
+
+    <!-- ═══ DOWNLOADS ═══ -->
+    <section id="downloads">
+      <div class="sec-head">
+        <span class="sec-legend">DL · CONTROL CLUSTER</span>
+        <h2 class="sec-title">Downloads</h2>
+      </div>
+
+      <div class="cluster" aria-label="Operating system selection">
+        <label class="switch-row active" id="row-win">
+          <input type="radio" name="os" checked />
+          <span class="switch-key">OS-1</span>
+          <span class="switch-name">Windows</span>
+          <span class="switch-readout">galdr-1.4.2-x86_64.msi · 47.3 MB</span>
+        </label>
+        <label class="switch-row" id="row-mac">
+          <input type="radio" name="os" />
+          <span class="switch-key">OS-2</span>
+          <span class="switch-name">macOS</span>
+          <span class="switch-readout">galdr-1.4.2-aarch64.dmg · 41.8 MB</span>
+        </label>
+        <label class="switch-row" id="row-lnx">
+          <input type="radio" name="os" />
+          <span class="switch-key">OS-3</span>
+          <span class="switch-name">Linux</span>
+          <span class="switch-readout">galdr-1.4.2-x86_64.AppImage · 39.1 MB</span>
+        </label>
+      </div>
+
+      <div class="dl-detail" id="dl-detail" aria-live="polite"></div>
+    </section>
+
+    <!-- ═══ CHANGELOG ═══ -->
+    <section id="changelog">
+      <div class="sec-head">
+        <span class="sec-legend">LOG · RELEASE FEED</span>
+        <h2 class="sec-title">Changelog</h2>
+      </div>
+
+      <div class="log-feed">
+        <article class="log-entry">
+          <div class="log-head"><span>v1.4.2</span><time datetime="2026-07-30">2026-07-30</time></div>
+          <p class="log-body">New Forge timeline: trim and rejoin clips without touching the command line. Subtitle burn-in now honors ASS styling. Startup 2× faster on cold disks.</p>
+        </article>
+        <article class="log-entry">
+          <div class="log-head"><span>v1.4.0</span><time datetime="2026-06-12">2026-06-12</time></div>
+          <p class="log-body">Batch queue: enqueue a whole shelf of files and walk away. Linux builds ship as portable AppImage with bundled runtime.</p>
+        </article>
+      </div>
+
+      <footer class="foot">
+        <span>GALDR · FIELD CONSOLE MOCKUP 02</span>
+        <a href="#">github.com/aaen-studios/galdr</a>
+        <span>Tauri · React · Rust — free software</span>
+      </footer>
+    </section>
+
+    <svg class="sine-divider" viewBox="0 0 600 26" preserveAspectRatio="none" style="margin-top:44px" aria-hidden="true"><path d="" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+  </main>
+</div>
+
+<script>
+/* ── fill sine dividers ─────────────────────────── */
+document.querySelectorAll(".sine-divider path").forEach(path => {
+  let d = "M0 13";
+  for (let x = 4; x <= 600; x += 4) d += ` L${x} ${(13 + Math.sin(x * 0.05) * 8).toFixed(2)}`;
+  path.setAttribute("d", d);
+});
+
+/* ── scope trace: graticule ticks, phosphor wave, sweep cursor ── */
+(function () {
+  const cv = document.getElementById("trace");
+  if (!cv || !cv.getContext) return; /* jsdom / no-canvas guard */
+  const ctx = cv.getContext("2d");
+  const dpr = window.devicePixelRatio || 1;
+  let phase = 0, running = true;
+
+  function size() {
+    const w = cv.clientWidth || 130, h = cv.clientHeight || 30;
+    cv.width = w * dpr; cv.height = h * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  function draw() {
+    const w = cv.clientWidth || 130, h = cv.clientHeight || 30;
+    ctx.clearRect(0, 0, w, h);
+
+    /* graticule ticks along the bottom edge */
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = "rgba(200,255,94,.18)";
+    ctx.lineWidth = 1;
+    for (let x = 13; x < w - 13; x += 13) {
+      const major = Math.round((x - 13) / 65) % 2 === 0;
+      ctx.beginPath();
+      ctx.moveTo(x + .5, h - (major ? 4 : 7));
+      ctx.lineTo(x + .5, h);
+      ctx.stroke();
+    }
+
+    /* phosphor wave */
+    ctx.strokeStyle = "#C8FF5E";
+    ctx.lineWidth = 1.25;
+    ctx.shadowColor = "rgba(200,255,94,.6)";
+    ctx.shadowBlur = 4;
+    ctx.beginPath();
+    for (let x = 0; x <= w - 13; x += 2) {
+      const y = h / 2 + Math.sin(x * 0.11 + phase) * (h / 2 - 5);
+      if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    /* sweep cursor */
+    const sx = ((phase * .45) % (w - 13));
+    ctx.shadowBlur = 8;
+    ctx.strokeStyle = "rgba(200,255,94,.7)";
+    ctx.beginPath(); ctx.moveTo(sx + .5, 2); ctx.lineTo(sx + .5, h - 2); ctx.stroke();
+
+    phase += .16;
+    if (running && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      requestAnimationFrame(draw);
+    } else running = false;
+  }
+  size(); draw();
+  window.addEventListener("resize", () => { size(); draw(); });
+})();
+
+/* ── OS switch cluster (native radios, keyboard-friendly) ───── */
+(function () {
+  const DATA = {
+    win: { size: "47.3 MB", rows: [["FILE", "galdr-1.4.2-x86_64.msi"], ["SIZE", "47.3 MB"], ["SHA256", "9f2c…e41a · verified"], ["MIN OS", "Windows 10+"]] },
+    mac: { size: "41.8 MB", rows: [["FILE", "galdr-1.4.2-aarch64.dmg"], ["SIZE", "41.8 MB"], ["SHA256", "b7d1…3f90 · verified"], ["MIN OS", "macOS 13 (Apple Silicon)"]] },
+    lnx: { size: "39.1 MB", rows: [["FILE", "galdr-1.4.2-x86_64.AppImage"], ["SIZE", "39.1 MB"], ["SHA256", "c0aa…77b2 · verified"], ["MIN OS", "glibc 2.35+"]] }
+  };
+  const detail = document.getElementById("dl-detail");
+  const sizeReadout = document.getElementById("size-readout");
+
+  function render(key) {
+    const d = DATA[key];
+    if (!d) return;
+    detail.innerHTML = d.rows.map(([k, v]) => `<div class="row"><b>${k}</b><span>${v}</span></div>`).join("");
+    sizeReadout.textContent = d.size;
+  }
+
+  const rows = [...document.querySelectorAll(".switch-row")];
+  function select(key) {
+    rows.forEach(r => r.classList.toggle("active", r.id === "row-" + key));
+    render(key);
+  }
+  rows.forEach(row => row.addEventListener("click", () => select(row.id.replace("row-", ""))));
+  /* keyboard: radios focus natively; sync highlight from focus */
+  document.querySelectorAll(".cluster input").forEach(input => {
+    input.addEventListener("focus", () => select(input.closest(".switch-row").id.replace("row-", "")));
+  });
+
+  render("win");
+})();
+
+/* ── scrollspy: rail + section readout ─────────── */
+(function () {
+  const readout = document.getElementById("section-readout");
+  const links = [...document.querySelectorAll(".rail-link")];
+
+  const io = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (!e.isIntersecting) return;
+      const link = links.find(l => l.getAttribute("href").slice(1) === e.target.id);
+      if (link) {
+        links.forEach(x => x.classList.remove("active"));
+        link.classList.add("active");
+        readout.textContent = link.dataset.sec.toUpperCase();
+      }
+    });
+  }, { rootMargin: "-40% 0px -55% 0px" });
+
+  ["hero", "features", "downloads", "changelog"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) io.observe(el);
+  });
+})();
+</script>
+
+</body>
+</html>

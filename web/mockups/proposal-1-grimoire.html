@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>galdr — Proposal 01 · The Grimoire Index</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500;1,600&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --vellum: #F4EDE0;
+    --vellum-shade: #E9DFC8;
+    --ink: #1B1512;
+    --oxblood: #7A2E1F;
+    --faded-iron: #8C7B69;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0; background: var(--vellum); color: var(--ink);
+    font-family: "Source Serif 4", Georgia, serif;
+    font-size: 17px; line-height: 1.65;
+  }
+
+  /* aged-paper grain + soft vignette */
+  body::before {
+    content: ""; position: fixed; inset: 0; z-index: 90; pointer-events: none; opacity: .32; mix-blend-mode: multiply;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .42 0 0 0 0 .36 0 0 0 0 .29 0 0 0 .05 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23g)'/%3E%3C/svg%3E");
+    background-size: 160px;
+  }
+  body::after {
+    content: ""; position: fixed; inset: 0; z-index: 91; pointer-events: none;
+    background: radial-gradient(ellipse at 50% 38%, transparent 52%, rgba(27,21,18,.14) 100%);
+  }
+
+  ::selection { background: var(--oxblood); color: var(--vellum); }
+
+  .mono { font-family: "IBM Plex Mono", monospace; font-weight: 400; }
+
+  /* ── folio frame ─────────────────────────────── */
+  main { max-width: 720px; margin: 0 auto; padding: 0 28px; position: relative; z-index: 1; }
+
+  .divider {
+    display: flex; align-items: center; gap: 14px;
+    color: var(--oxblood); font-size: 13px; letter-spacing: .5em;
+    margin: 96px 0; user-select: none;
+  }
+  .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--faded-iron); opacity: .55; }
+
+  /* ── nav ─────────────────────────────────────── */
+  nav.primary {
+    position: sticky; top: 0; z-index: 5;
+    display: flex; justify-content: center; gap: 34px;
+    padding: 18px 0; background: var(--vellum); border-bottom: 1px solid var(--faded-iron);
+    font-family: "IBM Plex Mono", monospace; font-size: 12.5px; letter-spacing: .12em; text-transform: uppercase;
+  }
+  nav.primary a { color: var(--ink); text-decoration: none; opacity: .75; transition: color .18s ease, opacity .18s ease; }
+  nav.primary a:hover { color: var(--oxblood); opacity: 1; }
+
+  /* ── title page (hero) ───────────────────────── */
+  header.title-page { min-height: 92vh; display: grid; place-content: center; text-align: center; padding-top: 60px; position: relative; }
+  .kicker { font-family: "IBM Plex Mono", monospace; font-size: 11.5px; letter-spacing: .3em; color: var(--faded-iron); text-transform: uppercase; }
+  h1.wordmark {
+    font-family: "Cormorant Garamond", serif; font-weight: 700;
+    font-size: clamp(64px, 9vw, 112px); line-height: .95; margin: 22px 0 8px; letter-spacing: .01em;
+  }
+  h1.wordmark em { font-style: italic; color: var(--oxblood); }
+  .sub { max-width: 34ch; margin: 26px auto 0; font-size: 19px; color: #3a322c; text-wrap: balance; }
+
+  /* etymological footnote, as a grimoire would give one */
+  .gloss { max-width: 40ch; margin: 40px auto 0; font-size: 15.5px; color: #4a423b; text-align: center; }
+  .gloss dt { font-family: "Cormorant Garamond", serif; font-style: italic; font-weight: 600; font-size: 19px; margin-bottom: 4px; }
+  .gloss dd { margin: 0; color: var(--faded-iron); font-size: 13.5px; }
+
+  .engraved-rule { width: 120px; margin: 40px auto 0; border-top: 1px solid var(--oxblood); position: relative; }
+  .engraved-rule::after { content: "✦"; position: absolute; left: 50%; top: -8px; transform: translateX(-50%); background: var(--vellum); padding: 0 10px; color: var(--oxblood); font-size: 13px; }
+
+  /* capitulum — table of folios, dotted leaders */
+  .capitula { max-width: 34ch; margin: 46px auto 0; text-align: left; }
+  .capitula h2 { font-family: "IBM Plex Mono", monospace; font-weight: 400; font-size: 10.5px; letter-spacing: .3em; color: var(--faded-iron); text-transform: uppercase; margin: 0 0 10px; }
+  .capitula a {
+    display: flex; align-items: baseline; gap: 10px; padding: 7px 2px;
+    font-family: "Cormorant Garamond", serif; font-style: italic; font-weight: 600; font-size: 17.5px;
+    color: var(--ink); text-decoration: none; transition: color .18s ease, padding-left .18s ease;
+  }
+  .capitula a::before { content: ""; flex: 1; border-bottom: 1px dotted var(--faded-iron); transform: translateY(-5px); }
+  .capitula a i { font-style: normal; font-family: "IBM Plex Mono", monospace; font-size: 10.5px; letter-spacing: .14em; color: var(--oxblood); flex: none; }
+  .capitula a:hover { color: var(--oxblood); padding-left: 6px; }
+
+  .seal {
+    display: inline-block; margin-top: 42px; padding: 14px 38px;
+    border: 1.5px solid var(--ink); border-radius: 999px;
+    font-family: "IBM Plex Mono", monospace; font-size: 13px; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--ink); text-decoration: none; background: transparent; transition: all .2s ease;
+  }
+  .seal:hover { background: var(--oxblood); border-color: var(--oxblood); color: var(--vellum); box-shadow: 0 14px 30px -18px rgba(122,46,31,.7); }
+  .colophon-note { margin-top: 30px; font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--faded-iron); letter-spacing: .08em; }
+
+  /* ── folio sections ──────────────────────────── */
+  section { position: relative; }
+  .folio-head { text-align: center; margin-bottom: 44px; }
+  .folio-num { font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--oxblood); letter-spacing: .3em; }
+  h2.folio-title {
+    font-family: "Cormorant Garamond", serif; font-weight: 600; font-size: clamp(34px, 4.5vw, 48px);
+    margin: 10px 0 0; line-height: 1.1;
+  }
+  .folio-latin { font-family: "Cormorant Garamond", serif; font-style: italic; color: var(--faded-iron); font-size: 17px; margin-top: 6px; }
+
+  /* drop cap + marginalia */
+  .entry { padding: 30px 0; border-bottom: 1px solid var(--faded-iron); position: relative; }
+  .entry:last-child { border-bottom: none; }
+  .entry h3 { font-family: "Cormorant Garamond", serif; font-weight: 600; font-size: 24px; margin: 0 0 10px; text-wrap: balance; }
+  .entry p { margin: 0; max-width: 58ch; }
+  .dropcap::first-letter {
+    float: left; font-family: "Cormorant Garamond", serif; font-weight: 700;
+    font-size: 4.2em; line-height: .8; padding: 6px 10px 0 0; color: var(--oxblood);
+  }
+  .margin-note {
+    position: absolute; left: -5.2rem; top: 34px; width: 4.2rem;
+    font-family: "IBM Plex Mono", monospace; font-size: 10.5px; line-height: 1.55;
+    color: var(--faded-iron); text-align: right; letter-spacing: .04em;
+  }
+  .margin-note b { display: block; font-weight: 400; color: var(--oxblood); margin-bottom: 2px; }
+
+  /* feature grid, two-up */
+  .folios { display: grid; gap: 34px 64px; margin-top: 12px; }
+  @media (min-width: 760px) { .folios.two { grid-template-columns: 1fr 1fr; } }
+
+  /* ── download folio ──────────────────────────── */
+  .downloads { display: grid; gap: 26px; margin-top: 8px; }
+  .dl-row {
+    border: 1px solid var(--ink); padding: 20px 24px; text-align: left;
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    background: var(--vellum-shade); transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+  }
+  .dl-row:hover { transform: translateY(-2px); box-shadow: 0 14px 30px -18px rgba(27,21,18,.5); border-color: var(--oxblood); }
+  .dl-os { font-family: "Cormorant Garamond", serif; font-weight: 600; font-size: 22px; flex: none; }
+  .dl-file { font-family: "IBM Plex Mono", monospace; font-size: 11.5px; color: var(--faded-iron); letter-spacing: .04em; display: block; margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dl-meta { font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--faded-iron); letter-spacing: .05em; white-space: nowrap; flex: none; }
+
+  /* ── changelog index ─────────────────────────── */
+  .release { padding: 26px 0 8px; border-bottom: 1px solid var(--faded-iron); }
+  .release:last-child { border-bottom: none; }
+  .release-top { display: flex; align-items: baseline; gap: 14px; font-family: "IBM Plex Mono", monospace; font-size: 13px; letter-spacing: .06em; }
+  .rune { color: var(--oxblood); font-size: 15px; letter-spacing: .2em; }
+  .release-top time { margin-left: auto; color: var(--faded-iron); }
+  .release h4 { font-family: "Cormorant Garamond", serif; font-weight: 600; font-size: 20px; margin: 8px 0 10px; }
+  .release ul { margin: 0; padding-left: 1.3em; color: #3a322c; }
+  .release li { margin-bottom: 6px; }
+  .earlier { font-family: "IBM Plex Mono", monospace; font-size: 11.5px; letter-spacing: .08em; color: var(--faded-iron); margin-top: 26px; line-height: 2.2; }
+
+  /* ── footer colophon ─────────────────────────── */
+  footer { text-align: center; margin-top: 40px; padding-bottom: 80px; }
+  footer .colophon { font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--faded-iron); letter-spacing: .06em; line-height: 2.1; }
+
+  /* ── focus + motion ──────────────────────────── */
+  a:focus-visible, button:focus-visible { outline: 2px solid var(--oxblood); outline-offset: 3px; border-radius: 2px; }
+
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    .reveal { transition: none !important; opacity: 1 !important; transform: none !important; }
+  }
+
+  /* quiet page-turn reveal */
+  .reveal { opacity: 0; transform: translateY(14px); transition: opacity .7s ease, transform .7s ease; }
+  .reveal.in { opacity: 1; transform: none; }
+
+  @media (max-width: 700px) {
+    .margin-note { position: static; width: auto; text-align: left; margin-bottom: 12px; font-size: 11.5px; }
+    nav.primary { gap: 18px; flex-wrap: wrap; justify-content: center; }
+    .dl-row { flex-direction: column; align-items: flex-start; gap: 6px; }
+  }
+</style>
+</head>
+<body>
+
+<nav class="primary" aria-label="Primary">
+  <a href="#spells">Spells</a>
+  <a href="#forge">The Forge</a>
+  <a href="#downloads">Downloads</a>
+  <a href="#changelog">Changelog</a>
+</nav>
+
+<main>
+  <!-- ═══ TITLE PAGE ═══ -->
+  <header class="title-page" id="top">
+    <div class="kicker">an incantation for media · v1.4</div>
+    <h1 class="wordmark">gal<em>dr</em></h1>
+    <p class="sub">A desktop grimoire around FFmpeg — transmute, compress and inscribe video, audio, and image files without leaving the page.</p>
+
+    <dl class="gloss">
+      <dt>*galðr*, Old Norse</dt>
+      <dd>a magical incantation · plural *galðar*: sorcery, witchcraft — a spell you speak over a thing until it changes shape</dd>
+    </dl>
+
+    <div class="engraved-rule" aria-hidden="true"></div>
+
+    <nav class="capitula" aria-label="Folios">
+      <h2>Capitulum — the folios</h2>
+      <a href="#spells"><span>I · The Spells</span><i>p. 01</i></a>
+      <a href="#forge"><span>II · The Forge</span><i>p. 02</i></a>
+      <a href="#downloads"><span>III · Take the Book Home</span><i>p. 03</i></a>
+      <a href="#changelog"><span>IV · Index of Incantations</span><i>p. 04</i></a>
+    </nav>
+
+    <div><a class="seal" href="#downloads">Open the downloads</a></div>
+    <p class="colophon-note">built for windows · macos · linux — tauri · react · rust</p>
+  </header>
+
+  <!-- ═══ FOLIO I: SPELLS / FEATURES ═══ -->
+  <section id="spells" aria-labelledby="spells-title">
+    <div class="folio-head reveal">
+      <div class="folio-num">FOLIO I</div>
+      <h2 class="folio-title" id="spells-title">The Spells</h2>
+      <p class="folio-latin">de transformatione et compressione</p>
+    </div>
+    <div class="divider" aria-hidden="true">✦ ─── ✦</div>
+
+    <div class="folios two">
+      <article class="entry reveal">
+        <span class="margin-note" aria-hidden="true"><b>§1.1</b>transmutatio</span>
+        <h3>Transmutation</h3>
+        <p class="dropcap">Hurl any file into the crucible and name its new form — mp4 to mkv, webm to avi, png stacks to video. Every codec FFmpeg knows is at your fingertips, no command line required.</p>
+      </article>
+      <article class="entry reveal">
+        <span class="margin-note" aria-hidden="true"><b>§1.2</b>compressio</span>
+        <h3>Compression</h3>
+        <p class="dropcap">Quality by the number of grains: set a CRF and watch the weight fall away. Constant-quality, target-size, or full manual — each pass is verified before it commits.</p>
+      </article>
+      <article class="entry reveal">
+        <span class="margin-note" aria-hidden="true"><b>§1.3</b>subtilia</span>
+        <h3>Subtitles</h3>
+        <p class="dropcap">Burn inscriptions into the frame, or bind them softly so they travel with the file. SRT, ASS and VTT all accepted at the door.</p>
+      </article>
+      <article class="entry reveal">
+        <span class="margin-note" aria-hidden="true"><b>§1.4</b>extractio</span>
+        <h3>Extraction</h3>
+        <p class="dropcap">Pull the voice from the moving image — audio out as mp3, flac, or ogg — without re-encoding what you did not touch.</p>
+      </article>
+    </div>
+  </section>
+
+  <!-- ═══ FOLIO II: THE FORGE ═══ -->
+  <section id="forge" aria-labelledby="forge-title">
+    <div class="divider" aria-hidden="true">✦ ─── ✦</div>
+    <div class="folio-head reveal">
+      <div class="folio-num">FOLIO II</div>
+      <h2 class="folio-title" id="forge-title">The Forge</h2>
+      <p class="folio-latin">de tempore fuscato — on the shaping of time</p>
+    </div>
+    <article class="entry reveal">
+      <span class="margin-note" aria-hidden="true"><b>§2.0</b>forges</span>
+      <p class="dropcap">When a spell is not enough, step into the forge: a timeline editor over raw FFmpeg operations. Cut, scale, crop and layer — every gesture compiles to a command you can read, copy, or run again.</p>
+    </article>
+  </section>
+
+  <!-- ═══ FOLIO III: DOWNLOADS ═══ -->
+  <section id="downloads" aria-labelledby="dl-title">
+    <div class="divider" aria-hidden="true">✦ ─── ✦</div>
+    <div class="folio-head reveal">
+      <div class="folio-num">FOLIO III</div>
+      <h2 class="folio-title" id="dl-title">Take the Book Home</h2>
+      <p class="folio-latin">codices — three bindings, one text</p>
+    </div>
+
+    <div class="downloads reveal">
+      <a class="dl-row" href="#">
+        <span><span class="dl-os">Windows</span><span class="dl-file">galdr-1.4.2-x86_64.msi</span></span>
+        <span class="dl-meta">47.3 MB · sha256 verified</span>
+      </a>
+      <a class="dl-row" href="#">
+        <span><span class="dl-os">macOS</span><span class="dl-file">galdr-1.4.2-aarch64.dmg</span></span>
+        <span class="dl-meta">41.8 MB · sha256 verified</span>
+      </a>
+      <a class="dl-row" href="#">
+        <span><span class="dl-os">Linux</span><span class="dl-file">galdr-1.4.2-x86_64.AppImage</span></span>
+        <span class="dl-meta">39.1 MB · sha256 verified</span>
+      </a>
+    </div>
+  </section>
+
+  <!-- ═══ FOLIO IV: CHANGELOG INDEX ═══ -->
+  <section id="changelog" aria-labelledby="cl-title">
+    <div class="divider" aria-hidden="true">✦ ─── ✦</div>
+    <div class="folio-head reveal">
+      <div class="folio-num">FOLIO IV</div>
+      <h2 class="folio-title" id="cl-title">Index of Incantations</h2>
+      <p class="folio-latin">a record of what the forge has spoken</p>
+    </div>
+
+    <article class="release reveal">
+      <div class="release-top"><span class="rune" aria-hidden="true">ᚱ ᛒ ᚾ</span><strong>v1.4.2</strong><time datetime="2026-07-30">30 · VII · 2026</time></div>
+      <h4>The Ashfall revision</h4>
+      <ul>
+        <li>New Forge timeline: trim and rejoin clips without touching the command line.</li>
+        <li>Subtitle burn-in now honors ASS styling and per-track colors.</li>
+        <li>Startup 2× faster on cold disks; release assets checksum-signed.</li>
+      </ul>
+    </article>
+    <article class="release reveal">
+      <div class="release-top"><span class="rune" aria-hidden="true">ᚦ ᛁ ᚱ</span><strong>v1.4.0</strong><time datetime="2026-06-12">12 · VI · 2026</time></div>
+      <h4>The Ember revision</h4>
+      <ul>
+        <li>Batch queue: enqueue a whole shelf of files, walk away.</li>
+        <li>Linux builds now ship as portable AppImage with bundled runtime.</li>
+      </ul>
+    </article>
+    <p class="earlier">earlier folios — v1.3.2 · 09·II·2026 &nbsp;✦&nbsp; v1.3.0 · the first binding, 02·II·2026</p>
+  </section>
+
+  <!-- ═══ COLOPHON ═══ -->
+  <footer>
+    <div class="divider" aria-hidden="true">✦ ─── ✦</div>
+    <p class="colophon">
+      galdr — set in Cormorant Garamond &amp; Source Serif · typeset for the web<br/>
+      source on github.com/aaen-studios/galdr · free software, forever
+    </p>
+  </footer>
+</main>
+
+<script>
+/* ── quiet page-turn reveal (skipped for reduced motion) ── */
+(function () {
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const io = new IntersectionObserver(entries => {
+    entries.forEach(e => e.isIntersecting ? (e.target.classList.add("in"), io.unobserve(e.target)) : null);
+  }, { threshold: .12, rootMargin: "0px 0px -8% 0px" });
+  document.querySelectorAll(".reveal").forEach(el => io.observe(el));
+})();
+</script>
+
+</body>
+</html>

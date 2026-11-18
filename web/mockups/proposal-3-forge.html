@@ -1,0 +1,396 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>galdr — Proposal 03 · The Forge</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --coke: #100D0B;
+    --steel: #3E3630;
+    --heat: #FF6B1A;
+    --ash: #C9B8A8;
+    --slag: #57483D;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 64px; }
+  body {
+    margin: 0; background: var(--coke); color: var(--ash);
+    font-family: "Inter", system-ui, sans-serif; font-size: 16.5px; line-height: 1.6; overflow-x: hidden;
+  }
+
+  /* ── furnace grain overlay ─────────────────── */
+  body::after {
+    content: ""; position: fixed; inset: 0; z-index: 300; pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+    mix-blend-mode: screen; opacity: .05;
+  }
+
+  ::selection { background: var(--heat); color: var(--coke); }
+
+  a:focus-visible, button:focus-visible { outline: 2px dashed var(--heat); outline-offset: 3px; border-radius: 1px; }
+
+  .mono { font-family: "JetBrains Mono", monospace; }
+
+  /* ── nav strip ───────────────────────────────── */
+  header.nav-strip {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 10;
+    display: flex; align-items: center; gap: 26px;
+    padding: 14px clamp(20px, 5vw, 64px);
+    background: rgba(16,13,11,.92); border-bottom: 1px solid var(--slag);
+    font-family: "JetBrains Mono", monospace; font-size: 12px; letter-spacing: .14em; text-transform: uppercase;
+  }
+  header.nav-strip .mark { font-family: "Anton", sans-serif; font-size: 20px; letter-spacing: .06em; color: var(--ash); }
+  header.nav-strip a { color: #8a7d6e; text-decoration: none; transition: color .15s ease; }
+  header.nav-strip a:hover, header.nav-strip a.active { color: var(--heat); }
+
+  /* ── hero ────────────────────────────────────── */
+  section.hero { position: relative; min-height: 96vh; padding: clamp(120px, 18vh, 200px) clamp(24px, 6vw, 96px) 120px 0; }
+  .heat-glow {
+    position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: -1; pointer-events: none;
+    background: radial-gradient(58vw 46vh at 22% 38%, rgba(255,107,26,.14), transparent 62%),
+                radial-gradient(90vw 30vh at 50% 100%, rgba(255,107,26,.07), transparent 70%);
+  }
+  .hero-inner { position: relative; width: 100%; max-width: 100%; z-index: 1; }
+  h1.wordmark {
+    font-family: "Anton", sans-serif; font-weight: 400; text-transform: uppercase;
+    font-size: clamp(96px, 18vw, 240px); line-height: .92; letter-spacing: .015em; color: var(--ash); margin: 0;
+  }
+  .burn-rule { height: 7px; background: var(--heat); width: 0; animation: burnIn 1.6s cubic-bezier(.2,.8,.3,1) .4s forwards; box-shadow: 0 0 30px rgba(255,107,26,.55), 0 0 90px rgba(255,107,26,.3); }
+  @keyframes burnIn { to { width: min(48vw, 560px); } }
+  .hero-sub { max-width: 44ch; margin-top: 34px; color: #b7a998; font-size: 18.5px; }
+  .hero-meta { margin-top: 26px; font-family: "JetBrains Mono", monospace; font-size: 12.5px; letter-spacing: .1em; color: var(--slag); text-transform: uppercase; }
+  .scroll-cue {
+    position: absolute; bottom: 34px; left: clamp(24px, 6vw, 96px); z-index: 1;
+    display: flex; align-items: center; gap: 14px;
+    font-family: "JetBrains Mono", monospace; font-size: 10.5px; letter-spacing: .3em; color: var(--slag); text-transform: uppercase;
+  }
+  .scroll-cue::before { content: ""; width: 46px; height: 2px; background: var(--heat); box-shadow: 0 0 12px rgba(255,107,26,.5); animation: cuePulse 2.2s ease-in-out infinite; }
+  @keyframes cuePulse { 50% { opacity: .35; } }
+
+  /* ── ember band per section ─────────────────── */
+  .ember-zone { position: relative; overflow: visible; }
+  canvas.embers {
+    position: absolute; left: 0; right: 0; bottom: -10px; width: 100%; height: 160px;
+    pointer-events: none; z-index: 0; opacity: .9;
+  }
+
+  /* ── feature blocks ──────────────────────────── */
+  section.block {
+    position: relative; padding: clamp(70px, 10vh, 130px) clamp(24px, 6vw, 96px);
+    border-bottom: 1px solid var(--slag); overflow: hidden;
+  }
+  section.block .inner { position: relative; z-index: 1; max-width: 780px; }
+  section.block:nth-of-type(even) .inner { margin-left: auto; text-align: right; }
+
+  .ghost-num {
+    position: absolute; top: -0.35em; font-family: "Anton", sans-serif; line-height: 1;
+    font-size: clamp(140px, 22vw, 300px); color: transparent;
+    -webkit-text-stroke: 1.5px var(--steel); z-index: 0; user-select: none; pointer-events: none;
+  }
+  section.block:nth-of-type(odd) .ghost-num { left: clamp(-40px, -2vw, -10px); }
+  section.block:nth-of-type(even) .ghost-num { right: clamp(-40px, -2vw, -10px); }
+
+  h3.block-title {
+    font-family: "Anton", sans-serif; font-weight: 400; text-transform: uppercase;
+    font-size: clamp(40px, 5.4vw, 68px); line-height: 1.02; color: var(--ash); margin: 0 0 18px; letter-spacing: .01em;
+    transition: color .5s ease, text-shadow .5s ease;
+  }
+  h3.block-title.flash { animation: heatFlash 1.4s ease-out; }
+  @keyframes heatFlash {
+    0%   { color: var(--heat); text-shadow: 0 0 40px rgba(255,107,26,.8); }
+    100% { color: var(--ash); text-shadow: none; }
+  }
+  section.block p.lead { font-size: 19px; max-width: 50ch; margin: 0; color: #b7a998; }
+  section.block:nth-of-type(even) p.lead { margin-left: auto; }
+  .block-spec {
+    display: block; margin-top: 26px; padding-top: 14px; border-top: 3px solid var(--steel); width: fit-content; max-width: 100%;
+    font-family: "JetBrains Mono", monospace; font-size: 12.5px; letter-spacing: .08em; color: #938574; text-transform: uppercase;
+  }
+
+  /* ── anvil download plate ────────────────────── */
+  section.anvil { padding: clamp(80px, 12vh, 150px) clamp(24px, 6vw, 96px); border-bottom: 1px solid var(--slag); }
+  .anvil-plate { position: relative; max-width: 780px; margin-left: auto; background: #1a1512; border: 3px solid var(--steel); box-shadow: inset 0 0 60px rgba(0,0,0,.6), 0 40px 80px -40px #000; }
+  .anvil-plate::before { content: "DOWNLOAD PLATE"; position: absolute; top: -14px; left: 22px; background: var(--coke); padding: 0 10px; font-family: "JetBrains Mono", monospace; font-size: 11px; letter-spacing: .3em; color: var(--slag); }
+  .rivet-row {
+    display: flex; align-items: center; gap: 22px; width: 100%;
+    background: none; border: none; cursor: pointer; position: relative;
+    padding: 26px 34px 26px 56px; text-align: left; color: var(--ash); transition: background .18s ease;
+  }
+  .rivet-row + .rivet-row { border-top: 2px solid var(--steel); }
+  .rivet-row::before, .rivet-row::after {
+    content: ""; position: absolute; top: 50%; transform: translateY(-50%);
+    width: 14px; height: 14px; border-radius: 50%;
+    background: radial-gradient(circle at 32% 32%, #8a7d6e, var(--steel) 55%, #241d18); box-shadow: 0 1px 3px rgba(0,0,0,.8);
+  }
+  .rivet-row::before { left: 18px; }
+  .rivet-row::after { right: 18px; }
+  .rivet-row:hover { background: #241b15; }
+  .rv-os { font-family: "Anton", sans-serif; text-transform: uppercase; font-size: 30px; letter-spacing: .02em; min-width: 17ch; }
+  .rv-file { font-family: "JetBrains Mono", monospace; font-size: 13.5px; color: #938574; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rivet-row:hover .rv-os, .rivet-row:hover .rv-file { color: var(--heat); }
+  .rv-ver { font-family: "JetBrains Mono", monospace; font-size: 12px; letter-spacing: .1em; color: var(--slag); flex: none; }
+
+  /* ── changelog hot pass ─────────────────────── */
+  section.log { padding: clamp(80px, 12vh, 140px) clamp(24px, 6vw, 96px); border-bottom: 1px solid var(--slag); }
+  .log-entry { max-width: 720px; padding: 30px 0 30px 22px; border-left: 4px solid var(--steel); margin-top: 34px; position: relative; z-index: 1; }
+  .log-entry:first-of-type { margin-top: 8px; }
+  .log-tag { font-family: "JetBrains Mono", monospace; font-size: 12.5px; letter-spacing: .1em; color: var(--heat); text-transform: uppercase; }
+  .log-entry h4 { font-family: "Anton", sans-serif; font-weight: 400; font-size: 30px; text-transform: uppercase; color: var(--ash); margin: 6px 0 12px; letter-spacing: .02em; }
+  .log-entry ul { margin: 0; padding-left: 1.2em; color: #b7a998; }
+
+  footer.foot { display: flex; gap: 24px; flex-wrap: wrap; justify-content: space-between; align-items: center; padding: 36px clamp(24px, 6vw, 96px); font-family: "JetBrains Mono", monospace; font-size: 11.5px; letter-spacing: .1em; color: var(--slag); text-transform: uppercase; }
+  footer.foot a { color: #8a7d6e; text-decoration: none; }
+  footer.foot a:hover { color: var(--heat); }
+
+  @media (max-width: 640px) {
+    .rv-os { font-size: 24px; min-width: auto; }
+    section.block:nth-of-type(even) .inner, section.block p.lead { text-align: left; margin-left: 0; }
+    section.block:nth-of-type(even) .ghost-num { right: -6vw; }
+    .scroll-cue { display: none; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    .burn-rule { animation: none; width: min(48vw, 560px); }
+    h3.block-title.flash { animation: none; }
+    .scroll-cue::before { animation: none; }
+  }
+</style>
+</head>
+<body>
+
+<header class="nav-strip">
+  <span class="mark">GALDR</span>
+  <a href="#features">Features</a>
+  <a href="#downloads">Downloads</a>
+  <a href="#changelog">Changelog</a>
+  <a href="#" style="margin-left:auto; color: var(--heat)">github.com/aaen-studios/galdr</a>
+</header>
+
+<!-- ═══ HERO ═══ -->
+<section class="hero ember-zone" id="top">
+  <div class="heat-glow" aria-hidden="true"></div>
+  <canvas class="embers" aria-hidden="true"></canvas>
+  <div class="hero-inner">
+    <h1 class="wordmark">GALDR</h1>
+    <div class="burn-rule" aria-hidden="true"></div>
+    <p class="hero-sub">A desktop forge around FFmpeg. Convert, compress and cut video, audio and image files — the heat is in your hands.</p>
+    <p class="hero-meta">v1.4.2 · windows / macos / linux · tauri + react + rust</p>
+  </div>
+  <span class="scroll-cue" aria-hidden="true">Furnaces 01–06 ahead</span>
+</section>
+
+<!-- ═══ FEATURES: 01–06 ═══ -->
+<div id="features">
+  <section class="block ember-zone">
+    <span class="ghost-num" aria-hidden="true">01</span>
+    <canvas class="embers" aria-hidden="true"></canvas>
+    <div class="inner">
+      <h3 class="block-title">Conversion Engine</h3>
+      <p class="lead">Every codec FFmpeg ships is wired straight to the panel. Name your file, name its new form — the forge handles the rest.</p>
+      <span class="block-spec">mp4 · mkv · webm · avi · 60+ codecs</span>
+    </div>
+  </section>
+
+  <section class="block ember-zone">
+    <span class="ghost-num" aria-hidden="true">02</span>
+    <canvas class="embers" aria-hidden="true"></canvas>
+    <div class="inner">
+      <h3 class="block-title">Compression Pass</h3>
+      <p class="lead">Set the grain, watch the weight fall away. Constant quality or target size — every pass is verified before it commits.</p>
+      <span class="block-spec">crf 18–51 · target-size mode · pre-commit verify</span>
+    </div>
+  </section>
+
+  <section class="block ember-zone">
+    <span class="ghost-num" aria-hidden="true">03</span>
+    <canvas class="embers" aria-hidden="true"></canvas>
+    <div class="inner">
+      <h3 class="block-title">Subtitle Burn-In</h3>
+      <p class="lead">Inscriptions etched into the frame or bound softly so they travel with the file. SRT, ASS and VTT all accepted.</p>
+      <span class="block-spec">srt · ass · vtt · styled burn-in · soft subs preserved</span>
+    </div>
+  </section>
+
+  <section class="block ember-zone">
+    <span class="ghost-num" aria-hidden="true">04</span>
+    <canvas class="embers" aria-hidden="true"></canvas>
+    <div class="inner">
+      <h3 class="block-title">Audio Extraction</h3>
+      <p class="lead">Pull the voice from the moving image. Streams you don't touch are copied whole — nothing is re-encoded twice.</p>
+      <span class="block-spec">mp3 · flac · ogg · stream-copy safe</span>
+    </div>
+  </section>
+
+  <section class="block ember-zone">
+    <span class="ghost-num" aria-hidden="true">05</span>
+    <canvas class="embers" aria-hidden="true"></canvas>
+    <div class="inner">
+      <h3 class="block-title">The Forge Timeline</h3>
+      <p class="lead">Trim, scale and rejoin on a timeline built over raw FFmpeg operations. Every gesture compiles to a command you can read.</p>
+      <span class="block-spec">non-destructive · inspectable commands · undo-safe</span>
+    </div>
+  </section>
+
+  <section class="block ember-zone">
+    <span class="ghost-num" aria-hidden="true">06</span>
+    <canvas class="embers" aria-hidden="true"></canvas>
+    <div class="inner">
+      <h3 class="block-title">Batch Queue</h3>
+      <p class="lead">Enqueue a whole shelf of files and walk away. The forge runs while you're gone and reports every miss.</p>
+      <span class="block-spec">parallel workers · resume on failure · per-file log</span>
+    </div>
+  </section>
+</div>
+
+<!-- ═══ ANVIL PLATE: DOWNLOADS ═══ -->
+<section class="anvil" id="downloads">
+  <canvas class="embers" aria-hidden="true"></canvas>
+  <div class="anvil-plate">
+    <a class="rivet-row" href="#">
+      <span class="rv-os">Windows MSI</span>
+      <span class="rv-file">galdr-1.4.2-x86_64.msi — 47.3 MB · sha256 verified</span>
+      <span class="rv-ver">v1.4.2</span>
+    </a>
+    <a class="rivet-row" href="#">
+      <span class="rv-os">macOS DMG</span>
+      <span class="rv-file">galdr-1.4.2-aarch64.dmg — 41.8 MB · sha256 verified</span>
+      <span class="rv-ver">v1.4.2</span>
+    </a>
+    <a class="rivet-row" href="#">
+      <span class="rv-os">Linux AppImage</span>
+      <span class="rv-file">galdr-1.4.2-x86_64.AppImage — 39.1 MB · sha256 verified</span>
+      <span class="rv-ver">v1.4.2</span>
+    </a>
+  </div>
+</section>
+
+<!-- ═══ CHANGELOG ═══ -->
+<section class="log" id="changelog">
+  <canvas class="embers" aria-hidden="true"></canvas>
+  <article class="log-entry">
+    <span class="log-tag">v1.4.2 · 2026-07-30</span>
+    <h4>The Ashfall revision</h4>
+    <ul>
+      <li>New Forge timeline: trim and rejoin clips without the command line.</li>
+      <li>Subtitle burn-in honors ASS styling and per-track colors.</li>
+      <li>Cold-disk startup 2× faster; release assets checksum-signed.</li>
+    </ul>
+  </article>
+  <article class="log-entry">
+    <span class="log-tag">v1.4.0 · 2026-06-12</span>
+    <h4>The Ember revision</h4>
+    <ul>
+      <li>Batch queue ships to all three platforms.</li>
+      <li>Linux builds are a single portable AppImage with bundled runtime.</li>
+    </ul>
+  </article>
+</section>
+
+<footer class="foot">
+  <span>GALDR · FORGE MOCKUP 03</span>
+  <a href="#">github.com/aaen-studios/galdr</a>
+  <span>free software, forever</span>
+</footer>
+
+<script>
+/* ── heading heat-flash on scroll-in ───────────── */
+(function () {
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const io = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (!e.isIntersecting) return;
+      e.target.classList.remove("flash"); void e.target.offsetWidth; e.target.classList.add("flash");
+    });
+  }, { threshold: .6 });
+  document.querySelectorAll(".block-title").forEach(el => io.observe(el));
+})();
+
+/* ── ember fields: spawn at section bottoms, drift up ── */
+document.querySelectorAll("section.ember-zone").forEach(section => {
+  const cv = section.querySelector("canvas.embers");
+  if (!cv) return;
+  const ctx = cv.getContext("2d");
+  let cssW = 0, particles = [], running = false, raf = null;
+
+  function resize() {
+    const dpr = window.devicePixelRatio || 1;
+    cssW = cv.offsetWidth;
+    cv.width = cssW * dpr;
+    cv.height = 160 * dpr; /* matches CSS height */
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  function spawn() {
+    return {
+      x: Math.random() * cssW,
+      y: 156 + Math.random() * 24,
+      r: Math.random() * 1.8 + .6,
+      vy: -(Math.random() * .55 + .2),
+      vx: (Math.random() - .5) * .3,
+      life: Math.random(), decay: Math.random() * .004 + .0015
+    };
+  }
+
+  function step() {
+    ctx.clearRect(0, 0, cssW, 160);
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.y += p.vy;
+      p.x += p.vx + Math.sin(p.y * .05) * .2;
+      p.life -= p.decay;
+      if (p.life <= 0 || p.y < -4) { particles.splice(i, 1); continue; }
+      ctx.globalAlpha = Math.max(0, p.life) * .8;
+      ctx.fillStyle = p.life > .6 ? "#FF6B1A" : "#57483D";
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    raf = requestAnimationFrame(step);
+  }
+
+  function start() { if (!running) { running = true; resize(); step(); } }
+  function stop() { running = false; cancelAnimationFrame(raf); particles = []; ctx.clearRect(0, 0, cssW, 160); }
+
+  const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  if (reduced) {
+    /* static ember field for reduced-motion users */
+    function drawStatic() {
+      resize();
+      ctx.globalAlpha = .5;
+      const n = Math.max(6, Math.floor(cssW / 55));
+      for (let i = 0; i < n; i++) {
+        const x = Math.random() * cssW, y = 30 + Math.random() * 120;
+        ctx.fillStyle = Math.random() > .5 ? "#FF6B1A" : "#57483D";
+        ctx.beginPath(); ctx.arc(x, y, Math.random() * 1.2 + .4, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+    drawStatic();
+    window.addEventListener("resize", drawStatic);
+  } else {
+    new IntersectionObserver(entries => {
+      entries.forEach(e => e.isIntersecting ? start() : stop());
+    }, { threshold: .1 }).observe(section);
+
+    window.addEventListener("resize", () => { if (running) resize(); });
+
+    /* continuous spawn while visible */
+    setInterval(() => {
+      if (!running || document.hidden) return;
+      for (let i = 0; i < 3; i++) particles.push(spawn());
+      const cap = Math.floor(cssW / 28);
+      if (particles.length > cap) particles.splice(0, particles.length - cap);
+    }, 60);
+  }
+});
+</script>
+
+</body>
+</html>
