@@ -130,6 +130,15 @@ galdr (Old Norse for "magical incantation") frames media work as spellcasting: r
 
 ---
 
+## Repository Layout
+
+| Path | What |
+|------|------|
+| `/` | The desktop app (Tauri shell in `src-tauri/`, React frontend in `src/`) |
+| `web/` | The landing site (Next.js static export) — `cd web && bun install && bun dev` |
+
+---
+
 ## Getting Started
 
 ### Prerequisites
