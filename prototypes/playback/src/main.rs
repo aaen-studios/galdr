@@ -13,7 +13,7 @@
 mod audio;
 mod decode;
 mod cache;
-mod video;
+
 
 use std::collections::{HashMap, VecDeque};
 use std::path::PathBuf;
@@ -30,7 +30,7 @@ use gpui_platform::application;
 
 use audio::AudioOut;
 use cache::FrameCache;
-use video::{Command, Frame, Hw, Info, VideoDecoder};
+use media::{Command, Frame, Hw, Info, VideoDecoder};
 
 struct Args {
     path: PathBuf,

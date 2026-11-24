@@ -7,6 +7,14 @@ A video editor with media tools built in (transcription, conversion, compression
 - UI, timeline and playback: Rust with GPUI.
 - Everything else (tool planners, export, job queue, ffmpeg / whisper / yt-dlp, downloads, project files): Calx, built with `calx build --staticlib` and linked into the Rust app. JSON goes in, events come back through a callback.
 
+| Path | What |
+|---|---|
+| `crates/app` | The galdr app (GPUI): media bin, preview, timeline. `--auto` runs a scripted edit and prints timings |
+| `crates/media` | Decoding with libav: the preview's decoder thread, thumbnails |
+| `crates/core` | The Rust side of the Calx core: builds it from `build.rs`, sends JSON, gets events |
+| `core/` | The Calx core itself (`galdr.calx`) |
+| `prototypes/` | The playback and core-link prototypes, kept for their benches |
+
 This branch (`main`) is a rewrite from scratch and will replace `master`. The old Tauri app and the landing site (`web/`) are on `master` until then.
 
 ## Building

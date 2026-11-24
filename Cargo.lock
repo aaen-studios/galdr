@@ -885,6 +885,7 @@ name = "core-link"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "galdr-core",
  "gpui-pre",
  "gpui-pre-platform",
  "serde_json",
@@ -1618,6 +1619,26 @@ dependencies = [
  "memchr",
  "pin-project-lite",
  "slab",
+]
+
+[[package]]
+name = "galdr"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "galdr-core",
+ "gpui-pre",
+ "gpui-pre-platform",
+ "image",
+ "media",
+ "serde_json",
+]
+
+[[package]]
+name = "galdr-core"
+version = "0.0.0"
+dependencies = [
+ "serde_json",
 ]
 
 [[package]]
@@ -2862,6 +2883,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "media"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "ffmpeg-next",
+]
+
+[[package]]
 name = "memchr"
 version = "2.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3774,10 +3803,10 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "cpal",
- "ffmpeg-next",
  "gpui-pre",
  "gpui-pre-platform",
  "image",
+ "media",
  "serde_json",
 ]
 

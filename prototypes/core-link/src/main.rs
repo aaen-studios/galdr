@@ -9,7 +9,7 @@
 //! restart, finish one, then prints what happened and quits. `--background` opens the window
 //! off-screen without taking focus.
 
-mod core;
+
 
 use std::path::PathBuf;
 use std::sync::mpsc::{self, Receiver};
@@ -22,7 +22,7 @@ use gpui::{
 use gpui_platform::application;
 use serde_json::{Value, json};
 
-use crate::core::{Core, Message};
+use galdr_core::{Core, Message};
 
 #[derive(Clone)]
 struct Job {

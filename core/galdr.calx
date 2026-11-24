@@ -4,6 +4,8 @@
 //
 // Requests:
 //   {"cmd": "convert", "id": 1, "input": "in.mp4", "output": "out.mp4", "args": ["-c:v", "libx264"]}
+//   {"cmd": "export", "id": 2, "output": "cut.mp4", "width": 1920, "height": 1080, "fps": 30,
+//    "clips": [{"path": "a.mp4", "start": 1.5, "end": 4.0}, ...]}      a timeline, joined in order
 //   {"cmd": "cancel", "id": 1}
 //   {"cmd": "panic"}      a bug on the core's thread, to test that the host survives it
 // Events:
@@ -12,6 +14,14 @@ import std.json.{json}
 import std.process.{Command, Stdio}
 import std.thread.{Task}
 
+/// A piece of a source file on the timeline, from `start` to `end` seconds into it.
+@json
+struct Clip {
+    path: String
+    start: f64
+    end: f64
+}
+
 @json
 struct Request {
     cmd: String
@@ -19,6 +29,10 @@ struct Request {
     input: String?
     output: String?
     args: List<String>?
+    clips: List<Clip>?
+    width: u32 = 1920
+    height: u32 = 1080
+    fps: f64 = 30.0
 }
 
 @json
@@ -54,11 +68,58 @@ impl Sink {
     }
 }
 
+/// An ffmpeg run: what goes between ffmpeg's own options and the output, and how long the output
+/// will be, or a file to ask.
 struct Job {
     id: u64
-    input: String
+    argv: List<String>
     output: String
-    args: List<String>
+    duration: f64?
+    probe: String?
+}
+
+/// Whether the file has an audio stream.
+fn has_audio(path: String) -> bool {
+    let args: List<String> = ["-v", "error", "-select_streams", "a", "-show_entries", "stream=index", "-of", "csv=p=0", path.copy()]
+    match Command.new("ffprobe").args(args).stdin(Stdio.Null).stderr(Stdio.Null).read() {
+        ok(text) => return not text.trim().is_empty(),
+        err(_) => return false,
+    }
+}
+
+/// The ffmpeg arguments that cut each clip from its file and join them: every clip scaled and
+/// padded to one size and frame rate, and given silence where its file has no audio.
+fn export_argv(clips: List<Clip>, width: u32, height: u32, fps: f64) -> List<String> {
+    var argv = List<String>()
+    var graph = List<String>()
+    var joined = String()
+    for i in 0..clips.len() {
+        let c = clips[i].copy()
+        let length = c.end - c.start
+        argv.push(String("-ss"))
+        argv.push("{c.start}")
+        argv.push(String("-t"))
+        argv.push("{length}")
+        argv.push(String("-i"))
+        argv.push(c.path.copy())
+        graph.push("[{i}:v:0]scale={width}:{height}:force_original_aspect_ratio=decrease,pad={width}:{height}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps={fps},format=yuv420p[v{i}]")
+        if has_audio(c.path.copy()) {
+            graph.push("[{i}:a:0]aresample=48000,aformat=channel_layouts=stereo[a{i}]")
+        } else {
+            graph.push("anullsrc=r=48000:cl=stereo,atrim=duration={length}[a{i}]")
+        }
+        joined.push_str("[v{i}][a{i}]")
+    }
+    graph.push("{joined}concat=n={clips.len()}:v=1:a=1[v][a]")
+    argv.push(String("-filter_complex"))
+    argv.push(graph.join(";"))
+    for a in ["-map", "[v]", "-map", "[a]"] {
+        argv.push(String(a))
+    }
+    for a in ["-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart"] {
+        argv.push(String(a))
+    }
+    return argv
 }
 
 /// The input's length in seconds, from ffprobe, or none if it can't tell.
@@ -89,11 +150,35 @@ impl Worker {
             ok(r) => {
                 if r.cmd == "convert" {
                     if let (some(input), some(output)) = (r.input, r.output) {
-                        queue.push_last(Job { id: r.id, input: input, output: output, args: r.args ?? List<String>() })
+                        var argv: List<String> = ["-i", input.copy()]
+                        for a in r.args ?? List<String>() {
+                            argv.push(a.copy())
+                        }
+                        queue.push_last(Job { id: r.id, argv: argv, output: output, duration: none, probe: some(input) })
                         self.sink.tell(event("queued", r.id))
                     } else {
                         var e = event("failed", r.id)
                         e.error = some(String("a convert needs an input and an output"))
+                        self.sink.tell(e)
+                    }
+                } else if r.cmd == "export" {
+                    let clips = r.clips ?? List<Clip>()
+                    var queued = false
+                    if not clips.is_empty() {
+                        if let output = r.output {
+                            var length: f64 = 0.0
+                            for c in clips {
+                                length += c.end - c.start
+                            }
+                            let argv = export_argv(clips, r.width, r.height, r.fps)
+                            queue.push_last(Job { id: r.id, argv: argv, output: output.copy(), duration: some(length), probe: none })
+                            self.sink.tell(event("queued", r.id))
+                            queued = true
+                        }
+                    }
+                    if not queued {
+                        var e = event("failed", r.id)
+                        e.error = some(String("an export needs an output and at least one clip"))
                         self.sink.tell(e)
                     }
                 } else if r.cmd == "cancel" {
@@ -124,13 +209,18 @@ impl Worker {
 
     /// Runs one job, telling the host its progress, and reading requests while it runs.
     fn run_job(mut self, job: Job, queue: mut Deque<Job>) -> Interrupt? {
-        let duration = probe_duration(job.input)
+        var duration = job.duration
+        if duration == none {
+            if let p = job.probe {
+                duration = probe_duration(p.copy())
+            }
+        }
         var started = event("started", job.id)
         started.duration = duration
         self.sink.tell(started)
 
-        var argv: List<String> = ["-hide_banner", "-nostdin", "-y", "-loglevel", "error", "-i", job.input.copy()]
-        for a in job.args {
+        var argv: List<String> = ["-hide_banner", "-nostdin", "-y", "-loglevel", "error"]
+        for a in job.argv {
             argv.push(a.copy())
         }
         for a in ["-progress", "pipe:1", "-stats_period", "0.25", "-nostats"] {

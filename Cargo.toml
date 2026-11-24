@@ -1,3 +1,3 @@
 [workspace]
 resolver = "3"
-members = ["prototypes/playback", "prototypes/core-link"]
+members = ["crates/media", "crates/core", "crates/app", "prototypes/playback", "prototypes/core-link"]

@@ -5,7 +5,7 @@ use std::process::Command;
 
 fn main() {
     let manifest = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
-    let core_dir = manifest.join("../../core").canonicalize().expect("core/ next to prototypes/");
+    let core_dir = manifest.join("../../core").canonicalize().expect("core/ at the repo root");
     let main_file = core_dir.join("galdr.calx");
     println!("cargo:rerun-if-changed={}", core_dir.display());
     println!("cargo:rerun-if-env-changed=CALX");

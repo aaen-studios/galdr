@@ -118,6 +118,26 @@ pub struct VideoDecoder {
 }
 
 impl VideoDecoder {
+    /// Opens `path` on a decoder thread without waiting for it. Commands sent meanwhile wait for
+    /// the file to open; if it can't, the frame channel closes.
+    pub fn start(path: &Path, height: Option<u32>, hw: Hw) -> Self {
+        let _ = ff::init();
+        let (commands, command_rx) = mpsc::channel();
+        let (frame_tx, frames) = mpsc::sync_channel(4);
+        let path = path.to_path_buf();
+        let _ = thread::Builder::new().name("video-decoder".into()).spawn(move || {
+            match State::open(&path, height, hw) {
+                Ok(state) => {
+                    if let Err(e) = state.run(command_rx, frame_tx) {
+                        eprintln!("video decoder: {e:#}");
+                    }
+                }
+                Err(e) => eprintln!("video decoder: {e:#}"),
+            }
+        });
+        Self { commands, frames, backend: String::new() }
+    }
+
     /// Opens `path` on a decoder thread, scaling frames to `out` (or the source size).
     pub fn open(path: &Path, height: Option<u32>, hw: Hw) -> Result<(Self, Info)> {
         ff::init()?;
@@ -564,4 +584,17 @@ enum Scrubbed {
     Frame(Frame),
     Interrupted(Command),
     Nothing,
+}
+
+/// One frame at about `at` seconds (the keyframe there), `height` pixels high, with what the file
+/// is. For the media bin; runs on the caller's thread.
+pub fn thumbnail(path: &Path, at: f64, height: u32) -> Result<(Info, Frame)> {
+    ff::init()?;
+    let mut state = State::open(&path.to_path_buf(), Some(height), Hw::None)?;
+    let t = at.min((state.info.duration - 0.1).max(0.0));
+    state.seek(t)?;
+    let (frame, pts) = state.next()?.context("no frames")?;
+    let mut out = state.convert(&frame, 0, pts)?;
+    out.exact = true;
+    Ok((state.info.clone(), out))
 }

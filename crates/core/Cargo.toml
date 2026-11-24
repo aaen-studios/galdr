@@ -1,0 +1,9 @@
+[package]
+name = "galdr-core"
+version = "0.0.0"
+edition = "2024"
+publish = false
+build = "build.rs"
+
+[dependencies]
+serde_json = "1"

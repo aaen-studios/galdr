@@ -9,3 +9,4 @@ gpui = { package = "gpui-pre", version = "=0.3.14" }
 gpui_platform = { package = "gpui-pre-platform", version = "=0.3.14" }
 serde_json = "1"
 anyhow = "1"
+galdr-core = { path = "../../crates/core" }
