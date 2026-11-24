@@ -881,6 +881,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "core-link"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "gpui-pre",
+ "gpui-pre-platform",
+ "serde_json",
+]
+
+[[package]]
 name = "core-text"
 version = "21.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

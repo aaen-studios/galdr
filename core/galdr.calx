@@ -1,0 +1,301 @@
+// kind: staticlib
+// galdr's core: everything that isn't drawing or playback. The Rust app links it as a static
+// library, sends it requests as JSON, and hears back through a callback, also as JSON.
+//
+// Requests:
+//   {"cmd": "convert", "id": 1, "input": "in.mp4", "output": "out.mp4", "args": ["-c:v", "libx264"]}
+//   {"cmd": "cancel", "id": 1}
+//   {"cmd": "panic"}      a bug on the core's thread, to test that the host survives it
+// Events:
+//   {"event": "queued" | "started" | "progress" | "finished" | "failed" | "canceled", "id": 1, ...}
+import std.json.{json}
+import std.process.{Command, Stdio}
+import std.thread.{Task}
+
+@json
+struct Request {
+    cmd: String
+    id: u64 = 0
+    input: String?
+    output: String?
+    args: List<String>?
+}
+
+@json
+struct Event {
+    event: String
+    id: u64
+    /// Seconds of the output written so far, and of the input in all.
+    done: f64?
+    duration: f64?
+    /// How many times faster than real time ffmpeg is going.
+    speed: f64?
+    output: String?
+    error: String?
+}
+
+fn event(kind: str, id: u64) -> Event {
+    return Event { event: String(kind), id: id, done: none, duration: none, speed: none, output: none, error: none }
+}
+
+/// Where the core tells its host what happened: the host's function, and the context it gave,
+/// which the host lets any thread use.
+struct Sink {
+    on_event: extern "C" fn(*u8, *const u8, usize)
+    ctx: *u8
+}
+
+unsafe impl Send for Sink {}
+
+impl Sink {
+    fn tell(self, e: Event) {
+        let text = e.to_json_text()
+        unsafe { (self.on_event)(self.ctx, text.as_ptr(), text.len()) }
+    }
+}
+
+struct Job {
+    id: u64
+    input: String
+    output: String
+    args: List<String>
+}
+
+/// The input's length in seconds, from ffprobe, or none if it can't tell.
+fn probe_duration(input: String) -> f64? {
+    let args: List<String> = ["-v", "error", "-show_entries", "format=duration", "-of", "default=nw=1:nk=1", input.copy()]
+    match Command.new("ffprobe").args(args).stdin(Stdio.Null).stderr(Stdio.Null).read() {
+        ok(text) => return f64.parse(text.trim()),
+        err(_) => return none,
+    }
+}
+
+/// How a job ended, when it wasn't by finishing or failing on its own.
+enum Interrupt {
+    Canceled
+    Stopping
+}
+
+struct Worker {
+    sink: Sink
+    inbox: Receiver<String>
+}
+
+impl Worker {
+    /// Takes a request: queues a job, cancels a queued one, or answers a test. A cancel for the
+    /// job that's running is for `run_job`, which reads its own.
+    fn take(self, text: String, queue: mut Deque<Job>) -> bool {
+        match Request.from_json_text(text) {
+            ok(r) => {
+                if r.cmd == "convert" {
+                    if let (some(input), some(output)) = (r.input, r.output) {
+                        queue.push_last(Job { id: r.id, input: input, output: output, args: r.args ?? List<String>() })
+                        self.sink.tell(event("queued", r.id))
+                    } else {
+                        var e = event("failed", r.id)
+                        e.error = some(String("a convert needs an input and an output"))
+                        self.sink.tell(e)
+                    }
+                } else if r.cmd == "cancel" {
+                    var kept = Deque<Job>()
+                    while let j = queue.pop_first() {
+                        if j.id == r.id {
+                            self.sink.tell(event("canceled", j.id))
+                        } else {
+                            kept.push_last(j)
+                        }
+                    }
+                    queue = kept
+                } else if r.cmd == "panic" {
+                    let empty = List<i32>()
+                    println("{empty[0]}")
+                } else if r.cmd == "stop" {
+                    return false
+                }
+            },
+            err(e) => {
+                var ev = event("failed", 0)
+                ev.error = some("bad request: {e}")
+                self.sink.tell(ev)
+            },
+        }
+        return true
+    }
+
+    /// Runs one job, telling the host its progress, and reading requests while it runs.
+    fn run_job(mut self, job: Job, queue: mut Deque<Job>) -> Interrupt? {
+        let duration = probe_duration(job.input)
+        var started = event("started", job.id)
+        started.duration = duration
+        self.sink.tell(started)
+
+        var argv: List<String> = ["-hide_banner", "-nostdin", "-y", "-loglevel", "error", "-i", job.input.copy()]
+        for a in job.args {
+            argv.push(a.copy())
+        }
+        for a in ["-progress", "pipe:1", "-stats_period", "0.25", "-nostats"] {
+            argv.push(String(a))
+        }
+        argv.push(job.output.copy())
+
+        var child = match Command.new("ffmpeg").args(argv).stdin(Stdio.Null).stdout(Stdio.Pipe).stderr(Stdio.Stdout).spawn() {
+            ok(c) => c,
+            err(e) => {
+                var failed = event("failed", job.id)
+                failed.error = some("{e}")
+                self.sink.tell(failed)
+                return none
+            },
+        }
+        // What ffmpeg says that isn't progress: its errors, for when it fails.
+        var said = List<String>()
+        var done: f64 = 0.0
+        var speed: f64? = none
+        while not child.ended() {
+            if let line = child.read_line(50) {
+                if let (key, value) = line.split_once("=") {
+                    if key == "out_time_us" {
+                        if let us = f64.parse(value.trim()) {
+                            done = us / 1000000.0
+                        }
+                    } else if key == "speed" {
+                        speed = f64.parse(value.trim().replace("x", ""))
+                    } else if key == "progress" {
+                        var p = event("progress", job.id)
+                        p.done = some(done)
+                        p.duration = duration
+                        p.speed = speed
+                        self.sink.tell(p)
+                    } else if not is_progress_key(key) {
+                        said.push(line.copy())
+                    }
+                } else {
+                    said.push(line.copy())
+                }
+            }
+            // Requests that came in meanwhile.
+            while let text = unsafe { self.inbox.wait_for(0) } {
+                if let ok(r) = Request.from_json_text(text.copy()) {
+                    if r.cmd == "cancel" and r.id == job.id {
+                        child.kill()
+                        _ = child.wait()
+                        self.sink.tell(event("canceled", job.id))
+                        return some(Interrupt.Canceled)
+                    }
+                }
+                if not self.take(text, mut queue) {
+                    child.kill()
+                    _ = child.wait()
+                    return some(Interrupt.Stopping)
+                }
+            }
+        }
+        let out = child.wait()
+        if out.status.success() {
+            var finished = event("finished", job.id)
+            finished.output = some(job.output.copy())
+            finished.done = some(done)
+            self.sink.tell(finished)
+        } else {
+            var failed = event("failed", job.id)
+            let tail = if said.len() > 5 { said.len() - 5 } else { 0 }
+            var why = List<String>()
+            for i in tail..said.len() {
+                why.push(said[i].copy())
+            }
+            failed.error = some("ffmpeg {out.status}: {why.join("\n")}")
+            self.sink.tell(failed)
+        }
+        return none
+    }
+}
+
+fn is_progress_key(key: String) -> bool {
+    for k in ["frame", "fps", "stream_0_0_q", "bitrate", "total_size", "out_time_ms", "out_time", "dup_frames", "drop_frames"] {
+        if key == k or key.starts_with("stream_") {
+            return true
+        }
+    }
+    return false
+}
+
+impl Task for Worker {
+    fn run(own self) {
+        var queue = Deque<Job>()
+        var running = true
+        while running {
+            if let job = queue.pop_first() {
+                if let Interrupt.Stopping = self.run_job(job, mut queue) {
+                    running = false
+                }
+                continue
+            }
+            match self.inbox.wait() {
+                some(text) => running = self.take(text, mut queue),
+                none => running = false,
+            }
+        }
+    }
+}
+
+/// What `galdr_core_start` gives the host, which it hands back to the other calls.
+struct Core {
+    outbox: Sender<String>?
+    worker: Thread?
+}
+
+/// The `len` bytes at `p`, as text, or none if they aren't UTF-8.
+unsafe fn text_at(p: *const u8, len: usize) -> String? {
+    var bytes = List<u8>()
+    bytes.reserve(len)
+    for i in 0..len {
+        bytes.push(unsafe { p.add(i).read() })
+    }
+    return String.from_utf8(bytes)
+}
+
+/// Starts the core's thread, which tells `on_event`, with `ctx`, what happens from then on, from
+/// that thread. Gives back the core, for the other calls.
+@export_c
+fn galdr_core_start(on_event: extern "C" fn(*u8, *const u8, usize), ctx: *u8) -> *u8 {
+    let sink = unsafe { Sink { on_event: on_event, ctx: ctx } }
+    let inbox = Receiver<String>()
+    let core = Core { outbox: some(inbox.sender()), worker: some(unsafe { Thread.spawn(Worker { sink: sink, inbox: inbox }) }) }
+    unsafe {
+        return Box(core).into_ptr().cast<u8>()
+    }
+}
+
+/// Gives the core a request, JSON in the `len` bytes at `request`. 0 if it went, -1 if it isn't
+/// UTF-8 or the core has stopped.
+@export_c(on_panic: -1)
+fn galdr_core_send(core: *u8, request: *const u8, len: usize) -> i32 {
+    var c = unsafe { core.cast<Core>().to_box() }
+    var status: i32 = -1
+    if let m = unsafe { text_at(request, len) } {
+        if let o = mut c.value.outbox {
+            o.send(m)
+            status = 0
+        }
+    }
+    // C keeps the core.
+    unsafe {
+        _ = c.into_ptr()
+    }
+    return status
+}
+
+/// Stops the core: kills a running job, waits for the thread, and frees the core.
+@export_c
+fn galdr_core_stop(core: *u8) {
+    var c = unsafe { core.cast<Core>().to_box() }
+    if let o = mut c.value.outbox {
+        o.send(String(#"{"cmd": "stop"}"#))
+    }
+    if let o = c.value.outbox.take() {
+        o.close()
+    }
+    if let w = c.value.worker.take() {
+        w.join()
+    }
+}
