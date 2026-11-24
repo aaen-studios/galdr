@@ -1,0 +1,24 @@
+# Rust
+target/
+
+# Secrets
+.env
+.env.*
+*.key
+*.key.old
+
+# Editors and OS
+.vscode/
+.idea/
+.DS_Store
+*.log
+
+# Left on disk from the old app on master (ignored there too)
+/node_modules/
+/dist/
+/src-tauri/
+/video/
+/web/
+/.playwright-mcp/
+/docs/vision.html
+/nul
