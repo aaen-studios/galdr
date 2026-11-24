@@ -1,6 +1,9 @@
 # Rust
 target/
 
+# Test media
+/prototypes/*/samples/
+
 # Secrets
 .env
 .env.*
