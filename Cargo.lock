@@ -1626,12 +1626,15 @@ name = "galdr"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "cpal",
  "galdr-core",
  "gpui-pre",
  "gpui-pre-platform",
  "image",
  "media",
+ "raw-window-handle",
  "serde_json",
+ "windows 0.62.2",
 ]
 
 [[package]]

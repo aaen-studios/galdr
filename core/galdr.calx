@@ -3,14 +3,22 @@
 // library, sends it requests as JSON, and hears back through a callback, also as JSON.
 //
 // Requests:
-//   {"cmd": "convert", "id": 1, "input": "in.mp4", "output": "out.mp4", "args": ["-c:v", "libx264"]}
+//   {"cmd": "convert", "id": 1, "input": "in.mp4", "output": "out.mp4", "format": "webm"}
+//      or "args": [...] for ffmpeg's own
+//   {"cmd": "compress", "id": 1, "input": "in.mp4", "output": "out.mp4", "quality": "balanced",
+//    "max_height": 720, "target_mb": 25}
 //   {"cmd": "export", "id": 2, "output": "cut.mp4", "width": 1920, "height": 1080, "fps": 30,
 //    "clips": [{"path": "a.mp4", "start": 1.5, "end": 4.0}, ...]}      a timeline, joined in order
+//   {"cmd": "save", "id": 3, "path": "edit.galdr", "project": {...}}    a project file
+//   {"cmd": "open", "id": 4, "path": "edit.galdr"}
 //   {"cmd": "cancel", "id": 1}
 //   {"cmd": "panic"}      a bug on the core's thread, to test that the host survives it
 // Events:
 //   {"event": "queued" | "started" | "progress" | "finished" | "failed" | "canceled", "id": 1, ...}
-import std.json.{json}
+//   {"event": "saved", "id": 3}, {"event": "opened", "id": 4, "project": {...}, "missing": [...]}
+import std.fs.{exists, read_text, rename, write_text}
+import std.json.{json, pretty}
+import std.path.{join, parent_dir}
 import std.process.{Command, Stdio}
 import std.thread.{Task}
 
@@ -20,6 +28,31 @@ struct Clip {
     path: String
     start: f64
     end: f64
+}
+
+/// A file in a project. `relative` is its path from the project file's folder, when it's under
+/// that folder, so a project moved together with its media still opens.
+@json
+struct ProjectMedia {
+    id: u64
+    path: String
+    relative: String?
+}
+
+@json
+struct ProjectClip {
+    media: u64
+    source_in: f64
+    source_out: f64
+}
+
+/// A project file, `.galdr`: the media, the track, and where the playhead was.
+@json
+struct ProjectFile {
+    galdr: u32 = 1
+    media: List<ProjectMedia>
+    clips: List<ProjectClip>
+    playhead: f64 = 0.0
 }
 
 @json
@@ -33,6 +66,16 @@ struct Request {
     width: u32 = 1920
     height: u32 = 1080
     fps: f64 = 30.0
+    /// A convert's format, for `format_args`, when it gives no `args`.
+    format: String?
+    /// A compress: "high", "balanced" or "small"; a height to scale down to, or 0 to keep it;
+    /// and a size in MB to fit in, or 0 for none.
+    quality: String?
+    max_height: u32 = 0
+    target_mb: f64 = 0.0
+    /// A project file's path, and the project to save in it.
+    path: String?
+    project: ProjectFile?
 }
 
 @json
@@ -46,10 +89,88 @@ struct Event {
     speed: f64?
     output: String?
     error: String?
+    /// A project opened, and the paths of its media that aren't there.
+    project: ProjectFile?
+    missing: List<String>?
 }
 
 fn event(kind: str, id: u64) -> Event {
-    return Event { event: String(kind), id: id, done: none, duration: none, speed: none, output: none, error: none }
+    return Event { event: String(kind), id: id, done: none, duration: none, speed: none, output: none, error: none, project: none, missing: none }
+}
+
+/// The project file's version this core writes, and the newest it reads.
+const PROJECT_VERSION: u32 = 1
+
+/// Saves a project: to a new file beside it, then renamed over it, so a crash never leaves half
+/// of one. Gives why it couldn't, or none.
+fn save_project(path: String, project: ProjectFile) -> String? {
+    let dir = parent_dir(path.copy()) ?? String(".")
+    var media = List<ProjectMedia>()
+    for m in project.media {
+        var relative: String? = none
+        for sep in ["\\", "/"] {
+            let prefix = "{dir}{sep}"
+            if relative == none and m.path.starts_with(prefix.copy()) {
+                relative = some(m.path.trim_prefix(prefix))
+            }
+        }
+        media.push(ProjectMedia { id: m.id, path: m.path.copy(), relative: relative })
+    }
+    var clips = List<ProjectClip>()
+    for c in project.clips {
+        clips.push(ProjectClip { media: c.media, source_in: c.source_in, source_out: c.source_out })
+    }
+    let file = ProjectFile { galdr: PROJECT_VERSION, media: media, clips: clips, playhead: project.playhead }
+    let saving = "{path}.saving"
+    match write_text(saving.copy(), pretty(file.to_json(), 2)) {
+        ok => {},
+        err(e) => return some("can't write {saving}: {e}"),
+    }
+    match rename(saving, path.copy()) {
+        ok => {},
+        err(e) => return some("can't save {path}: {e}"),
+    }
+    return none
+}
+
+/// Reads a project, finding media that moved along with it. Gives the project and the media
+/// paths that aren't there, or why it couldn't.
+fn open_project(path: String) -> (ProjectFile?, List<String>, String?) {
+    let text = match read_text(path.copy()) {
+        ok(some(t)) => t,
+        ok(none) => return (none, List<String>(), some(String("it isn't a galdr project"))),
+        err(e) => return (none, List<String>(), some("can't read {path}: {e}")),
+    }
+    let file = match ProjectFile.from_json_text(text) {
+        ok(f) => f,
+        err(e) => return (none, List<String>(), some("it isn't a galdr project: {e}")),
+    }
+    if file.galdr > PROJECT_VERSION {
+        return (none, List<String>(), some(String("a newer galdr made it; update galdr to open it")))
+    }
+    let dir = parent_dir(path.copy()) ?? String(".")
+    var media = List<ProjectMedia>()
+    var missing = List<String>()
+    for m in file.media {
+        var found = m.path.copy()
+        if not exists(found.copy()) {
+            if let r = m.relative {
+                let moved = join(dir.copy(), r.copy())
+                if exists(moved.copy()) {
+                    found = moved
+                }
+            }
+        }
+        if not exists(found.copy()) {
+            missing.push(found.copy())
+        }
+        media.push(ProjectMedia { id: m.id, path: found, relative: m.relative.copy() })
+    }
+    var clips = List<ProjectClip>()
+    for c in file.clips {
+        clips.push(ProjectClip { media: c.media, source_in: c.source_in, source_out: c.source_out })
+    }
+    return (some(ProjectFile { galdr: file.galdr, media: media, clips: clips, playhead: file.playhead }), missing, none)
 }
 
 /// Where the core tells its host what happened: the host's function, and the context it gave,
@@ -122,6 +243,81 @@ fn export_argv(clips: List<Clip>, width: u32, height: u32, fps: f64) -> List<Str
     return argv
 }
 
+/// The ffmpeg arguments for a conversion to `format`, or none if it isn't one galdr makes.
+fn format_args(format: String) -> List<String>? {
+    if format == "mp4" {
+        let a: List<String> = ["-c:v", "libx264", "-preset", "medium", "-crf", "20", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart"]
+        return some(a)
+    } else if format == "h265" {
+        let a: List<String> = ["-c:v", "libx265", "-preset", "medium", "-crf", "24", "-pix_fmt", "yuv420p", "-tag:v", "hvc1", "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart"]
+        return some(a)
+    } else if format == "webm" {
+        let a: List<String> = ["-c:v", "libvpx-vp9", "-crf", "32", "-b:v", "0", "-row-mt", "1", "-c:a", "libopus", "-b:a", "128k"]
+        return some(a)
+    } else if format == "prores" {
+        let a: List<String> = ["-c:v", "prores_ks", "-profile:v", "2", "-pix_fmt", "yuv422p10le", "-c:a", "pcm_s16le"]
+        return some(a)
+    } else if format == "gif" {
+        let a: List<String> = ["-vf", "fps=15,scale=480:-2:flags=lanczos,split[a][b];[a]palettegen[p];[b][p]paletteuse", "-loop", "0", "-an"]
+        return some(a)
+    } else if format == "mp3" {
+        let a: List<String> = ["-vn", "-c:a", "libmp3lame", "-q:a", "2"]
+        return some(a)
+    } else if format == "wav" {
+        let a: List<String> = ["-vn", "-c:a", "pcm_s16le"]
+        return some(a)
+    }
+    return none
+}
+
+/// The ffmpeg arguments to make a smaller H.264 file: at a quality, or, given a size to fit in,
+/// at the bitrate that fills it. `max_height` is a height to scale down to, or 0.
+fn compress_args(input: String, quality: String, max_height: u32, target_mb: f64) -> List<String> {
+    var a = List<String>()
+    if max_height > 0 {
+        a.push(String("-vf"))
+        a.push("scale=-2:{max_height}")
+    }
+    a.push(String("-c:v"))
+    a.push(String("libx264"))
+    a.push(String("-preset"))
+    a.push(String(if quality == "small" { "slow" } else { "medium" }))
+    var audio_kbps: i64 = 128
+    if quality == "small" {
+        audio_kbps = 96
+    }
+    var sized = false
+    if target_mb > 0.0 {
+        if let d = probe_duration(input) {
+            if d > 0.0 {
+                // What fits, less the sound and a little for the container.
+                let total = target_mb * 8192.0 / d * 0.94
+                var video = i64.round(total) - audio_kbps
+                if video < 100 {
+                    video = 100
+                }
+                a.push(String("-b:v"))
+                a.push("{video}k")
+                a.push(String("-maxrate"))
+                a.push("{video * 3 / 2}k")
+                a.push(String("-bufsize"))
+                a.push("{video * 2}k")
+                sized = true
+            }
+        }
+    }
+    if not sized {
+        a.push(String("-crf"))
+        a.push(String(if quality == "high" { "21" } else if quality == "small" { "30" } else { "25" }))
+    }
+    let rest: List<String> = ["-pix_fmt", "yuv420p", "-c:a", "aac", "-movflags", "+faststart", "-b:a"]
+    for x in rest {
+        a.push(x.copy())
+    }
+    a.push("{audio_kbps}k")
+    return a
+}
+
 /// The input's length in seconds, from ffprobe, or none if it can't tell.
 fn probe_duration(input: String) -> f64? {
     let args: List<String> = ["-v", "error", "-show_entries", "format=duration", "-of", "default=nw=1:nk=1", input.copy()]
@@ -148,17 +344,36 @@ impl Worker {
     fn take(self, text: String, queue: mut Deque<Job>) -> bool {
         match Request.from_json_text(text) {
             ok(r) => {
-                if r.cmd == "convert" {
+                if r.cmd == "convert" or r.cmd == "compress" {
+                    var why: String? = none
                     if let (some(input), some(output)) = (r.input, r.output) {
                         var argv: List<String> = ["-i", input.copy()]
-                        for a in r.args ?? List<String>() {
-                            argv.push(a.copy())
+                        var planned: List<String>? = none
+                        if r.cmd == "compress" {
+                            planned = some(compress_args(input.copy(), r.quality ?? String("balanced"), r.max_height, r.target_mb))
+                        } else if let args = r.args {
+                            planned = some(args.copy())
+                        } else if let f = r.format {
+                            planned = format_args(f.copy())
+                            if planned == none {
+                                why = some("galdr doesn't make {f} files")
+                            }
+                        } else {
+                            why = some(String("a convert needs args or a format"))
                         }
-                        queue.push_last(Job { id: r.id, argv: argv, output: output, duration: none, probe: some(input) })
-                        self.sink.tell(event("queued", r.id))
+                        if let p = planned {
+                            for a in p {
+                                argv.push(a.copy())
+                            }
+                            queue.push_last(Job { id: r.id, argv: argv, output: output, duration: none, probe: some(input) })
+                            self.sink.tell(event("queued", r.id))
+                        }
                     } else {
+                        why = some("a {r.cmd} needs an input and an output")
+                    }
+                    if let w = why {
                         var e = event("failed", r.id)
-                        e.error = some(String("a convert needs an input and an output"))
+                        e.error = some(w.copy())
                         self.sink.tell(e)
                     }
                 } else if r.cmd == "export" {
@@ -181,6 +396,34 @@ impl Worker {
                         e.error = some(String("an export needs an output and at least one clip"))
                         self.sink.tell(e)
                     }
+                } else if r.cmd == "save" {
+                    var e = event("saved", r.id)
+                    if let (some(path), some(project)) = (r.path, r.project) {
+                        if let why = save_project(path.copy(), project.copy()) {
+                            e = event("failed", r.id)
+                            e.error = some(why)
+                        }
+                    } else {
+                        e = event("failed", r.id)
+                        e.error = some(String("a save needs a path and a project"))
+                    }
+                    self.sink.tell(e)
+                } else if r.cmd == "open" {
+                    var e = event("opened", r.id)
+                    if let path = r.path {
+                        let (project, missing, why) = open_project(path.copy())
+                        if let w = why {
+                            e = event("failed", r.id)
+                            e.error = some(w)
+                        } else {
+                            e.project = project
+                            e.missing = some(missing)
+                        }
+                    } else {
+                        e = event("failed", r.id)
+                        e.error = some(String("an open needs a path"))
+                    }
+                    self.sink.tell(e)
                 } else if r.cmd == "cancel" {
                     var kept = Deque<Job>()
                     while let j = queue.pop_first() {

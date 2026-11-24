@@ -33,11 +33,17 @@ impl Clip {
 /// The shortest a clip can be trimmed to.
 pub const MIN_CLIP: f64 = 0.1;
 
+/// How many edits back undo goes.
+const HISTORY: usize = 200;
+
 #[derive(Default)]
 pub struct Project {
     pub media: Vec<MediaItem>,
     pub clips: Vec<Clip>,
     next_id: u64,
+    /// The track as it was before each edit, and as it was before each undo.
+    undo: Vec<Vec<Clip>>,
+    redo: Vec<Vec<Clip>>,
 }
 
 /// Where a timeline time falls: which clip, and how far into its source.
@@ -70,6 +76,66 @@ impl Project {
 
     pub fn media_mut(&mut self, id: MediaId) -> Option<&mut MediaItem> {
         self.media.iter_mut().find(|m| m.id == id)
+    }
+
+    /// Empties the project for another. Ids carry on from where they were, so nothing new is
+    /// mistaken for something from before, such as frames cached by media id.
+    pub fn reset(&mut self) {
+        self.media.clear();
+        self.clips.clear();
+        self.undo.clear();
+        self.redo.clear();
+    }
+
+    /// Puts a clip at the end of the track as it is, as when opening a project.
+    pub fn push_clip(&mut self, media: MediaId, source_in: f64, source_out: f64) -> ClipId {
+        let id = self.id();
+        self.clips.push(Clip { id, media, source_in, source_out });
+        id
+    }
+
+    /// Remembers the track as it is, before an edit.
+    pub fn checkpoint(&mut self) {
+        self.undo.push(self.clips.clone());
+        if self.undo.len() > HISTORY {
+            self.undo.remove(0);
+        }
+        self.redo.clear();
+    }
+
+    /// Forgets the last checkpoint if nothing changed since, as when a drag ends where it began.
+    pub fn settle(&mut self) {
+        if self.undo.last() == Some(&self.clips) {
+            self.undo.pop();
+        }
+    }
+
+    pub fn can_undo(&self) -> bool {
+        !self.undo.is_empty()
+    }
+
+    pub fn can_redo(&self) -> bool {
+        !self.redo.is_empty()
+    }
+
+    pub fn undo(&mut self) -> bool {
+        let Some(clips) = self.undo.pop() else { return false };
+        self.redo.push(std::mem::replace(&mut self.clips, clips));
+        true
+    }
+
+    pub fn redo(&mut self) -> bool {
+        let Some(clips) = self.redo.pop() else { return false };
+        self.undo.push(std::mem::replace(&mut self.clips, clips));
+        true
+    }
+
+    /// Puts the whole of a file in the track at position `at`.
+    pub fn insert(&mut self, media: MediaId, at: usize) -> Option<ClipId> {
+        let duration = self.media(media)?.info.as_ref()?.duration;
+        let id = self.id();
+        self.clips.insert(at.min(self.clips.len()), Clip { id, media, source_in: 0.0, source_out: duration });
+        Some(id)
     }
 
     /// Adds the whole of a file at the end of the track.
@@ -205,5 +271,49 @@ mod tests {
         assert_eq!(p.clips[0].id, b);
         assert!(p.remove(a));
         assert_eq!(p.clips.len(), 1);
+    }
+
+    #[test]
+    fn insert_and_open() {
+        let (mut p, m) = project();
+        let a = p.append(m).unwrap();
+        let b = p.insert(m, 0).unwrap();
+        let c = p.insert(m, 99).unwrap(); // past the end: at the end
+        assert_eq!(p.clips.iter().map(|c| c.id).collect::<Vec<_>>(), vec![b, a, c]);
+        // Ids carry on after a reset, so nothing new shares an id with something before.
+        p.reset();
+        assert!(p.clips.is_empty() && p.media.is_empty() && !p.can_undo());
+        let m2 = p.add_media(PathBuf::from("b.mp4"));
+        assert!(m2 > c);
+        let d = p.push_clip(m2, 1.0, 2.0);
+        assert_eq!((p.clips[0].id, p.clips[0].length()), (d, 1.0));
+    }
+
+    #[test]
+    fn undo_redo() {
+        let (mut p, m) = project();
+        p.checkpoint();
+        p.append(m);
+        p.checkpoint();
+        p.split(4.0);
+        assert_eq!(p.clips.len(), 2);
+        assert!(p.undo());
+        assert_eq!(p.clips.len(), 1);
+        assert!(p.undo());
+        assert!(p.clips.is_empty());
+        assert!(!p.undo());
+        assert!(p.redo());
+        assert!(p.redo());
+        assert_eq!(p.clips.len(), 2);
+        assert!(!p.redo());
+        // A drag that ends where it began leaves nothing to undo.
+        p.checkpoint();
+        p.settle();
+        assert!(p.undo());
+        assert_eq!(p.clips.len(), 1);
+        // A new edit drops what could be redone.
+        p.checkpoint();
+        p.split(2.0);
+        assert!(!p.can_redo());
     }
 }

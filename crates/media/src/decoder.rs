@@ -50,6 +50,7 @@ pub enum Command {
     Pause,
 }
 
+#[derive(Clone)]
 pub struct Frame {
     pub generation: u64,
     pub pts: f64,
@@ -73,17 +74,22 @@ pub struct Cost {
 
 /// YUV to BGRA, and to the preview size, on as many threads as the machine has. ffmpeg-next's
 /// scaler uses one.
-struct Scaler(*mut ffi::SwsContext);
+pub(crate) struct Scaler(*mut ffi::SwsContext);
+
+// The context is only ever used by the thread that owns the `State` holding it.
+unsafe impl Send for Scaler {}
 
 impl Scaler {
-    fn new() -> Result<Self> {
+    /// `threads` 0 is one per core. Bicubic: the preview is the source scaled to fit, and must
+    /// look it.
+    pub(crate) fn new(threads: usize) -> Result<Self> {
         let ctx = unsafe { ffi::sws_alloc_context() };
         if ctx.is_null() {
             return Err(anyhow!("can't make a scaler"));
         }
         unsafe {
-            (*ctx).threads = 0; // automatic: one per core
-            (*ctx).flags = ffi::SwsFlags::SWS_BILINEAR as u32;
+            (*ctx).threads = threads as i32;
+            (*ctx).flags = ffi::SwsFlags::SWS_BICUBIC as u32;
         }
         Ok(Self(ctx))
     }
@@ -126,7 +132,7 @@ impl VideoDecoder {
         let (frame_tx, frames) = mpsc::sync_channel(4);
         let path = path.to_path_buf();
         let _ = thread::Builder::new().name("video-decoder".into()).spawn(move || {
-            match State::open(&path, height, hw) {
+            match State::open(&path, height, hw, 0) {
                 Ok(state) => {
                     if let Err(e) = state.run(command_rx, frame_tx) {
                         eprintln!("video decoder: {e:#}");
@@ -146,7 +152,7 @@ impl VideoDecoder {
         let (ready_tx, ready_rx) = mpsc::channel();
         let path = path.to_path_buf();
         thread::Builder::new().name("video-decoder".into()).spawn(move || {
-            match State::open(&path, height, hw) {
+            match State::open(&path, height, hw, 0) {
                 Ok(state) => {
                     let _ = ready_tx.send(Ok((state.info.clone(), state.backend.clone())));
                     if let Err(e) = state.run(command_rx, frame_tx) {
@@ -167,7 +173,7 @@ impl VideoDecoder {
     }
 }
 
-struct State {
+pub(crate) struct State {
     input: ff::format::context::Input,
     stream: usize,
     decoder: ff::decoder::Video,
@@ -176,18 +182,23 @@ struct State {
     start: i64,
     /// Start of the whole file in AV_TIME_BASE units, for seeking.
     file_start: i64,
-    frame_time: f64,
-    out_height: Option<u32>,
+    pub(crate) frame_time: f64,
+    pub(crate) out_height: Option<u32>,
     scaler: Scaler,
     /// Keyframe times in seconds, from the file's index; empty when it has none.
-    keyframes: Vec<f64>,
+    pub(crate) keyframes: Vec<f64>,
     /// Spent since the last frame handed out.
     cost: Cost,
     last_delivery: Option<Instant>,
     eof: bool,
     /// Where the decoder is: the last frame it gave, after which it can decode forward.
-    position: Option<f64>,
-    info: Info,
+    pub(crate) position: Option<f64>,
+    /// Frames shown before this time that no other frame needs are skipped: set while decoding
+    /// toward a frame, so as not to decode ones that are passed over.
+    pub(crate) skip_before: Option<f64>,
+    /// Decoding keyframes only.
+    stills: bool,
+    pub(crate) info: Info,
     backend: String,
 }
 
@@ -214,6 +225,26 @@ fn keyframe_index(stream: &ff::format::stream::Stream, start: i64, tick: f64) ->
 }
 
 /// Picks the hardware format matching the device, which `open` stores in the context's `opaque`.
+/// A reference to the one device of a kind that every decoder shares, made the first time it's
+/// asked for: making one per decoder costs time and GPU memory. None if the machine has none.
+fn hw_device(kind: ffi::AVHWDeviceType) -> Option<*mut ffi::AVBufferRef> {
+    // The kind, and the device's own reference as an address, kept for as long as galdr runs;
+    // 0 when making it failed, so it isn't tried again.
+    static DEVICES: std::sync::Mutex<Vec<(i32, usize)>> = std::sync::Mutex::new(Vec::new());
+    let mut devices = DEVICES.lock().unwrap_or_else(|e| e.into_inner());
+    let master = match devices.iter().find(|(k, _)| *k == kind as i32) {
+        Some(&(_, p)) => p,
+        None => {
+            let mut r: *mut ffi::AVBufferRef = ptr::null_mut();
+            let ok = unsafe { ffi::av_hwdevice_ctx_create(&mut r, kind, ptr::null(), ptr::null_mut(), 0) } >= 0;
+            let p = if ok { r as usize } else { 0 };
+            devices.push((kind as i32, p));
+            p
+        }
+    };
+    (master != 0).then(|| unsafe { ffi::av_buffer_ref(master as *mut ffi::AVBufferRef) }).filter(|r| !r.is_null())
+}
+
 unsafe extern "C" fn pick_hw_format(
     ctx: *mut ffi::AVCodecContext,
     formats: *const ffi::AVPixelFormat,
@@ -232,7 +263,17 @@ unsafe extern "C" fn pick_hw_format(
 }
 
 impl State {
-    fn open(path: &PathBuf, out_height: Option<u32>, hw: Hw) -> Result<Self> {
+    pub(crate) fn open(path: &PathBuf, out_height: Option<u32>, hw: Hw, threads: usize) -> Result<Self> {
+        Self::open_as(path, out_height, hw, threads, false)
+    }
+
+    /// Opened to give keyframes only, for thumbnails and filmstrips: each one is a frame decoded,
+    /// with nothing decoded ahead of it, on slice threads.
+    pub(crate) fn open_stills(path: &PathBuf, out_height: Option<u32>) -> Result<Self> {
+        Self::open_as(path, out_height, Hw::None, 4, true)
+    }
+
+    fn open_as(path: &PathBuf, out_height: Option<u32>, hw: Hw, threads: usize, stills: bool) -> Result<Self> {
         let input = ff::format::input(path).with_context(|| format!("opening {}", path.display()))?;
         let has_audio = input.streams().best(ff::media::Type::Audio).is_some();
         let stream = input.streams().best(ff::media::Type::Video).context("no video stream")?;
@@ -262,25 +303,22 @@ impl State {
         };
         let mut hw_ready = false;
         if let Some((kind, pix, name)) = device {
-            unsafe {
-                let mut device_ref: *mut ffi::AVBufferRef = ptr::null_mut();
-                let r = ffi::av_hwdevice_ctx_create(&mut device_ref, kind, ptr::null(), ptr::null_mut(), 0);
-                if r >= 0 {
-                    // The codec context owns the reference from here and frees it.
+            match hw_device(kind) {
+                Some(device_ref) => unsafe {
+                    // The codec context owns this reference from here and frees it.
                     (*ctx.as_mut_ptr()).hw_device_ctx = device_ref;
                     (*ctx.as_mut_ptr()).get_format = Some(pick_hw_format);
                     (*ctx.as_mut_ptr()).opaque = pix as i32 as usize as *mut std::ffi::c_void;
                     backend = name.to_string();
                     hw_ready = true;
-                } else {
-                    eprintln!("{name} unavailable ({}), using software", ff::Error::from(r));
-                }
+                },
+                None => eprintln!("{name} unavailable, using software"),
             }
         }
         if !hw_ready {
             ctx.set_threading(ff::codec::threading::Config {
-                kind: ff::codec::threading::Type::Frame,
-                count: 0,
+                kind: if stills { ff::codec::threading::Type::Slice } else { ff::codec::threading::Type::Frame },
+                count: threads,
                 ..Default::default()
             });
         }
@@ -311,12 +349,14 @@ impl State {
             file_start,
             frame_time: 1.0 / fps,
             out_height,
-            scaler: Scaler::new()?,
+            scaler: Scaler::new(threads)?,
             keyframes,
             cost: Cost::default(),
             last_delivery: None,
             eof: false,
             position: None,
+            skip_before: None,
+            stills,
             info,
             backend,
         })
@@ -337,7 +377,7 @@ impl State {
         Some(if i == 0 { self.keyframes[0] } else { self.keyframes[i - 1] })
     }
 
-    fn seek(&mut self, t: f64) -> Result<()> {
+    pub(crate) fn seek(&mut self, t: f64) -> Result<()> {
         let ts = self.file_start + (t.max(0.0) * ffi::AV_TIME_BASE as f64) as i64;
         self.input.seek(ts, ..ts)?;
         self.decoder.flush();
@@ -347,7 +387,7 @@ impl State {
     }
 
     /// The next decoded frame, or none at the end of the file.
-    fn next(&mut self) -> Result<Option<(ff::frame::Video, f64)>> {
+    pub(crate) fn next(&mut self) -> Result<Option<(ff::frame::Video, f64)>> {
         let started = Instant::now();
         let result = self.next_inner();
         self.cost.decode_ms += started.elapsed().as_secs_f32() * 1000.0;
@@ -373,7 +413,29 @@ impl State {
             match packet.read(&mut self.input) {
                 Ok(()) => {
                     if packet.stream() == self.stream {
+                        // No frame refers to a non-reference frame (most B-frames), so the ones
+                        // shown before the frame wanted can go undecoded on the way to it.
+                        let before = match (self.skip_before, packet.pts()) {
+                            (Some(t), Some(pts)) => ((pts - self.start) as f64 * self.tick) < t,
+                            _ => false,
+                        };
+                        unsafe {
+                            (*self.decoder.as_mut_ptr()).skip_frame = if self.stills {
+                                ffi::AVDiscard::AVDISCARD_NONKEY
+                            } else if before {
+                                ffi::AVDiscard::AVDISCARD_NONREF
+                            } else {
+                                ffi::AVDiscard::AVDISCARD_DEFAULT
+                            };
+                        }
                         self.decoder.send_packet(&packet)?;
+                        // A still is the keyframe alone: end the input there, so the decoder gives
+                        // it now rather than holding it until the next keyframe comes. The next
+                        // seek starts it again.
+                        if self.stills && packet.is_key() {
+                            self.decoder.send_eof()?;
+                            self.eof = true;
+                        }
                     }
                 }
                 Err(ff::Error::Eof) => {
@@ -385,7 +447,7 @@ impl State {
         }
     }
 
-    fn convert(&mut self, frame: &ff::frame::Video, generation: u64, pts: f64) -> Result<Frame> {
+    pub(crate) fn convert(&mut self, frame: &ff::frame::Video, generation: u64, pts: f64) -> Result<Frame> {
         let started = Instant::now();
         let mut out = self.convert_inner(frame, generation, pts)?;
         self.cost.convert_ms += started.elapsed().as_secs_f32() * 1000.0;
@@ -590,11 +652,152 @@ enum Scrubbed {
 /// is. For the media bin; runs on the caller's thread.
 pub fn thumbnail(path: &Path, at: f64, height: u32) -> Result<(Info, Frame)> {
     ff::init()?;
-    let mut state = State::open(&path.to_path_buf(), Some(height), Hw::None)?;
+    let mut state = State::open_stills(&path.to_path_buf(), Some(height))?;
     let t = at.min((state.info.duration - 0.1).max(0.0));
     state.seek(t)?;
     let (frame, pts) = state.next()?.context("no frames")?;
     let mut out = state.convert(&frame, 0, pts)?;
     out.exact = true;
     Ok((state.info.clone(), out))
+}
+
+impl State {
+    /// When the first frame is shown, from the first packet, without decoding anything. Leaves
+    /// the file read past it; seek before decoding.
+    pub(crate) fn first_pts(&mut self) -> Result<Option<f64>> {
+        loop {
+            let mut packet = ff::Packet::empty();
+            match packet.read(&mut self.input) {
+                Ok(()) if packet.stream() == self.stream => {
+                    return Ok(packet.pts().map(|ts| (ts - self.start) as f64 * self.tick));
+                }
+                Ok(()) => {}
+                Err(ff::Error::Eof) => return Ok(None),
+                Err(e) => return Err(e.into()),
+            }
+        }
+    }
+
+    /// Changes the height frames are converted to, with a fresh scaler for the new size.
+    pub(crate) fn set_out_height(&mut self, height: Option<u32>, threads: usize) -> Result<()> {
+        if self.out_height != height {
+            self.out_height = height;
+            self.scaler = Scaler::new(threads)?;
+        }
+        Ok(())
+    }
+}
+
+/// Frames at about each of `times` (the keyframe before each), `height` pixels high. For the
+/// timeline's filmstrips. A keyframe can only be decoded on one thread at a time, so the times
+/// are split between several decoders, each with its own part.
+pub fn filmstrip(path: &Path, times: &[f64], height: u32) -> Result<Vec<Frame>> {
+    let decoders = thread::available_parallelism().map_or(2, |n| n.get() / 4).clamp(1, 8).min(times.len().max(1));
+    let part = times.len().div_ceil(decoders).max(1);
+    let parts: Vec<Result<Vec<Frame>>> = thread::scope(|s| {
+        let running: Vec<_> = times.chunks(part).map(|chunk| s.spawn(move || filmstrip_part(path, chunk, height))).collect();
+        running.into_iter().map(|h| h.join().unwrap_or_else(|_| Err(anyhow!("a filmstrip decoder panicked")))).collect()
+    });
+    let mut out = Vec::with_capacity(times.len());
+    for p in parts {
+        out.extend(p?);
+    }
+    Ok(out)
+}
+
+fn filmstrip_part(path: &Path, times: &[f64], height: u32) -> Result<Vec<Frame>> {
+    ff::init()?;
+    let mut state = State::open_stills(&path.to_path_buf(), Some(height))?;
+    let mut out: Vec<Frame> = Vec::with_capacity(times.len());
+    // The keyframe each time falls after, and the frame decoded there: times in a long group of
+    // pictures share its keyframe, which is decoded once.
+    let mut last: Option<(f64, Frame)> = None;
+    for &t in times {
+        let t = t.min((state.info.duration - 0.1).max(0.0));
+        let key = state.keyframe_at_or_before(t);
+        if let (Some(k), Some((lk, f))) = (key, &last)
+            && k == *lk
+        {
+            out.push(f.clone());
+            continue;
+        }
+        state.seek(t)?;
+        let Some((frame, pts)) = state.next()? else { break };
+        let f = state.convert(&frame, 0, pts)?;
+        if let Some(k) = key {
+            last = Some((k, f.clone()));
+        }
+        out.push(f);
+    }
+    Ok(out)
+}
+
+/// What a video file is: its size, rate, length and codec.
+pub fn probe(path: &Path) -> Result<Info> {
+    ff::init()?;
+    Ok(State::open(&path.to_path_buf(), None, Hw::None, 1)?.info)
+}
+
+/// For measuring: decodes `count` frames from `from` seconds in, and gives the milliseconds spent
+/// decoding, copying hardware frames down, and scaling to `height`, in all, and what decoded.
+pub fn speed_test(path: &Path, hw: Hw, threads: usize, height: u32, from: f64, count: usize) -> Result<(f64, f64, f64, usize, String)> {
+    ff::init()?;
+    let mut state = State::open(&path.to_path_buf(), Some(height), hw, threads)?;
+    state.seek(from)?;
+    let (mut decode, mut download, mut scale, mut n) = (0.0, 0.0, 0.0, 0);
+    while n < count {
+        let t0 = Instant::now();
+        let Some((frame, _)) = state.next()? else { break };
+        let t1 = Instant::now();
+        let raw_format = unsafe { (*frame.as_ptr()).format };
+        let is_hw = raw_format == ffi::AVPixelFormat::AV_PIX_FMT_D3D11 as i32
+            || raw_format == ffi::AVPixelFormat::AV_PIX_FMT_CUDA as i32;
+        let mut sw = ff::frame::Video::empty();
+        let src = if is_hw {
+            let r = unsafe { ffi::av_hwframe_transfer_data(sw.as_mut_ptr(), frame.as_ptr(), 0) };
+            if r < 0 {
+                return Err(anyhow!("downloading a hardware frame: {}", ff::Error::from(r)));
+            }
+            &sw
+        } else {
+            &frame
+        };
+        let t2 = Instant::now();
+        let (ow, oh) = state.out_size(src.width(), src.height());
+        state.scaler.run(src, ow, oh)?;
+        let t3 = Instant::now();
+        decode += (t1 - t0).as_secs_f64() * 1000.0;
+        download += (t2 - t1).as_secs_f64() * 1000.0;
+        scale += (t3 - t2).as_secs_f64() * 1000.0;
+        n += 1;
+    }
+    Ok((decode, download, scale, n, state.backend.clone()))
+}
+
+/// For measuring a jump: seeks to the keyframe before `to` seconds, decodes up to the frame there
+/// without converting any on the way, skipping passed-over frames if `skip`, and converts that
+/// one. Gives the milliseconds in all, and a hash of the frame, to check skipping changed nothing.
+pub fn jump_test(path: &Path, hw: Hw, threads: usize, height: u32, to: f64, skip: bool) -> Result<(f64, u64)> {
+    use std::hash::{Hash, Hasher};
+    ff::init()?;
+    let mut state = State::open(&path.to_path_buf(), Some(height), hw, threads)?;
+    // Warm the decoder up somewhere else first, as an open one would be.
+    state.seek(0.0)?;
+    state.next()?;
+    let started = Instant::now();
+    let key = state.keyframe_at_or_before(to).unwrap_or(0.0);
+    state.seek(key + state.frame_time * 0.5)?;
+    state.skip_before = skip.then_some(to - state.frame_time * 0.5);
+    let mut hash = 0;
+    loop {
+        let Some((frame, pts)) = state.next()? else { break };
+        if pts >= to - state.frame_time * 0.5 {
+            let f = state.convert(&frame, 0, pts)?;
+            let mut h = std::collections::hash_map::DefaultHasher::new();
+            f.bgra.hash(&mut h);
+            hash = h.finish();
+            break;
+        }
+    }
+    Ok((started.elapsed().as_secs_f64() * 1000.0, hash))
 }

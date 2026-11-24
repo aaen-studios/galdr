@@ -1,5 +1,7 @@
-//! Media files: probing, decoding frames for the preview, and thumbnails. Built on libav.
-
+mod audio;
 mod decoder;
+mod engine;
 
-pub use decoder::{Command, Cost, Frame, Hw, Info, VideoDecoder, thumbnail};
+pub use audio::AudioReader;
+pub use decoder::{Command, Cost, Frame, Hw, Info, VideoDecoder, filmstrip, jump_test, probe, speed_test, thumbnail};
+pub use engine::{Engine, Settings, SourceId, Want};
