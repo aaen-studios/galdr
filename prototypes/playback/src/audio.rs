@@ -73,10 +73,6 @@ impl AudioOut {
         self.shared.paused.store(paused, Ordering::Relaxed);
     }
 
-    pub fn underruns(&self) -> u64 {
-        self.shared.underruns.load(Ordering::Relaxed)
-    }
-
     /// Drops what's buffered and starts decoding from `t`. With `feed` false the buffer stays
     /// empty, for scrubbing.
     pub fn seek(&mut self, t: f64, feed: bool) {

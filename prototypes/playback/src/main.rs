@@ -1,55 +1,74 @@
-//! GAL-1: can GPUI show video smoothly on Windows?
+//! GAL-1 / GAL-4: can GPUI show video smoothly on Windows, and scrub it fast?
 //!
-//! Plays a file with audio and lets you scrub it. Frames come from the ffmpeg CLI as BGRA and are
-//! drawn as a new `RenderImage` each frame; the old one is dropped from the GPU atlas.
+//! Plays a file and lets you scrub it. Frames are decoded in-process with libav (video.rs), turned
+//! into BGRA and drawn as a new `RenderImage` each frame; the old one is dropped from the GPU atlas.
 //!
-//!   playback <file> [--height 720] [--no-hwaccel] [--bench]
+//!   playback <file> [--height 720] [--hw none|d3d11|cuda] [--mute] [--background] [--bench]
 //!
-//! Space plays and pauses, left and right jump 5 s, drag the bar to scrub. `--bench` runs a fixed
-//! script (play, random seeks, a drag, play) and prints timings, then quits.
+//! Space plays and pauses, left and right jump 5 s, drag the bar to scrub. While dragging, galdr
+//! shows keyframes and fills in the exact frame once the mouse rests. `--background` opens the
+//! window off-screen without taking focus, and mutes. `--bench` runs a fixed script and prints
+//! timings, then quits.
 
 mod audio;
 mod decode;
+mod video;
 
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::sync::mpsc::{Receiver, TryRecvError};
-use std::time::Instant;
+use std::sync::mpsc::TryRecvError;
+use std::time::{Duration, Instant};
 
 use gpui::{
     App, Bounds, Context, FocusHandle, KeyDownEvent, MouseButton, MouseDownEvent, MouseMoveEvent,
-    MouseUpEvent, ObjectFit, RenderImage, Window, WindowBounds, WindowOptions, div, img,
+    MouseUpEvent, ObjectFit, RenderImage, Window, WindowBounds, WindowOptions, div, img, point,
     prelude::*, px, relative, rgb, size,
 };
 use gpui_platform::application;
 
 use audio::AudioOut;
-use decode::{Frame, Info, VideoRequest};
+use video::{Command, Frame, Hw, Info, VideoDecoder};
 
 struct Args {
     path: PathBuf,
     height: Option<u32>,
-    hwaccel: bool,
+    hw: Hw,
+    mute: bool,
+    background: bool,
     bench: bool,
 }
 
 fn parse_args() -> anyhow::Result<Args> {
     let mut args = std::env::args().skip(1);
-    let mut out = Args { path: PathBuf::new(), height: None, hwaccel: true, bench: false };
+    let mut out = Args {
+        path: PathBuf::new(),
+        height: None,
+        hw: Hw::None,
+        mute: false,
+        background: false,
+        bench: false,
+    };
     while let Some(a) = args.next() {
         match a.as_str() {
             "--height" => out.height = Some(args.next().unwrap_or_default().parse()?),
-            "--no-hwaccel" => out.hwaccel = false,
+            "--hw" => out.hw = Hw::parse(&args.next().unwrap_or_default())?,
+            "--mute" => out.mute = true,
+            "--background" => {
+                out.background = true;
+                out.mute = true;
+            }
             "--bench" => out.bench = true,
             _ => out.path = PathBuf::from(a),
         }
     }
-    anyhow::ensure!(!out.path.as_os_str().is_empty(), "usage: playback <file> [--height N] [--no-hwaccel] [--bench]");
+    anyhow::ensure!(
+        !out.path.as_os_str().is_empty(),
+        "usage: playback <file> [--height N] [--hw none|d3d11|cuda] [--mute] [--background] [--bench]"
+    );
     Ok(out)
 }
 
-/// Timings gathered while playing, reset each second for the overlay and kept whole for the bench.
 #[derive(Default)]
 struct Stats {
     shown: u64,
@@ -57,76 +76,80 @@ struct Stats {
     renders: u64,
     /// Time between consecutive frames shown while playing, in ms.
     gaps: Vec<f64>,
-    /// Time from asking for a frame at a new position to drawing it, in ms.
-    seek_latency: Vec<f64>,
-    /// Time from a frame leaving ffmpeg to being drawn, in ms.
+    /// Time from asking for a position to drawing a frame for it, in ms.
+    latency: Vec<f64>,
+    /// Time from a frame leaving the decoder to being drawn, in ms.
     queue_age: Vec<f64>,
     /// Time spent in `render`, in ms.
     render_ms: Vec<f64>,
 }
 
+fn pct(v: &[f64], p: f64) -> f64 {
+    if v.is_empty() {
+        return 0.0;
+    }
+    let mut s = v.to_vec();
+    s.sort_by(f64::total_cmp);
+    s[((s.len() - 1) as f64 * p).round() as usize]
+}
+
+fn avg(v: &[f64]) -> f64 {
+    if v.is_empty() { 0.0 } else { v.iter().sum::<f64>() / v.len() as f64 }
+}
+
 impl Stats {
     fn summary(&self, label: &str, secs: f64) -> String {
-        fn pct(v: &[f64], p: f64) -> f64 {
-            if v.is_empty() {
-                return 0.0;
-            }
-            let mut s = v.to_vec();
-            s.sort_by(f64::total_cmp);
-            s[((s.len() - 1) as f64 * p).round() as usize]
-        }
-        let avg = |v: &[f64]| if v.is_empty() { 0.0 } else { v.iter().sum::<f64>() / v.len() as f64 };
         format!(
-            "{label}: {:.1} fps shown, {} dropped, render {:.1} fps | gap avg {:.1} p99 {:.1} max {:.1} ms | \
-             seek n={} avg {:.0} p95 {:.0} max {:.0} ms | queue age avg {:.1} ms | render avg {:.2} p99 {:.2} ms",
+            "{label}: {:.1} fps shown, {} dropped, ui {:.0} fps | gap p99 {:.1} max {:.1} ms | \
+             to frame n={} avg {:.1} p95 {:.1} max {:.1} ms | queue age {:.1} ms | render p99 {:.2} ms",
             self.shown as f64 / secs,
             self.dropped,
             self.renders as f64 / secs,
-            avg(&self.gaps),
             pct(&self.gaps, 0.99),
             pct(&self.gaps, 1.0),
-            self.seek_latency.len(),
-            avg(&self.seek_latency),
-            pct(&self.seek_latency, 0.95),
-            pct(&self.seek_latency, 1.0),
+            self.latency.len(),
+            avg(&self.latency),
+            pct(&self.latency, 0.95),
+            pct(&self.latency, 1.0),
             avg(&self.queue_age),
-            avg(&self.render_ms),
             pct(&self.render_ms, 0.99),
         )
     }
 }
 
+#[derive(Clone, Copy, PartialEq)]
 enum Mode {
     Playing,
     Paused,
-    /// Showing single frames as the user drags.
     Scrubbing,
 }
 
+/// How long the mouse rests during a drag before the exact frame replaces the keyframe.
+const SETTLE: Duration = Duration::from_millis(120);
+
 struct Player {
-    args: Args,
     info: Info,
-    out_w: u32,
-    out_h: u32,
+    decoder: VideoDecoder,
     focus: FocusHandle,
 
-    video: Option<Receiver<Frame>>,
-    video_done: bool,
+    generation: u64,
+    /// When each generation was asked for, to time how long it took to show.
+    asked: HashMap<u64, Instant>,
+    shown_generation: u64,
+
     pending: VecDeque<Frame>,
     current: Option<Arc<RenderImage>>,
     current_pts: f64,
     last_shown: Option<Instant>,
 
     audio: Option<AudioOut>,
-    /// Clock when there's no audio: position at `started`, and when it started.
+    /// Clock without audio: position at `started`, and when it started. Starts on the first frame.
     wall: (f64, Option<Instant>),
 
     mode: Mode,
     dragging: bool,
-    /// A seek waiting for its first frame: when it was asked for.
-    seek_started: Option<Instant>,
-    /// Where the last scrub asked to go, and where the next should go once that one lands.
-    scrub_target: Option<f64>,
+    /// The last scrub target and when it was asked for, and whether its exact frame is asked for.
+    scrub: Option<(f64, Instant, bool)>,
 
     second: Stats,
     second_started: Instant,
@@ -136,34 +159,22 @@ struct Player {
 }
 
 impl Player {
-    fn new(args: Args, info: Info, focus: FocusHandle) -> Self {
-        let (out_w, out_h) = match args.height {
-            Some(h) if h < info.height => {
-                let w = (info.width as f64 * h as f64 / info.height as f64).round() as u32 & !1;
-                (w, h)
-            }
-            _ => (info.width, info.height),
-        };
-        let audio = if info.has_audio {
-            match AudioOut::new(args.path.clone()) {
-                Ok(a) => Some(a),
-                Err(e) => {
-                    eprintln!("no audio: {e:#}");
-                    None
-                }
-            }
+    fn new(args: Args, info: Info, decoder: VideoDecoder, focus: FocusHandle) -> Self {
+        let audio = if info.has_audio && !args.mute {
+            AudioOut::new(args.path.clone())
+                .map_err(|e| eprintln!("no audio: {e:#}"))
+                .ok()
         } else {
             None
         };
         let bench = args.bench.then(Bench::new);
         let mut p = Self {
-            args,
             info,
-            out_w,
-            out_h,
+            decoder,
             focus,
-            video: None,
-            video_done: false,
+            generation: 0,
+            asked: HashMap::new(),
+            shown_generation: 0,
             pending: VecDeque::new(),
             current: None,
             current_pts: 0.0,
@@ -172,15 +183,20 @@ impl Player {
             wall: (0.0, None),
             mode: Mode::Paused,
             dragging: false,
-            seek_started: None,
-            scrub_target: None,
+            scrub: None,
             second: Stats::default(),
             second_started: Instant::now(),
             overlay: String::new(),
             bench,
         };
-        p.seek(0.0, Mode::Playing);
+        p.play(0.0);
         p
+    }
+
+    fn next_generation(&mut self) -> u64 {
+        self.generation += 1;
+        self.asked.insert(self.generation, Instant::now());
+        self.generation
     }
 
     fn clock(&self) -> f64 {
@@ -193,94 +209,103 @@ impl Player {
         }
     }
 
-    fn seek(&mut self, t: f64, mode: Mode) {
-        let t = t.clamp(0.0, (self.info.duration - 0.05).max(0.0));
-        let single = matches!(mode, Mode::Scrubbing);
-        self.video = Some(decode::start_video(VideoRequest {
-            path: self.args.path.clone(),
-            info: self.info.clone(),
-            start: t,
-            width: self.out_w,
-            height: self.out_h,
-            single,
-            hwaccel: self.args.hwaccel,
-        }));
-        self.video_done = false;
+    fn clamp(&self, t: f64) -> f64 {
+        t.clamp(0.0, (self.info.duration - 0.05).max(0.0))
+    }
+
+    fn play(&mut self, t: f64) {
+        let t = self.clamp(t);
+        let generation = self.next_generation();
+        self.decoder.send(Command::Play { generation, from: t });
         self.pending.clear();
-        self.seek_started = Some(Instant::now());
         self.last_shown = None;
-        let playing = matches!(mode, Mode::Playing);
         if let Some(a) = &mut self.audio {
-            a.seek(t, playing);
-            a.set_paused(!playing);
+            a.seek(t, true);
+            a.set_paused(false);
         }
-        self.wall = (t, playing.then(Instant::now));
-        self.current_pts = t;
-        self.mode = mode;
+        self.wall = (t, None); // the wall clock starts with the first frame
+        self.mode = Mode::Playing;
+        self.scrub = None;
+    }
+
+    fn pause(&mut self) {
+        let t = self.current_pts;
+        self.decoder.send(Command::Pause);
+        if let Some(a) = &self.audio {
+            a.set_paused(true);
+        }
+        self.wall = (t, None);
+        self.mode = Mode::Paused;
     }
 
     fn toggle(&mut self) {
-        match self.mode {
-            Mode::Playing => {
-                let t = self.clock();
-                if let Some(a) = &self.audio {
-                    a.set_paused(true);
-                }
-                self.wall = (t, None);
-                self.mode = Mode::Paused;
-            }
-            _ => self.seek(self.current_pts, Mode::Playing),
+        if self.mode == Mode::Playing {
+            self.pause();
+        } else {
+            self.play(self.current_pts);
         }
     }
 
-    /// Scrub to `t`, at most one decode in flight: while one runs, remember the latest target.
-    fn scrub(&mut self, t: f64) {
-        if self.seek_started.is_some() && matches!(self.mode, Mode::Scrubbing) {
-            self.scrub_target = Some(t);
-            return;
+    /// Scrub to `t`: a keyframe now, the exact frame once the target stops moving.
+    fn scrub_to(&mut self, t: f64, exact: bool) {
+        let t = self.clamp(t);
+        if self.mode == Mode::Playing {
+            self.pause();
         }
-        self.scrub_target = None;
-        self.seek(t, Mode::Scrubbing);
+        let generation = self.next_generation();
+        self.decoder.send(Command::Scrub { generation, t, exact });
+        self.mode = Mode::Scrubbing;
+        self.scrub = Some((t, Instant::now(), exact));
     }
 
     fn pull_frames(&mut self) {
-        let Some(rx) = &self.video else { return };
-        while self.pending.len() < 6 {
-            match rx.try_recv() {
-                Ok(f) => self.pending.push_back(f),
-                Err(TryRecvError::Empty) => break,
-                Err(TryRecvError::Disconnected) => {
-                    self.video_done = true;
-                    break;
+        // Take only what we can hold, so the decoder blocks instead of racing ahead.
+        while self.pending.len() < 4 {
+            match self.decoder.frames.try_recv() {
+                Ok(f) => {
+                    if f.generation >= self.shown_generation {
+                        self.pending.push_back(f);
+                    }
                 }
+                Err(TryRecvError::Empty) | Err(TryRecvError::Disconnected) => break,
             }
+        }
+    }
+
+    fn record(&mut self, f: impl Fn(&mut Stats)) {
+        f(&mut self.second);
+        if let Some(b) = &mut self.bench {
+            f(&mut b.stats);
         }
     }
 
     fn show(&mut self, frame: Frame, window: &mut Window, cx: &mut App) {
         let now = Instant::now();
-        if let Some(started) = self.seek_started.take() {
-            let ms = started.elapsed().as_secs_f64() * 1000.0;
-            self.second.seek_latency.push(ms);
-            if let Some(b) = &mut self.bench {
-                b.stats.seek_latency.push(ms);
+        let first_of_generation = frame.generation != self.shown_generation;
+        if first_of_generation {
+            if let Some(asked) = self.asked.remove(&frame.generation) {
+                let ms = (now - asked).as_secs_f64() * 1000.0;
+                self.record(|s| s.latency.push(ms));
             }
-        } else if let (Mode::Playing, Some(last)) = (&self.mode, self.last_shown) {
+            self.asked.retain(|g, _| *g > frame.generation);
+        } else if let (Mode::Playing, Some(last)) = (self.mode, self.last_shown) {
             let gap = (now - last).as_secs_f64() * 1000.0;
-            self.second.gaps.push(gap);
-            if let Some(b) = &mut self.bench {
-                b.stats.gaps.push(gap);
-            }
+            self.record(|s| s.gaps.push(gap));
         }
         let age = (now - frame.decoded_at).as_secs_f64() * 1000.0;
-        self.second.queue_age.push(age);
-        self.second.shown += 1;
-        if let Some(b) = &mut self.bench {
-            b.stats.queue_age.push(age);
-            b.stats.shown += 1;
+        if std::env::var_os("PLAYBACK_DEBUG").is_some() && age > 300.0 {
+            eprintln!("old frame: age {age:.0} ms pts {:.3} clock {:.3} gen {} pending {}", frame.pts, self.clock(), frame.generation, self.pending.len());
         }
+        self.record(|s| {
+            s.queue_age.push(age);
+            s.shown += 1;
+        });
+        self.shown_generation = frame.generation;
         self.last_shown = Some(now);
         self.current_pts = frame.pts;
+        if self.mode == Mode::Playing && self.audio.is_none() && self.wall.1.is_none() {
+            self.wall = (frame.pts, Some(now));
+        }
 
         let buffer = image::RgbaImage::from_raw(frame.width, frame.height, frame.bgra)
             .expect("frame size matches");
@@ -294,36 +319,42 @@ impl Player {
         self.pull_frames();
         match self.mode {
             Mode::Scrubbing | Mode::Paused => {
-                // Show the newest frame we have; a scrub asks for one.
+                // Show the newest frame that's arrived.
                 if let Some(f) = self.pending.pop_back() {
                     self.pending.clear();
                     self.show(f, window, cx);
-                    if let Some(t) = self.scrub_target.take() {
-                        self.seek(t, Mode::Scrubbing);
-                    }
+                }
+                // The mouse has rested on a keyframe: ask for the exact frame.
+                if let Some((t, at, false)) = self.scrub
+                    && at.elapsed() >= SETTLE
+                {
+                    self.scrub_to(t, true);
                 }
             }
             Mode::Playing => {
+                self.pending.retain(|f| f.generation == self.generation);
+                let waiting_for_first = self.shown_generation != self.generation;
+                if waiting_for_first {
+                    if let Some(f) = self.pending.pop_front() {
+                        self.show(f, window, cx);
+                    }
+                    return;
+                }
                 let now = self.clock();
                 let mut chosen = None;
                 while self.pending.front().is_some_and(|f| f.pts <= now) {
                     if chosen.is_some() {
-                        self.second.dropped += 1;
-                        if let Some(b) = &mut self.bench {
-                            b.stats.dropped += 1;
-                        }
+                        self.record(|s| s.dropped += 1);
                     }
-                    chosen = self.pending.pop_front();
-                }
-                // The first frame after a seek is shown as soon as it arrives.
-                if chosen.is_none() && self.seek_started.is_some() {
                     chosen = self.pending.pop_front();
                 }
                 if let Some(f) = chosen {
                     self.show(f, window, cx);
                 }
-                if self.video_done && self.pending.is_empty() {
-                    self.seek(0.0, Mode::Playing); // loop
+                if self.current_pts >= self.info.duration - 2.0 * (1.0 / self.info.fps)
+                    && self.pending.is_empty()
+                {
+                    self.play(0.0); // loop
                 }
             }
         }
@@ -334,18 +365,14 @@ impl Player {
         if secs < 1.0 {
             return;
         }
-        let underruns = self.audio.as_ref().map_or(0, |a| a.underruns());
         self.overlay = format!(
-            "{}x{} {} {:.2} fps -> {}x{}{}\n{}\naudio underruns {}",
+            "{}x{} {} {:.2} fps, {}\n{}",
             self.info.width,
             self.info.height,
             self.info.codec,
             self.info.fps,
-            self.out_w,
-            self.out_h,
-            if self.args.hwaccel { " hwaccel" } else { "" },
+            self.decoder.backend,
             self.second.summary("last 1s", secs),
-            underruns,
         );
         self.second = Stats::default();
         self.second_started = Instant::now();
@@ -363,7 +390,7 @@ struct Bench {
     step_started: Instant,
     stats: Stats,
     rng: u64,
-    report: Vec<String>,
+    seeks: usize,
 }
 
 impl Bench {
@@ -374,7 +401,7 @@ impl Bench {
             step_started: Instant::now(),
             stats: Stats::default(),
             rng: 0x9e37_79b9_7f4a_7c15,
-            report: Vec::new(),
+            seeks: 0,
         }
     }
 
@@ -386,11 +413,12 @@ impl Bench {
     }
 }
 
-const BENCH_STEPS: [(&str, f64); 4] = [
-    ("play 12s from 0", 12.0),
-    ("40 random seeks, one per 250ms", 10.0),
-    ("drag across the whole file over 4s", 4.0),
-    ("play 8s from the middle", 8.0),
+const BENCH_STEPS: [(&str, f64); 5] = [
+    ("play 10s from 0", 10.0),
+    ("40 random exact seeks, one per 250ms", 10.0),
+    ("drag exact frames across the file in 4s", 4.0),
+    ("drag keyframes across the file in 4s", 4.0),
+    ("play 6s from the middle", 6.0),
 ];
 
 impl Player {
@@ -401,37 +429,30 @@ impl Player {
         let duration = self.info.duration;
 
         if in_step >= length {
-            let line = b.stats.summary(label, in_step);
-            println!("{line}");
-            b.report.push(line);
+            println!("{}", b.stats.summary(label, in_step));
             b.stats = Stats::default();
             b.step += 1;
             b.step_started = Instant::now();
-            let step = b.step;
-            match step {
-                1 => self.scrub(duration * 0.3),
-                2 => self.scrub(0.0),
-                3 => self.seek(duration * 0.5, Mode::Playing),
-                _ => {
-                    let total = b.started.elapsed().as_secs_f64();
-                    println!("bench done in {total:.1}s");
-                    if let Some(a) = &self.audio {
-                        println!("audio underruns: {}", a.underruns());
-                    }
-                    cx.quit();
-                }
+            b.seeks = 0;
+            if b.step == 4 {
+                self.play(duration * 0.5);
+            } else if b.step == BENCH_STEPS.len() {
+                println!("bench done in {:.1}s", b.started.elapsed().as_secs_f64());
+                cx.quit();
             }
             return;
         }
         match b.step {
             1 => {
-                let due = (in_step / 0.25) as usize;
-                if due > b.stats.seek_latency.len() + usize::from(self.seek_started.is_some()) {
+                let due = (in_step / 0.25) as usize + 1;
+                if due > b.seeks {
+                    b.seeks += 1;
                     let t = b.random() * duration;
-                    self.scrub(t);
+                    self.scrub_to(t, true);
                 }
             }
-            2 => self.scrub(duration * (in_step / length)),
+            2 => self.scrub_to(duration * (in_step / length), true),
+            3 => self.scrub_to(duration * (in_step / length), false),
             _ => {}
         }
     }
@@ -443,12 +464,9 @@ impl Render for Player {
         self.run_bench(cx);
         self.advance(window, cx);
         self.tick_stats();
-        self.second.renders += 1;
-        if let Some(b) = &mut self.bench {
-            b.stats.renders += 1;
-        }
-        // Keep drawing every vsync; idle only when paused with nothing on the way.
-        if !matches!(self.mode, Mode::Paused) || self.seek_started.is_some() || self.bench.is_some() {
+        self.record(|s| s.renders += 1);
+        let waiting = self.shown_generation != self.generation || matches!(self.scrub, Some((_, _, false)));
+        if self.mode == Mode::Playing || waiting || self.bench.is_some() {
             window.request_animation_frame();
         }
 
@@ -467,12 +485,8 @@ impl Render for Player {
                 Mode::Scrubbing => "scrubbing",
             }
         );
-
-        let render_ms = started.elapsed().as_secs_f64() * 1000.0;
-        self.second.render_ms.push(render_ms);
-        if let Some(b) = &mut self.bench {
-            b.stats.render_ms.push(render_ms);
-        }
+        let ms = started.elapsed().as_secs_f64() * 1000.0;
+        self.record(|s| s.render_ms.push(ms));
 
         div()
             .id("root")
@@ -487,8 +501,8 @@ impl Render for Player {
             .on_key_down(cx.listener(|this, ev: &KeyDownEvent, _, cx| {
                 match ev.keystroke.key.as_str() {
                     "space" => this.toggle(),
-                    "left" => this.seek(this.current_pts - 5.0, Mode::Playing),
-                    "right" => this.seek(this.current_pts + 5.0, Mode::Playing),
+                    "left" => this.play(this.current_pts - 5.0),
+                    "right" => this.play(this.current_pts + 5.0),
                     _ => return,
                 }
                 cx.notify();
@@ -496,7 +510,7 @@ impl Render for Player {
             .on_mouse_move(cx.listener(|this, ev: &MouseMoveEvent, window, cx| {
                 if this.dragging {
                     let t = this.frac_at(ev.position.x, window) * this.info.duration;
-                    this.scrub(t);
+                    this.scrub_to(t, false);
                     cx.notify();
                 }
             }))
@@ -506,7 +520,7 @@ impl Render for Player {
                     if this.dragging {
                         this.dragging = false;
                         let t = this.frac_at(ev.position.x, window) * this.info.duration;
-                        this.seek(t, Mode::Paused);
+                        this.scrub_to(t, true);
                         cx.notify();
                     }
                 }),
@@ -516,9 +530,11 @@ impl Render for Player {
                     .relative()
                     .flex_1()
                     .min_h_0()
-                    .children(self.current.clone().map(|image| {
-                        img(image).size_full().object_fit(ObjectFit::Contain)
-                    }))
+                    .children(
+                        self.current
+                            .clone()
+                            .map(|image| img(image).size_full().object_fit(ObjectFit::Contain)),
+                    )
                     .child(
                         div()
                             .absolute()
@@ -526,7 +542,6 @@ impl Render for Player {
                             .left_2()
                             .p_2()
                             .bg(gpui::black().opacity(0.7))
-                            .whitespace_normal()
                             .child(self.overlay.clone()),
                     ),
             )
@@ -542,7 +557,7 @@ impl Render for Player {
                         cx.listener(|this, ev: &MouseDownEvent, window, cx| {
                             this.dragging = true;
                             let t = this.frac_at(ev.position.x, window) * this.info.duration;
-                            this.scrub(t);
+                            this.scrub_to(t, false);
                             cx.notify();
                         }),
                     )
@@ -559,40 +574,51 @@ fn fmt_time(t: f64) -> String {
 
 fn main() -> anyhow::Result<()> {
     let args = parse_args()?;
-    let info = decode::probe(&args.path)?;
+    let (decoder, info) = VideoDecoder::open(&args.path, args.height, args.hw)?;
     println!(
-        "{}: {}x{} {} {:.3} fps, {:.1}s, audio {}",
+        "{}: {}x{} {} {:.3} fps, {:.1}s, audio {}, decoder {}",
         args.path.display(),
         info.width,
         info.height,
         info.codec,
         info.fps,
         info.duration,
-        info.has_audio
+        info.has_audio,
+        decoder.backend,
     );
-    let mut args = Some(args);
-    let mut info = Some(info);
+    let mut start = Some((args, info, decoder));
     application().run(move |cx: &mut App| {
-        let bounds = Bounds::centered(None, size(px(1280.), px(800.)), cx);
-        let (args, info) = (args.take().unwrap(), info.take().unwrap());
+        let (args, info, decoder) = start.take().unwrap();
+        let background = args.background;
+        let window_size = size(px(1280.), px(800.));
+        let bounds = if background {
+            // Off every screen, so it never covers what the user is doing.
+            Bounds { origin: point(px(-6000.), px(200.)), size: window_size }
+        } else {
+            Bounds::centered(None, window_size, cx)
+        };
         cx.open_window(
-                WindowOptions {
-                    window_bounds: Some(WindowBounds::Windowed(bounds)),
-                    focus: true,
-                    // GPUI drops unfocused windows to 30 fps; video has to keep its rate.
-                    inactive_frame_interval: None,
-                    ..Default::default()
-                },
-                |window, cx| {
-                    cx.new(|cx| {
-                        let focus = cx.focus_handle();
+            WindowOptions {
+                window_bounds: Some(WindowBounds::Windowed(bounds)),
+                focus: !background,
+                // GPUI drops unfocused windows to 30 fps; video has to keep its rate.
+                inactive_frame_interval: None,
+                ..Default::default()
+            },
+            |window, cx| {
+                cx.new(|cx| {
+                    let focus = cx.focus_handle();
+                    if !background {
                         window.focus(&focus, cx);
-                        Player::new(args, info, focus)
-                    })
-                },
-            )
-            .expect("open window");
-        cx.activate(true);
+                    }
+                    Player::new(args, info, decoder, focus)
+                })
+            },
+        )
+        .expect("open window");
+        if !background {
+            cx.activate(true);
+        }
     });
     Ok(())
 }

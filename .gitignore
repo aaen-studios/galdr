@@ -25,3 +25,6 @@ target/
 /.playwright-mcp/
 /docs/vision.html
 /nul
+
+# Machine-specific build paths
+/.cargo/config.toml
