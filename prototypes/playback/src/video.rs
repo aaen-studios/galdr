@@ -13,8 +13,6 @@ use std::time::{Duration, Instant};
 use anyhow::{Context as _, Result, anyhow};
 use ffmpeg_next as ff;
 use ff::ffi;
-use ff::format::Pixel;
-use ff::software::scaling;
 
 #[derive(Clone, Debug)]
 pub struct Info {
@@ -59,6 +57,57 @@ pub struct Frame {
     pub height: u32,
     pub bgra: Vec<u8>,
     pub decoded_at: Instant,
+    pub cost: Cost,
+    /// The frame that was asked for, not one shown on the way to it.
+    pub exact: bool,
+}
+
+/// What a frame cost the decoder: frames decoded to reach it, and time spent decoding and
+/// converting them.
+#[derive(Clone, Copy, Default, Debug)]
+pub struct Cost {
+    pub decoded: u32,
+    pub decode_ms: f32,
+    pub convert_ms: f32,
+}
+
+/// YUV to BGRA, and to the preview size, on as many threads as the machine has. ffmpeg-next's
+/// scaler uses one.
+struct Scaler(*mut ffi::SwsContext);
+
+impl Scaler {
+    fn new() -> Result<Self> {
+        let ctx = unsafe { ffi::sws_alloc_context() };
+        if ctx.is_null() {
+            return Err(anyhow!("can't make a scaler"));
+        }
+        unsafe {
+            (*ctx).threads = 0; // automatic: one per core
+            (*ctx).flags = ffi::SwsFlags::SWS_BILINEAR as u32;
+        }
+        Ok(Self(ctx))
+    }
+
+    fn run(&mut self, src: &ff::frame::Video, w: u32, h: u32) -> Result<ff::frame::Video> {
+        let mut dst = ff::frame::Video::empty();
+        unsafe {
+            let d = dst.as_mut_ptr();
+            (*d).width = w as i32;
+            (*d).height = h as i32;
+            (*d).format = ffi::AVPixelFormat::AV_PIX_FMT_BGRA as i32;
+            let r = ffi::sws_scale_frame(self.0, d, src.as_ptr());
+            if r < 0 {
+                return Err(anyhow!("converting a frame: {}", ff::Error::from(r)));
+            }
+        }
+        Ok(dst)
+    }
+}
+
+impl Drop for Scaler {
+    fn drop(&mut self) {
+        unsafe { ffi::sws_free_context(&mut self.0) };
+    }
 }
 
 pub struct VideoDecoder {
@@ -109,7 +158,12 @@ struct State {
     file_start: i64,
     frame_time: f64,
     out_height: Option<u32>,
-    scaler: Option<(Pixel, u32, u32, scaling::Context)>,
+    scaler: Scaler,
+    /// Keyframe times in seconds, from the file's index; empty when it has none.
+    keyframes: Vec<f64>,
+    /// Spent since the last frame handed out.
+    cost: Cost,
+    last_delivery: Option<Instant>,
     eof: bool,
     /// Where the decoder is: the last frame it gave, after which it can decode forward.
     position: Option<f64>,
@@ -117,8 +171,27 @@ struct State {
     backend: String,
 }
 
-/// Decode forward instead of seeking when the target is this little ahead.
+/// Without a keyframe index: decode forward instead of seeking when the target is this little ahead.
 const FORWARD_WINDOW: f64 = 1.0;
+
+/// Keyframe times from the stream's index, which mp4 and mov carry whole and mkv as cues.
+fn keyframe_index(stream: &ff::format::stream::Stream, start: i64, tick: f64) -> Vec<f64> {
+    let ptr = unsafe { stream.as_ptr() } as *mut ffi::AVStream;
+    let count = unsafe { ffi::avformat_index_get_entries_count(ptr) };
+    let mut out = Vec::new();
+    for i in 0..count {
+        let entry = unsafe { ffi::avformat_index_get_entry(ptr, i) };
+        if entry.is_null() {
+            continue;
+        }
+        let entry = unsafe { &*entry };
+        if entry.flags() & ffi::AVINDEX_KEYFRAME != 0 {
+            out.push((entry.timestamp - start) as f64 * tick);
+        }
+    }
+    out.sort_by(f64::total_cmp);
+    out
+}
 
 /// Picks the hardware format matching the device, which `open` stores in the context's `opaque`.
 unsafe extern "C" fn pick_hw_format(
@@ -154,6 +227,7 @@ impl State {
             30.0
         };
         let codec = format!("{:?}", stream.parameters().id()).to_lowercase();
+        let keyframes = keyframe_index(&stream, start, tick);
 
         let mut ctx = ff::codec::context::Context::from_parameters(stream.parameters())?;
         let mut backend = String::from("software");
@@ -217,7 +291,10 @@ impl State {
             file_start,
             frame_time: 1.0 / fps,
             out_height,
-            scaler: None,
+            scaler: Scaler::new()?,
+            keyframes,
+            cost: Cost::default(),
+            last_delivery: None,
             eof: false,
             position: None,
             info,
@@ -232,6 +309,14 @@ impl State {
         }
     }
 
+    fn keyframe_at_or_before(&self, t: f64) -> Option<f64> {
+        if self.keyframes.is_empty() {
+            return None;
+        }
+        let i = self.keyframes.partition_point(|&k| k <= t + self.frame_time * 0.5);
+        Some(if i == 0 { self.keyframes[0] } else { self.keyframes[i - 1] })
+    }
+
     fn seek(&mut self, t: f64) -> Result<()> {
         let ts = self.file_start + (t.max(0.0) * ffi::AV_TIME_BASE as f64) as i64;
         self.input.seek(ts, ..ts)?;
@@ -243,6 +328,16 @@ impl State {
 
     /// The next decoded frame, or none at the end of the file.
     fn next(&mut self) -> Result<Option<(ff::frame::Video, f64)>> {
+        let started = Instant::now();
+        let result = self.next_inner();
+        self.cost.decode_ms += started.elapsed().as_secs_f32() * 1000.0;
+        if matches!(result, Ok(Some(_))) {
+            self.cost.decoded += 1;
+        }
+        result
+    }
+
+    fn next_inner(&mut self) -> Result<Option<(ff::frame::Video, f64)>> {
         loop {
             let mut frame = ff::frame::Video::empty();
             if self.decoder.receive_frame(&mut frame).is_ok() {
@@ -271,6 +366,14 @@ impl State {
     }
 
     fn convert(&mut self, frame: &ff::frame::Video, generation: u64, pts: f64) -> Result<Frame> {
+        let started = Instant::now();
+        let mut out = self.convert_inner(frame, generation, pts)?;
+        self.cost.convert_ms += started.elapsed().as_secs_f32() * 1000.0;
+        out.cost = std::mem::take(&mut self.cost);
+        Ok(out)
+    }
+
+    fn convert_inner(&mut self, frame: &ff::frame::Video, generation: u64, pts: f64) -> Result<Frame> {
         // Hardware frames live on the GPU; copy them down first.
         let raw_format = unsafe { (*frame.as_ptr()).format };
         let is_hw = raw_format == ffi::AVPixelFormat::AV_PIX_FMT_D3D11 as i32
@@ -288,15 +391,8 @@ impl State {
             frame
         };
 
-        let (w, h, format) = (src.width(), src.height(), src.format());
-        let (ow, oh) = self.out_size(w, h);
-        if !matches!(&self.scaler, Some((f, sw, sh, _)) if *f == format && *sw == w && *sh == h) {
-            let ctx = scaling::Context::get(format, w, h, Pixel::BGRA, ow, oh, scaling::Flags::BILINEAR)?;
-            self.scaler = Some((format, w, h, ctx));
-        }
-        let scaler = &mut self.scaler.as_mut().unwrap().3;
-        let mut out = ff::frame::Video::empty();
-        scaler.run(src, &mut out)?;
+        let (ow, oh) = self.out_size(src.width(), src.height());
+        let out = self.scaler.run(src, ow, oh)?;
 
         let row = ow as usize * 4;
         let stride = out.stride(0);
@@ -310,7 +406,16 @@ impl State {
             }
             v
         };
-        Ok(Frame { generation, pts, width: ow, height: oh, bgra, decoded_at: Instant::now() })
+        Ok(Frame {
+            generation,
+            pts,
+            width: ow,
+            height: oh,
+            bgra,
+            decoded_at: Instant::now(),
+            cost: Cost::default(),
+            exact: false,
+        })
     }
 
     fn run(mut self, commands: Receiver<Command>, frames: SyncSender<Frame>) -> Result<()> {
@@ -346,12 +451,11 @@ impl State {
                     }
                     Command::Scrub { generation, t, exact } => {
                         playing = None;
-                        match self.scrub(generation, t, exact, &commands)? {
-                            Scrubbed::Frame(f, queued) => {
+                        match self.scrub(generation, t, exact, &commands, &frames)? {
+                            Scrubbed::Frame(f) => {
                                 if frames.send(f).is_err() {
                                     return Ok(());
                                 }
-                                next_command = queued;
                             }
                             Scrubbed::Interrupted(c) => next_command = Some(c),
                             Scrubbed::Nothing => {}
@@ -370,6 +474,7 @@ impl State {
                 continue;
             }
             let mut out = self.convert(&frame, generation, pts)?;
+            out.exact = true;
             // Wait for room, but keep listening: a seek shouldn't queue behind a full channel.
             loop {
                 match frames.try_send(out) {
@@ -391,11 +496,26 @@ impl State {
         }
     }
 
-    fn scrub(&mut self, generation: u64, t: f64, exact: bool, commands: &Receiver<Command>) -> Result<Scrubbed> {
-        // A little ahead: decoding forward beats seeking back to a keyframe, so give the exact
-        // frame even when a keyframe would do.
-        let ahead = self.position.map(|p| t - p);
-        let forward = ahead.is_some_and(|d| d > 0.0 && d < FORWARD_WINDOW);
+    /// Decodes toward `t`, showing frames on the way at most every `PROGRESS_EVERY`, so a jump
+    /// shows its keyframe at once and a drag that outruns the decoder still moves.
+    fn scrub(
+        &mut self,
+        generation: u64,
+        t: f64,
+        exact: bool,
+        commands: &Receiver<Command>,
+        frames: &SyncSender<Frame>,
+    ) -> Result<Scrubbed> {
+        // Decode forward from where the decoder is when no keyframe lies between it and the
+        // target: seeking would land on the same or an earlier keyframe and decode more. Then the
+        // exact frame costs no more than a keyframe would.
+        let forward = match self.position {
+            Some(p) if t > p => match self.keyframe_at_or_before(t) {
+                Some(k) => k <= p + self.frame_time * 0.5,
+                None => t - p < FORWARD_WINDOW,
+            },
+            _ => false,
+        };
         if !forward {
             self.seek(t)?;
         }
@@ -403,7 +523,6 @@ impl State {
         // Any newer command cancels this one. During a drag that loses nothing: the decoder keeps
         // its position, and the next target is usually just ahead of it. (Letting a scrub finish
         // first was measured slower: 124 instead of 205 updates a second at 1080p.)
-        let queued = None;
         let mut last = None;
         loop {
             if let Ok(c) = commands.try_recv() {
@@ -411,21 +530,38 @@ impl State {
             }
             let Some((frame, pts)) = self.next()? else { break };
             if !want_exact || pts + self.frame_time * 0.5 >= t {
-                return Ok(Scrubbed::Frame(self.convert(&frame, generation, pts)?, queued));
+                let mut out = self.convert(&frame, generation, pts)?;
+                out.exact = true;
+                self.last_delivery = Some(Instant::now());
+                return Ok(Scrubbed::Frame(out));
             }
-            last = Some((frame, pts));
+            if self.last_delivery.is_none_or(|d| d.elapsed() >= PROGRESS_EVERY) {
+                let out = self.convert(&frame, generation, pts)?;
+                self.last_delivery = Some(Instant::now());
+                if frames.send(out).is_err() {
+                    return Ok(Scrubbed::Nothing);
+                }
+            } else {
+                last = Some((frame, pts));
+            }
         }
         // Past the end: the last frame there is.
         match last {
-            Some((frame, pts)) => Ok(Scrubbed::Frame(self.convert(&frame, generation, pts)?, queued)),
-            None => Ok(queued.map_or(Scrubbed::Nothing, Scrubbed::Interrupted)),
+            Some((frame, pts)) => {
+                let mut out = self.convert(&frame, generation, pts)?;
+                out.exact = true;
+                Ok(Scrubbed::Frame(out))
+            }
+            None => Ok(Scrubbed::Nothing),
         }
     }
 }
 
+/// While decoding toward a target, show a frame on the way at least this often.
+const PROGRESS_EVERY: Duration = Duration::from_millis(33);
+
 enum Scrubbed {
-    /// The frame, and a newer scrub that arrived meanwhile.
-    Frame(Frame, Option<Command>),
+    Frame(Frame),
     Interrupted(Command),
     Nothing,
 }

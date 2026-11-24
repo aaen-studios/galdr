@@ -3,7 +3,7 @@
 //! Plays a file and lets you scrub it. Frames are decoded in-process with libav (video.rs), turned
 //! into BGRA and drawn as a new `RenderImage` each frame; the old one is dropped from the GPU atlas.
 //!
-//!   playback <file> [--height 720] [--hw none|d3d11|cuda] [--mute] [--background] [--bench]
+//!   playback <file> [--height 720, 0 for source] [--hw none|d3d11|cuda] [--cache-mb 1024] [--mute] [--background] [--bench]
 //!
 //! Space plays and pauses, left and right jump 5 s, drag the bar to scrub. While dragging, galdr
 //! shows keyframes and fills in the exact frame once the mouse rests. `--background` opens the
@@ -12,6 +12,7 @@
 
 mod audio;
 mod decode;
+mod cache;
 mod video;
 
 use std::collections::{HashMap, VecDeque};
@@ -28,6 +29,7 @@ use gpui::{
 use gpui_platform::application;
 
 use audio::AudioOut;
+use cache::FrameCache;
 use video::{Command, Frame, Hw, Info, VideoDecoder};
 
 struct Args {
@@ -37,21 +39,25 @@ struct Args {
     mute: bool,
     background: bool,
     bench: bool,
+    cache_mb: u64,
 }
 
 fn parse_args() -> anyhow::Result<Args> {
     let mut args = std::env::args().skip(1);
     let mut out = Args {
         path: PathBuf::new(),
-        height: None,
+        // About what the preview area shows; the app will ask for its own size.
+        height: Some(720),
         hw: Hw::None,
         mute: false,
         background: false,
         bench: false,
+        cache_mb: 1024,
     };
     while let Some(a) = args.next() {
         match a.as_str() {
-            "--height" => out.height = Some(args.next().unwrap_or_default().parse()?),
+            // 0 is the source's size.
+            "--height" => out.height = Some(args.next().unwrap_or_default().parse()?).filter(|h| *h > 0),
             "--hw" => out.hw = Hw::parse(&args.next().unwrap_or_default())?,
             "--mute" => out.mute = true,
             "--background" => {
@@ -59,6 +65,7 @@ fn parse_args() -> anyhow::Result<Args> {
                 out.mute = true;
             }
             "--bench" => out.bench = true,
+            "--cache-mb" => out.cache_mb = args.next().unwrap_or_default().parse()?,
             _ => out.path = PathBuf::from(a),
         }
     }
@@ -76,12 +83,19 @@ struct Stats {
     renders: u64,
     /// Time between consecutive frames shown while playing, in ms.
     gaps: Vec<f64>,
-    /// Time from asking for a position to drawing a frame for it, in ms.
+    /// Time from asking for a position to drawing the first frame for it, in ms, and to drawing
+    /// the exact frame.
     latency: Vec<f64>,
+    exact_latency: Vec<f64>,
+    cache_hits: u64,
     /// Time from a frame leaving the decoder to being drawn, in ms.
     queue_age: Vec<f64>,
     /// Time spent in `render`, in ms.
     render_ms: Vec<f64>,
+    /// Per frame shown: frames the decoder decoded to reach it, and ms decoding and converting.
+    decoded: Vec<f64>,
+    decode_ms: Vec<f64>,
+    convert_ms: Vec<f64>,
 }
 
 fn pct(v: &[f64], p: f64) -> f64 {
@@ -100,19 +114,24 @@ fn avg(v: &[f64]) -> f64 {
 impl Stats {
     fn summary(&self, label: &str, secs: f64) -> String {
         format!(
-            "{label}: {:.1} fps shown, {} dropped, ui {:.0} fps | gap p99 {:.1} max {:.1} ms | \
-             to frame n={} avg {:.1} p95 {:.1} max {:.1} ms | queue age {:.1} ms | render p99 {:.2} ms",
+            "{label}\n    {:.1} fps shown, {} dropped, ui {:.0} fps, gap max {:.1} ms, render p99 {:.2} ms\n    \
+             first frame avg {:.1} p95 {:.1} ms | exact frame n={} avg {:.1} p95 {:.1} max {:.1} ms | cache hits {}\n    \
+             per frame shown: {:.1} decoded, decode {:.1} ms, convert {:.1} ms",
             self.shown as f64 / secs,
             self.dropped,
             self.renders as f64 / secs,
-            pct(&self.gaps, 0.99),
             pct(&self.gaps, 1.0),
-            self.latency.len(),
+            pct(&self.render_ms, 0.99),
             avg(&self.latency),
             pct(&self.latency, 0.95),
-            pct(&self.latency, 1.0),
-            avg(&self.queue_age),
-            pct(&self.render_ms, 0.99),
+            self.exact_latency.len(),
+            avg(&self.exact_latency),
+            pct(&self.exact_latency, 0.95),
+            pct(&self.exact_latency, 1.0),
+            self.cache_hits,
+            avg(&self.decoded),
+            avg(&self.decode_ms),
+            avg(&self.convert_ms),
         )
     }
 }
@@ -133,12 +152,16 @@ struct Player {
     focus: FocusHandle,
 
     generation: u64,
-    /// When each generation was asked for, to time how long it took to show.
-    asked: HashMap<u64, Instant>,
+    /// When each generation was asked for, to time how long it took to show, and whether its
+    /// first frame has been shown.
+    asked: HashMap<u64, (Instant, bool)>,
     shown_generation: u64,
 
     pending: VecDeque<Frame>,
     current: Option<Arc<RenderImage>>,
+    cache: FrameCache,
+    /// A scrub the cache answered: the image and its time, to show on the next draw.
+    from_cache: Option<(Arc<RenderImage>, f64)>,
     current_pts: f64,
     last_shown: Option<Instant>,
 
@@ -177,6 +200,8 @@ impl Player {
             shown_generation: 0,
             pending: VecDeque::new(),
             current: None,
+            cache: FrameCache::new(args.cache_mb * 1024 * 1024),
+            from_cache: None,
             current_pts: 0.0,
             last_shown: None,
             audio,
@@ -195,7 +220,7 @@ impl Player {
 
     fn next_generation(&mut self) -> u64 {
         self.generation += 1;
-        self.asked.insert(self.generation, Instant::now());
+        self.asked.insert(self.generation, (Instant::now(), false));
         self.generation
     }
 
@@ -253,9 +278,37 @@ impl Player {
             self.pause();
         }
         let generation = self.next_generation();
-        self.decoder.send(Command::Scrub { generation, t, exact });
         self.mode = Mode::Scrubbing;
+        // Seen before: show it from the cache, and leave the decoder alone.
+        if let Some(image) = self.cache.get(self.frame_index(t)) {
+            self.asked.remove(&generation);
+            self.shown_generation = generation;
+            self.pending.clear();
+            self.from_cache = Some((image, self.frame_index(t) as f64 / self.info.fps));
+            self.scrub = Some((t, Instant::now(), true));
+            self.record(|s| {
+                s.cache_hits += 1;
+                s.latency.push(0.0);
+                s.exact_latency.push(0.0);
+            });
+            return;
+        }
+        self.decoder.send(Command::Scrub { generation, t, exact });
         self.scrub = Some((t, Instant::now(), exact));
+    }
+
+    fn frame_index(&self, t: f64) -> i64 {
+        (t * self.info.fps).round() as i64
+    }
+
+    /// Puts `image` on screen, freeing the one it replaces unless the cache keeps it.
+    fn set_image(&mut self, image: Arc<RenderImage>, window: &mut Window, cx: &mut App) {
+        if let Some(old) = self.current.replace(image)
+            && !self.cache.contains(&old)
+            && !self.current.as_ref().is_some_and(|c| Arc::ptr_eq(c, &old))
+        {
+            cx.drop_image(old, Some(window));
+        }
     }
 
     fn pull_frames(&mut self) {
@@ -282,23 +335,33 @@ impl Player {
     fn show(&mut self, frame: Frame, window: &mut Window, cx: &mut App) {
         let now = Instant::now();
         let first_of_generation = frame.generation != self.shown_generation;
-        if first_of_generation {
-            if let Some(asked) = self.asked.remove(&frame.generation) {
-                let ms = (now - asked).as_secs_f64() * 1000.0;
+        let generation = frame.generation;
+        if let Some((asked, first_done)) = self.asked.get_mut(&generation) {
+            let ms = (now - *asked).as_secs_f64() * 1000.0;
+            let first = !*first_done;
+            *first_done = true;
+            if first {
                 self.record(|s| s.latency.push(ms));
             }
-            self.asked.retain(|g, _| *g > frame.generation);
+            if frame.exact {
+                self.record(|s| s.exact_latency.push(ms));
+                self.asked.remove(&generation);
+            }
+        }
+        if first_of_generation {
+            self.asked.retain(|g, _| *g >= generation);
         } else if let (Mode::Playing, Some(last)) = (self.mode, self.last_shown) {
             let gap = (now - last).as_secs_f64() * 1000.0;
             self.record(|s| s.gaps.push(gap));
         }
         let age = (now - frame.decoded_at).as_secs_f64() * 1000.0;
-        if std::env::var_os("PLAYBACK_DEBUG").is_some() && age > 300.0 {
-            eprintln!("old frame: age {age:.0} ms pts {:.3} clock {:.3} gen {} pending {}", frame.pts, self.clock(), frame.generation, self.pending.len());
-        }
+        let cost = frame.cost;
         self.record(|s| {
             s.queue_age.push(age);
             s.shown += 1;
+            s.decoded.push(cost.decoded as f64);
+            s.decode_ms.push(cost.decode_ms as f64);
+            s.convert_ms.push(cost.convert_ms as f64);
         });
         self.shown_generation = frame.generation;
         self.last_shown = Some(now);
@@ -307,11 +370,18 @@ impl Player {
             self.wall = (frame.pts, Some(now));
         }
 
+        let bytes = frame.bgra.len() as u64;
+        let exact = frame.exact;
         let buffer = image::RgbaImage::from_raw(frame.width, frame.height, frame.bgra)
             .expect("frame size matches");
         let image = Arc::new(RenderImage::new([image::Frame::new(buffer)]));
-        if let Some(old) = self.current.replace(image) {
-            cx.drop_image(old, Some(window));
+        self.set_image(image.clone(), window, cx);
+        if exact {
+            for old in self.cache.insert(self.frame_index(frame.pts), image, bytes) {
+                if !self.current.as_ref().is_some_and(|c| Arc::ptr_eq(c, &old)) {
+                    cx.drop_image(old, Some(window));
+                }
+            }
         }
     }
 
@@ -319,6 +389,12 @@ impl Player {
         self.pull_frames();
         match self.mode {
             Mode::Scrubbing | Mode::Paused => {
+                if let Some((image, pts)) = self.from_cache.take() {
+                    self.set_image(image, window, cx);
+                    self.current_pts = pts;
+                    self.last_shown = Some(Instant::now());
+                    self.record(|s| s.shown += 1);
+                }
                 // Show the newest frame that's arrived.
                 if let Some(f) = self.pending.pop_back() {
                     self.pending.clear();
@@ -366,12 +442,14 @@ impl Player {
             return;
         }
         self.overlay = format!(
-            "{}x{} {} {:.2} fps, {}\n{}",
+            "{}x{} {} {:.2} fps, {}, cache {} frames {} MB\n{}",
             self.info.width,
             self.info.height,
             self.info.codec,
             self.info.fps,
             self.decoder.backend,
+            self.cache.len(),
+            self.cache.megabytes(),
             self.second.summary("last 1s", secs),
         );
         self.second = Stats::default();
@@ -413,11 +491,12 @@ impl Bench {
     }
 }
 
-const BENCH_STEPS: [(&str, f64); 5] = [
+const BENCH_STEPS: [(&str, f64); 6] = [
     ("play 10s from 0", 10.0),
     ("40 random exact seeks, one per 250ms", 10.0),
     ("drag exact frames across the file in 4s", 4.0),
     ("drag keyframes across the file in 4s", 4.0),
+    ("jog back and forth over 2s of video, once a second, for 4s", 4.0),
     ("play 6s from the middle", 6.0),
 ];
 
@@ -434,7 +513,7 @@ impl Player {
             b.step += 1;
             b.step_started = Instant::now();
             b.seeks = 0;
-            if b.step == 4 {
+            if b.step == 5 {
                 self.play(duration * 0.5);
             } else if b.step == BENCH_STEPS.len() {
                 println!("bench done in {:.1}s", b.started.elapsed().as_secs_f64());
@@ -453,6 +532,12 @@ impl Player {
             }
             2 => self.scrub_to(duration * (in_step / length), true),
             3 => self.scrub_to(duration * (in_step / length), false),
+            4 => {
+                // A triangle wave: forward over 2 s of video in half a second, back in the next.
+                let phase = in_step % 1.0;
+                let along = if phase < 0.5 { phase * 2.0 } else { (1.0 - phase) * 2.0 };
+                self.scrub_to(duration * 0.3 + 2.0 * along, false);
+            }
             _ => {}
         }
     }
